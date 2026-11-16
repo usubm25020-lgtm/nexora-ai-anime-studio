@@ -1,280 +1,1119 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA 2D ANIMATION STUDIO — Puppet, Stickman &amp; Lip-Sync</title>
-  <style>
-    :root {
-      --bg-void: #04060c;
-      --bg-card: #0f1626;
-      --bg-input: #070b14;
-      --border: rgba(148, 163, 184, 0.18);
-      --cyan: #22d3ee;
-      --violet: #a855f7;
-      --rose: #f43f5e;
-      --emerald: #10b981;
-      --text: #f8fafc;
-      --dim: #94a3b8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: radial-gradient(circle at top right, #131e3d 0%, var(--bg-void) 65%);
-      color: var(--text);
-      font-family: system-ui, -apple-system, sans-serif;
-      padding-bottom: 40px;
-      min-height: 100vh;
-    }
-    .topbar {
-      position: sticky; top: 0; z-index: 50;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; background: rgba(4, 6, 12, 0.92);
-      backdrop-filter: blur(14px); border-bottom: 1px solid var(--border);
-    }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .logo {
-      width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--violet));
-      display: grid; place-items: center; font-weight: 900; color: #030712;
-    }
-    .badge {
-      padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 800;
-      background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399;
-    }
-    .wrap {
-      max-width: 1100px; margin: 0 auto; padding: 16px;
-      display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-      gap: 16px; align-items: start;
-    }
-    @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
-    .card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: 14px; padding: 16px; margin-bottom: 14px;
-    }
-    .card-title { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
-    .label {
-      display: block; font-size: 11px; font-weight: 800;
-      text-transform: uppercase; color: var(--dim); margin-bottom: 6px;
-    }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-    .pill {
-      padding: 11px; border-radius: 10px; border: 2px solid var(--border);
-      background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
-    }
-    .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
-    select, textarea, input[type="file"] {
-      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--text); padding: 10px; font-size: 13px;
-      font-family: inherit; outline: none;
-    }
-    textarea { min-height: 210px; line-height: 1.55; resize: vertical; }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
-      background: #1e293b; color: #fff; font-size: 12px; font-weight: 800; cursor: pointer;
-    }
-    .btn-primary {
-      width: 100%; padding: 14px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--violet));
-      color: #030712; font-size: 14px; font-weight: 900; margin-top: 10px;
-    }
-    .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet), var(--rose)); transition: width 0.25s; }
-    video { width: 100%; max-height: 500px; border-radius: 12px; background: #000; margin-top: 8px; }
-    .dl-btn {
-      display: block; text-align: center; padding: 14px; margin-top: 10px;
-      background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#04060c">
+<title>NEXORA 2D Animation Studio</title>
+
+<style>
+:root{
+--bg:#04060c;
+--card:#0e1627;
+--input:#080e1b;
+--border:rgba(148,163,184,.18);
+--cyan:#22d3ee;
+--violet:#a855f7;
+--green:#10b981;
+--red:#fb4565;
+--white:#f8fafc;
+--muted:#94a3b8;
+}
+
+*{
+box-sizing:border-box;
+margin:0;
+padding:0;
+}
+
+body{
+min-height:100vh;
+background:
+radial-gradient(circle at 80% 0%,#17234a 0%,transparent 35%),
+radial-gradient(circle at 0% 50%,#15102b 0%,transparent 35%),
+var(--bg);
+color:var(--white);
+font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+padding-bottom:40px;
+}
+
+button,input,select,textarea{
+font:inherit;
+}
+
+.topbar{
+position:sticky;
+top:0;
+z-index:100;
+background:rgba(4,6,12,.94);
+backdrop-filter:blur(16px);
+border-bottom:1px solid var(--border);
+padding:13px 18px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:10px;
+}
+
+.brand{
+display:flex;
+align-items:center;
+gap:11px;
+}
+
+.logo{
+width:42px;
+height:42px;
+display:grid;
+place-items:center;
+border-radius:12px;
+background:linear-gradient(135deg,var(--cyan),var(--violet));
+color:#020617;
+font-size:16px;
+font-weight:1000;
+box-shadow:0 0 25px rgba(34,211,238,.2);
+}
+
+.brand-name{
+font-size:15px;
+font-weight:950;
+letter-spacing:.5px;
+}
+
+.brand-sub{
+font-size:10px;
+color:var(--cyan);
+margin-top:3px;
+}
+
+.status-badge{
+font-size:10px;
+font-weight:850;
+padding:7px 11px;
+border-radius:30px;
+background:rgba(16,185,129,.12);
+border:1px solid rgba(16,185,129,.3);
+color:#34d399;
+white-space:nowrap;
+}
+
+.container{
+max-width:1150px;
+margin:auto;
+padding:18px;
+display:grid;
+grid-template-columns:1.05fr .95fr;
+gap:17px;
+align-items:start;
+}
+
+.card{
+background:linear-gradient(145deg,rgba(17,27,46,.96),rgba(9,14,26,.97));
+border:1px solid var(--border);
+border-radius:17px;
+padding:17px;
+margin-bottom:15px;
+box-shadow:0 10px 35px rgba(0,0,0,.15);
+}
+
+.card-title{
+font-size:14px;
+font-weight:900;
+margin-bottom:15px;
+display:flex;
+align-items:center;
+gap:9px;
+}
+
+.step{
+width:25px;
+height:25px;
+display:grid;
+place-items:center;
+border-radius:8px;
+background:rgba(34,211,238,.13);
+color:var(--cyan);
+}
+
+.label{
+display:block;
+font-size:10px;
+font-weight:850;
+letter-spacing:.7px;
+color:var(--muted);
+margin-bottom:8px;
+text-transform:uppercase;
+}
+
+.option-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:10px;
+margin-bottom:13px;
+}
+
+.option{
+padding:13px 8px;
+border-radius:11px;
+border:1px solid var(--border);
+background:var(--input);
+color:var(--muted);
+font-size:11px;
+font-weight:850;
+cursor:pointer;
+transition:.2s;
+}
+
+.option.active{
+border-color:var(--cyan);
+background:rgba(34,211,238,.1);
+color:var(--cyan);
+box-shadow:inset 0 0 15px rgba(34,211,238,.05);
+}
+
+select,textarea,input[type=file]{
+width:100%;
+background:var(--input);
+border:1px solid var(--border);
+border-radius:11px;
+padding:12px;
+color:var(--white);
+outline:none;
+font-size:12px;
+}
+
+select:focus,textarea:focus{
+border-color:var(--cyan);
+}
+
+textarea{
+min-height:240px;
+resize:vertical;
+line-height:1.7;
+}
+
+button{
+cursor:pointer;
+}
+
+.btn{
+padding:11px 14px;
+border-radius:10px;
+border:1px solid var(--border);
+background:#1c293e;
+color:white;
+font-size:11px;
+font-weight:850;
+}
+
+.btn:disabled{
+opacity:.45;
+cursor:not-allowed;
+}
+
+.btn-primary{
+width:100%;
+padding:15px;
+margin-top:12px;
+border:none;
+border-radius:12px;
+background:linear-gradient(120deg,var(--cyan),var(--violet));
+color:#030712;
+font-size:13px;
+font-weight:1000;
+box-shadow:0 5px 25px rgba(34,211,238,.14);
+}
+
+.btn-primary:disabled{
+opacity:.5;
+}
+
+.btn-row{
+display:flex;
+gap:9px;
+margin-top:10px;
+}
+
+.btn-row button{
+flex:1;
+}
+
+.voice-panel{
+padding:12px;
+border:1px solid var(--border);
+background:rgba(0,0,0,.13);
+border-radius:12px;
+margin-top:10px;
+}
+
+.small-info{
+font-size:10px;
+color:var(--muted);
+line-height:1.6;
+margin-top:9px;
+}
+
+.progress-area{
+padding:12px;
+border:1px solid var(--border);
+border-radius:12px;
+background:var(--input);
+}
+
+.progress-head{
+display:flex;
+justify-content:space-between;
+align-items:center;
+font-size:11px;
+font-weight:800;
+gap:10px;
+}
+
+.progress-track{
+height:10px;
+background:#020617;
+border-radius:20px;
+overflow:hidden;
+margin:12px 0;
+}
+
+.progress-fill{
+height:100%;
+width:0%;
+border-radius:20px;
+background:linear-gradient(90deg,var(--cyan),var(--violet),var(--red));
+transition:width .3s;
+}
+
+.progress-note{
+font-size:10px;
+color:var(--muted);
+}
+
+.output-box{
+min-height:260px;
+margin-top:13px;
+padding:13px;
+border:1px dashed rgba(148,163,184,.25);
+border-radius:13px;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+text-align:center;
+color:var(--muted);
+}
+
+.output-icon{
+font-size:40px;
+margin-bottom:10px;
+}
+
+video{
+width:100%;
+max-height:550px;
+background:black;
+border-radius:12px;
+}
+
+.download-btn{
+display:block;
+padding:14px;
+margin-top:12px;
+background:var(--green);
+color:#02140e;
+font-size:12px;
+font-weight:950;
+text-decoration:none;
+text-align:center;
+border-radius:11px;
+}
+
+.error{
+color:#fb7185;
+}
+
+.success{
+color:#34d399;
+}
+
+.hidden{
+display:none!important;
+}
+
+.footer{
+text-align:center;
+padding:18px;
+color:#64748b;
+font-size:10px;
+}
+
+@media(max-width:850px){
+.container{
+grid-template-columns:1fr;
+padding:12px;
+}
+.topbar{
+padding:11px 12px;
+}
+.brand-name{
+font-size:12px;
+}
+.brand-sub{
+font-size:9px;
+}
+}
+
+@media(max-width:400px){
+.option-grid{
+gap:7px;
+}
+.option{
+font-size:10px;
+}
+.card{
+padding:13px;
+}
+.status-badge{
+font-size:9px;
+padding:6px;
+}
+}
+</style>
 </head>
+
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo">2D</div>
-      <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA 2D PUPPET STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">Not Your Type &amp; Stickman Rig • Audio Lip-Sync • Cars/Bikes/Trees</div>
-      </div>
-    </div>
-    <div class="badge">🟢 24 FPS Rig Online</div>
-  </header>
 
-  <main class="wrap">
-    <div>
-      <div class="card">
-        <div class="card-title">1. Video Format &amp; Character Rig Style</div>
-        <div class="grid-2">
-          <div class="pill active" data-group="ratio" data-val="9:16">9:16 Reels / Shorts</div>
-          <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube</div>
-        </div>
+<header class="topbar">
 
-        <div class="grid-2">
-          <div class="pill active" data-group="style" data-val="cartoon">🎨 Not Your Type (2D Cartoon)</div>
-          <div class="pill" data-group="style" data-val="stickman">🏃 Viral Stickman Rig</div>
-        </div>
-      </div>
+<div class="brand">
+<div class="logo">NX</div>
+<div>
+<div class="brand-name">NEXORA ANIMATION STUDIO</div>
+<div class="brand-sub">PROCEDURAL 2D • CHARACTER RIG • VIDEO ENGINE</div>
+</div>
+</div>
 
-      <div class="card">
-        <div class="card-title">2. Voiceover &amp; Real Audio Lip-Sync</div>
-        <div class="grid-2">
-          <div class="pill active" data-group="voice" data-val="auto">🤖 Auto AI Voiceover</div>
-          <div class="pill" data-group="voice" data-val="manual">🎙 My Own Voice (Upload / Mic)</div>
-        </div>
+<div class="status-badge" id="connection-badge">
+● CONNECTING
+</div>
 
-        <div id="auto-voice-box">
-          <span class="label">AI Voice Language</span>
-          <select id="lang-mode">
-            <option value="HINDI" selected>Hindi / Hinglish Natural Voice (Madhur / Swara)</option>
-            <option value="ENGLISH">Indian English Voice (Prabhat / Neerja)</option>
-          </select>
-        </div>
+</header>
 
-        <div id="manual-voice-box" style="display:none;">
-          <span class="label">Upload Your Voice Audio (.mp3 / .wav / .m4a) OR Record Mic</span>
-          <input type="file" id="voice-file" accept="audio/*" />
-          <div style="display:flex; gap:8px; margin-top:8px;">
-            <button type="button" class="btn" id="btn-rec" style="flex:1; background:#be123c;">🔴 Record Mic</button>
-            <button type="button" class="btn" id="btn-stop-rec" style="flex:1;" disabled>⏹ Stop</button>
-          </div>
-          <div id="rec-status" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
-        </div>
-      </div>
 
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">3. Story &amp; Action Script</div>
-          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Load Demo Script</button>
-        </div>
-        <textarea id="script" placeholder="Write your story actions (e.g., jumping out of home window onto the road with cars, bikes, trees)..."></textarea>
-        <button class="btn btn-primary" id="btn-generate">🎬 Render 24 FPS 2D Animated Video</button>
-      </div>
-    </div>
+<main class="container">
 
-    <div>
-      <div class="card">
-        <div class="card-title">4. Live Animation Output</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Choose Auto AI Voice or Upload Your Own Voice, then click Render!
-        </div>
-        <div class="bar"><div class="fill" id="prog-bar"></div></div>
-        <div id="video-area"></div>
-      </div>
-    </div>
-  </main>
+<section>
 
-  <script>
-    const API_BASE = window.location.protocol.startsWith("http")
-      ? window.location.origin
-      : "http://127.0.0.1:5000";
+<!-- VIDEO SETTINGS -->
 
-    const DEMO_SCRIPT = `SCENE 1: SUNNY CITY ROAD WITH HOME AND TREES
-[WINDOW_EXIT] [Aarav] [HAPPY] Dekho dosto, aaj main ghar ki khidki se kood kar seedha sadak par aa gaya hoon!
-[POINT] [Aarav] [HEROIC] Mere peeche hawa mein hilte ped hain aur sadak par car aur bike tez raftar se chal rahi hain!
+<div class="card">
 
-SCENE 2: BUSY CITY STREET - DAYTIME
-[PAPER] [Aarav] [CONFUSED] Haath mein script pakad kar main soch raha hoon ki agla viral video kaunsa banaya jaye?
-[WAVE] [Meera] [ROMANTIC] Tabhi Meera ne haath hila kar kaha — Chalo Aarav, milkar ek zabardast kahani banate hain!`;
+<div class="card-title">
+<span class="step">01</span>
+Video Format & Character Style
+</div>
 
-    let ratio = "9:16";
-    let style = "cartoon";
-    let voiceMode = "auto";
-    let recordedBlob = null;
-    let mediaRecorder = null;
-    let audioChunks = [];
+<span class="label">Video Aspect Ratio</span>
 
-    document.querySelectorAll(".pill").forEach(p => {
-      p.onclick = () => {
-        const grp = p.dataset.group;
-        document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
-        p.classList.add("active");
-        if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "style") style = p.dataset.val;
-        if (grp === "voice") {
-          voiceMode = p.dataset.val;
-          document.getElementById("auto-voice-box").style.display = voiceMode === "auto" ? "block" : "none";
-          document.getElementById("manual-voice-box").style.display = voiceMode === "manual" ? "block" : "none";
-        }
-      };
+<div class="option-grid">
+<button class="option active" data-group="ratio" data-value="9:16">
+9:16 REELS / SHORTS
+</button>
+
+<button class="option" data-group="ratio" data-value="16:9">
+16:9 YOUTUBE
+</button>
+</div>
+
+<span class="label">Animation Style</span>
+
+<div class="option-grid">
+<button class="option active" data-group="style" data-value="cartoon">
+🎨 2D CARTOON
+</button>
+
+<button class="option" data-group="style" data-value="stickman">
+🏃 STICKMAN
+</button>
+</div>
+
+<p class="small-info">
+Select the video format and animation style before rendering.
+</p>
+
+</div>
+
+
+<!-- VOICE SETTINGS -->
+
+<div class="card">
+
+<div class="card-title">
+<span class="step">02</span>
+Voice & Audio Settings
+</div>
+
+<div class="option-grid">
+<button class="option active" data-group="voice" data-value="auto">
+🤖 AI VOICE
+</button>
+
+<button class="option" data-group="voice" data-value="manual">
+🎙 OWN VOICE
+</button>
+</div>
+
+<div id="auto-voice-box" class="voice-panel">
+
+<span class="label">Voice Language</span>
+
+<select id="lang-mode">
+<option value="HINDI">Hindi / Hinglish</option>
+<option value="ENGLISH">Indian English</option>
+</select>
+
+<p class="small-info">
+AI voice generation requires the corresponding backend TTS support.
+</p>
+
+</div>
+
+<div id="manual-voice-box" class="voice-panel hidden">
+
+<span class="label">Upload Audio</span>
+
+<input type="file" id="voice-file" accept="audio/*">
+
+<div class="btn-row">
+
+<button class="btn" id="btn-rec">
+🔴 Record
+</button>
+
+<button class="btn" id="btn-stop" disabled>
+⏹ Stop
+</button>
+
+</div>
+
+<div id="rec-status" class="small-info"></div>
+
+<p class="small-info">
+Microphone recording requires HTTPS and browser permission.
+</p>
+
+</div>
+
+</div>
+
+
+<!-- SCRIPT EDITOR -->
+
+<div class="card">
+
+<div class="card-title">
+<span class="step">03</span>
+Story & Action Script
+</div>
+
+<textarea id="script" placeholder="Write your story here...
+
+Example:
+
+[Aarav] [HAPPY] Hello friends!
+[WALK] [Aarav] [HAPPY] Today I am walking on the road.
+[WAVE] [Maya] [HAPPY] Hello Aarav!"></textarea>
+
+<div class="btn-row">
+<button class="btn" id="btn-demo">
+📄 Load Demo
+</button>
+
+<button class="btn" id="btn-clear">
+🗑 Clear Script
+</button>
+</div>
+
+<button class="btn-primary" id="btn-render">
+🎬 START 2D ANIMATION RENDER
+</button>
+
+<p class="small-info">
+Keep the browser open while your video is rendering.
+</p>
+
+</div>
+
+</section>
+
+
+<!-- OUTPUT -->
+
+<section>
+
+<div class="card">
+
+<div class="card-title">
+<span class="step">04</span>
+Animation Render Output
+</div>
+
+<div class="progress-area">
+
+<div class="progress-head">
+<span id="status-text">READY TO RENDER</span>
+<span id="progress-number">0%</span>
+</div>
+
+<div class="progress-track">
+<div class="progress-fill" id="progress-fill"></div>
+</div>
+
+<div class="progress-note" id="progress-note">
+Your animation will appear here after rendering.
+</div>
+
+</div>
+
+<div class="output-box" id="output-area">
+
+<div class="output-icon">🎬</div>
+
+<strong>NEXORA RENDER STUDIO</strong>
+
+<p class="small-info">
+Your completed animation video will appear here.
+</p>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="card-title">
+<span class="step">05</span>
+Engine Information
+</div>
+
+<div class="progress-note" id="engine-info">
+Checking backend connection...
+</div>
+
+<div style="height:12px"></div>
+
+<button class="btn" id="btn-check" style="width:100%">
+↻ CHECK BACKEND CONNECTION
+</button>
+
+</div>
+
+</section>
+
+</main>
+
+
+<footer class="footer">
+NEXORA 2D ANIMATION STUDIO • BUILT FOR CREATIVE STORYTELLING
+</footer>
+
+
+<script>
+
+/* =====================================
+   NEXORA FRONTEND ENGINE
+===================================== */
+
+/*
+When HTML is served by Flask, same-origin is used.
+When testing locally, change this to your Render URL.
+*/
+
+const API_BASE = window.location.protocol.startsWith("http")
+  ? window.location.origin
+  : "http://127.0.0.1:5000";
+
+
+let ratio = "9:16";
+let style = "cartoon";
+let voiceMode = "auto";
+
+let mediaRecorder = null;
+let audioChunks = [];
+let recordedBlob = null;
+let pollTimer = null;
+
+
+/* =====================================
+   ELEMENTS
+===================================== */
+
+const $ = id => document.getElementById(id);
+
+const statusText = $("status-text");
+const progressFill = $("progress-fill");
+const progressNumber = $("progress-number");
+const progressNote = $("progress-note");
+const outputArea = $("output-area");
+const renderButton = $("btn-render");
+
+
+/* =====================================
+   OPTION SELECTORS
+===================================== */
+
+document.querySelectorAll(".option").forEach(button => {
+
+  button.addEventListener("click", () => {
+
+    const group = button.dataset.group;
+    const value = button.dataset.value;
+
+    document.querySelectorAll(
+      `.option[data-group="${group}"]`
+    ).forEach(item => item.classList.remove("active"));
+
+    button.classList.add("active");
+
+    if(group === "ratio"){
+      ratio = value;
+    }
+
+    if(group === "style"){
+      style = value;
+    }
+
+    if(group === "voice"){
+
+      voiceMode = value;
+
+      $("auto-voice-box").classList.toggle(
+        "hidden", value !== "auto"
+      );
+
+      $("manual-voice-box").classList.toggle(
+        "hidden", value !== "manual"
+      );
+
+    }
+
+  });
+
+});
+
+
+/* =====================================
+   DEMO SCRIPT
+===================================== */
+
+const DEMO_SCRIPT = `[Aarav] [HAPPY] Hello friends! Welcome to my world.
+
+[WALK] [Aarav] [HAPPY] Today I am walking on a beautiful city road.
+
+[WAVE] [Maya] [HAPPY] Hello Aarav! How are you?
+
+[POINT] [Aarav] [SURPRISED] Look at that beautiful city!
+
+[RUN] [Aarav] [HAPPY] Let's go and explore!`;
+
+
+$("btn-demo").addEventListener("click", () => {
+  $("script").value = DEMO_SCRIPT;
+});
+
+
+$("btn-clear").addEventListener("click", () => {
+  $("script").value = "";
+});
+
+
+/* =====================================
+   MICROPHONE RECORDING
+===================================== */
+
+$("btn-rec").addEventListener("click", async () => {
+
+  try{
+
+    if(!navigator.mediaDevices?.getUserMedia){
+      throw new Error("Microphone is not supported.");
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio:true
     });
 
-    document.getElementById("btn-sample").onclick = () => {
-      document.getElementById("script").value = DEMO_SCRIPT;
-    };
+    audioChunks = [];
 
-    // Live Mic Recording Support
-    document.getElementById("btn-rec").onclick = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-          recordedBlob = new Blob(audioChunks, { type: "audio/webm" });
-          document.getElementById("rec-status").textContent = "✅ Mic Voice Recorded! Ready for Lip-Sync.";
-        };
-        mediaRecorder.start();
-        document.getElementById("btn-rec").disabled = true;
-        document.getElementById("btn-stop-rec").disabled = false;
-        document.getElementById("rec-status").textContent = "🎙 Recording your voice... speak your script!";
-      } catch (err) {
-        alert("Mic permission denied or unavailable. Please upload an audio file instead.");
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = event => {
+      if(event.data.size > 0){
+        audioChunks.push(event.data);
       }
     };
 
-    document.getElementById("btn-stop-rec").onclick = () => {
-      if (mediaRecorder) mediaRecorder.stop();
-      document.getElementById("btn-rec").disabled = false;
-      document.getElementById("btn-stop-rec").disabled = true;
+    mediaRecorder.onstop = () => {
+
+      recordedBlob = new Blob(audioChunks, {
+        type: mediaRecorder.mimeType || "audio/webm"
+      });
+
+      $("rec-status").textContent =
+        "Recording completed. Audio ready.";
+
+      stream.getTracks().forEach(track => track.stop());
+
     };
 
-    document.getElementById("btn-generate").onclick = async () => {
-      const script = document.getElementById("script").value.trim();
-      if (!script) { alert("Please enter your story script first!"); return; }
+    mediaRecorder.start();
 
-      document.getElementById("video-area").innerHTML = "";
-      document.getElementById("prog-bar").style.width = "4%";
+    $("btn-rec").disabled = true;
+    $("btn-stop").disabled = false;
 
-      const fd = new FormData();
-      fd.append("script", script);
-      fd.append("ratio", ratio);
-      fd.append("style", style);
-      fd.append("voice_mode", voiceMode);
-      fd.append("lang_mode", document.getElementById("lang-mode").value);
+    $("rec-status").textContent = "Recording...";
 
-      if (voiceMode === "manual") {
-        const pickedFile = document.getElementById("voice-file").files?.[0];
-        if (pickedFile) {
-          fd.append("voice_file", pickedFile);
-        } else if (recordedBlob) {
-          fd.append("voice_file", recordedBlob, "mic_voice.webm");
-        } else {
-          alert("Please upload an audio file or record your voice first!");
-          return;
+  }catch(error){
+
+    $("rec-status").textContent = error.message;
+
+  }
+
+});
+
+
+$("btn-stop").addEventListener("click", () => {
+
+  if(mediaRecorder && mediaRecorder.state !== "inactive"){
+    mediaRecorder.stop();
+  }
+
+  $("btn-rec").disabled = false;
+  $("btn-stop").disabled = true;
+
+});
+
+
+/* =====================================
+   BACKEND CONNECTION CHECK
+===================================== */
+
+async function checkBackend(){
+
+  const badge = $("connection-badge");
+  const info = $("engine-info");
+
+  badge.textContent = "● CHECKING";
+
+  try{
+
+    const response = await fetch(API_BASE + "/api/ping", {
+      cache:"no-store"
+    });
+
+    if(!response.ok){
+      throw new Error("Backend unavailable");
+    }
+
+    const data = await response.json();
+
+    badge.textContent = "● ENGINE ONLINE";
+    info.textContent =
+      "NEXORA Backend Connected • Version " +
+      (data.version || "Unknown");
+
+    badge.style.color = "#34d399";
+
+  }catch(error){
+
+    badge.textContent = "● OFFLINE";
+    badge.style.color = "#fb7185";
+
+    info.textContent =
+      "Backend connection failed: " + error.message;
+
+  }
+
+}
+
+
+$("btn-check").addEventListener("click", checkBackend);
+
+
+/* =====================================
+   PROGRESS UI
+===================================== */
+
+function updateProgress(value){
+
+  value = Math.max(0, Math.min(100, Number(value) || 0));
+
+  progressFill.style.width = value + "%";
+  progressNumber.textContent = value + "%";
+
+}
+
+
+/* =====================================
+   RENDER ENGINE
+===================================== */
+
+async function startRender(){
+
+  const script = $("script").value.trim();
+
+  if(!script){
+    alert("Please write your animation script first.");
+    return;
+  }
+
+  if(pollTimer){
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  renderButton.disabled = true;
+
+  statusText.textContent = "STARTING RENDER...";
+  progressNote.textContent = "Sending animation request...";
+  updateProgress(2);
+
+  outputArea.innerHTML = `
+    <div class="output-icon">⚙️</div>
+    <strong>RENDERING YOUR ANIMATION</strong>
+    <p class="small-info">Please wait while NEXORA processes your story.</p>
+  `;
+
+  const formData = new FormData();
+
+  formData.append("script", script);
+  formData.append("ratio", ratio);
+  formData.append("style", style);
+  formData.append("voice_mode", voiceMode);
+  formData.append("lang_mode", $("lang-mode").value);
+
+  if(voiceMode === "manual"){
+
+    const file = $("voice-file").files?.[0];
+
+    if(file){
+
+      formData.append("voice_file", file);
+
+    }else if(recordedBlob){
+
+      formData.append(
+        "voice_file",
+        recordedBlob,
+        "recorded_voice.webm"
+      );
+
+    }else{
+
+      alert("Please upload or record your voice.");
+      renderButton.disabled = false;
+      return;
+
+    }
+
+  }
+
+
+  try{
+
+    const response = await fetch(API_BASE + "/api/start", {
+      method:"POST",
+      body:formData
+    });
+
+    const result = await response.json();
+
+    if(!response.ok || !result.success || !result.job_id){
+      throw new Error(result.error || "Could not start rendering.");
+    }
+
+    const jobId = result.job_id;
+
+    statusText.textContent = "RENDERING...";
+    progressNote.textContent = "Animation job: " + jobId;
+
+    await pollStatus(jobId);
+
+  }catch(error){
+
+    statusText.textContent = "RENDER FAILED";
+    progressNote.textContent = error.message;
+
+    outputArea.innerHTML = `
+      <div class="output-icon">⚠️</div>
+      <strong class="error">RENDER ERROR</strong>
+      <p class="small-info">${escapeHTML(error.message)}</p>
+    `;
+
+    renderButton.disabled = false;
+
+  }
+
+}
+
+
+/* =====================================
+   JOB STATUS POLLING
+===================================== */
+
+function pollStatus(jobId){
+
+  return new Promise((resolve, reject) => {
+
+    let finished = false;
+
+    const finish = (error) => {
+
+      if(finished) return;
+
+      finished = true;
+
+      if(pollTimer){
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+
+      renderButton.disabled = false;
+
+      if(error) reject(error);
+      else resolve();
+
+    };
+
+
+    async function check(){
+
+      try{
+
+        const response = await fetch(
+          API_BASE + "/api/status/" + encodeURIComponent(jobId),
+          {cache:"no-store"}
+        );
+
+        const status = await response.json();
+
+        if(!response.ok || !status.success){
+          throw new Error(status.error || "Status request failed.");
         }
-      }
 
-      const res = await fetch(API_BASE + "/api/start", { method: "POST", body: fd });
-      const { job_id } = await res.json();
+        updateProgress(status.progress);
 
-      const poll = setInterval(async () => {
-        const r = await fetch(API_BASE + "/api/status/" + job_id);
-        const st = await r.json();
-        document.getElementById("status-txt").textContent = st.message;
-        document.getElementById("prog-bar").style.width = st.progress + "%";
+        statusText.textContent =
+          String(status.status || "PROCESSING").toUpperCase();
 
-        if (st.status === "done") {
-          clearInterval(poll);
-          const streamUrl = `${API_BASE}/api/video/${job_id}`;
-          const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
-          document.getElementById("video-area").innerHTML = `
-            <video src="${streamUrl}" controls autoplay loop playsinline></video>
-            <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download MP4 (${st.file_name})</a>
+        progressNote.textContent =
+          "NEXORA processing your animation...";
+
+
+        if(status.status === "completed"){
+
+          finish();
+
+          const videoUrl = API_BASE + status.video_url;
+
+          outputArea.innerHTML = `
+            <video controls autoplay loop playsinline>
+              <source src="${videoUrl}" type="video/mp4">
+              Your browser does not support video playback.
+            </video>
+
+            <a class="download-btn"
+               href="${videoUrl}"
+               download="NEXORA_Animation.mp4">
+               ⬇ DOWNLOAD MP4 VIDEO
+            </a>
           `;
-        } else if (st.status === "error") {
-          clearInterval(poll);
+
+          statusText.textContent = "RENDER COMPLETED";
+          progressNote.textContent = "Your animation is ready.";
+          updateProgress(100);
+
         }
-      }, 1200);
-    };
-  </script>
+
+
+        if(status.status === "failed"){
+
+          finish(new Error(status.error || "Rendering failed."));
+
+          statusText.textContent = "RENDER FAILED";
+
+          progressNote.textContent =
+            status.error || "Unknown rendering error.";
+
+          outputArea.innerHTML = `
+            <div class="output-icon">❌</div>
+            <strong class="error">RENDER FAILED</strong>
+            <p class="small-info">${escapeHTML(status.error || "Unknown error")}</p>
+          `;
+
+        }
+
+      }catch(error){
+
+        finish(error);
+
+        statusText.textContent = "CONNECTION ERROR";
+        progressNote.textContent = error.message;
+
+        outputArea.innerHTML = `
+          <div class="output-icon">⚠️</div>
+          <strong class="error">STATUS ERROR</strong>
+          <p class="small-info">${escapeHTML(error.message)}</p>
+        `;
+
+      }
+
+    }
+
+
+    check();
+
+    pollTimer = setInterval(check, 1500);
+
+  });
+
+}
+
+
+/* =====================================
+   SAFE HTML TEXT
+===================================== */
+
+function escapeHTML(value){
+
+  return String(value).replace(/[&<>"']/g, character => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  })[character]);
+
+}
+
+
+/* =====================================
+   START BUTTON
+===================================== */
+
+renderButton.addEventListener("click", startRender);
+
+
+/* =====================================
+   INITIALIZE
+===================================== */
+
+checkBackend();
+
+</script>
+
 </body>
 </html>
