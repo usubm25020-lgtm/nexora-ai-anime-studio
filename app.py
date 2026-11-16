@@ -2,6 +2,8 @@
 import os
 import re
 import gc
+import io
+import json
 import math
 import uuid
 import time
@@ -17,43 +19,32 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import imageio_ffmpeg
+import edge_tts
 
-from PIL import Image, ImageDraw, ImageFont
-
-from flask import (
-    Flask,
-    request,
-    jsonify,
-    send_file,
-    abort
-)
-
-from werkzeug.utils import secure_filename
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from flask import Flask, request, jsonify, send_file, abort
 
 
 # ============================================================
 # NEXORA AI ANIMATION STUDIO
-# COMPLETE PYTHON BACKEND
+# Complete Backend - Version 1
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
 DATA_DIR = BASE_DIR / "nexora_data"
 JOB_DIR = DATA_DIR / "jobs"
+VIDEO_DIR = DATA_DIR / "videos"
 UPLOAD_DIR = DATA_DIR / "uploads"
-OUTPUT_DIR = DATA_DIR / "videos"
 
-for folder in [DATA_DIR, JOB_DIR, UPLOAD_DIR, OUTPUT_DIR]:
+for folder in [DATA_DIR, JOB_DIR, VIDEO_DIR, UPLOAD_DIR]:
     folder.mkdir(parents=True, exist_ok=True)
 
-app = Flask(__name__)
 
+app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 
-app.config["JSON_SORT_KEYS"] = False
-
-# Render-friendly settings
-DEFAULT_FPS = 18
+FPS = 18
 MAX_DURATION = 180
 MAX_WORKERS = 1
 
@@ -63,17 +54,14 @@ jobs = {}
 jobs_lock = threading.Lock()
 render_lock = threading.Lock()
 
-ALLOWED_AUDIO = {
-    ".mp3", ".wav", ".m4a", ".aac",
-    ".ogg", ".flac", ".mp4", ".webm"
-}
-
 
 # ============================================================
-# FONT SYSTEM
+# FONTS
 # ============================================================
 
-def load_font(size=32, bold=False):
+def load_font(size, bold=False):
+
+    candidates = []
 
     if bold:
         candidates = [
@@ -103,6 +91,7 @@ def load_font(size=32, bold=False):
 def update_job(job_id, **values):
 
     with jobs_lock:
+
         if job_id in jobs:
             jobs[job_id].update(values)
             jobs[job_id]["updated_at"] = time.time()
@@ -111,979 +100,805 @@ def update_job(job_id, **values):
 def get_job(job_id):
 
     with jobs_lock:
-        job = jobs.get(job_id)
-        return dict(job) if job else None
+        return jobs.get(job_id)
 
 
 # ============================================================
-# SCRIPT TAGS
+# AI STORY DIRECTOR
 # ============================================================
 
-ACTION_TAGS = {
-    "WALK", "RUN", "JUMP", "DANCE", "WAVE",
-    "POINT", "FIGHT", "SIT", "IDLE", "TALK",
-    "WINDOW_EXIT", "WINDOW_ENTER", "TURN",
-    "LOOK", "LOOK_UP", "LOOK_DOWN", "CLAP",
-    "CRY", "LAUGH", "THINK", "SLEEP",
-    "FALL", "STAND", "KICK", "PUNCH",
-    "HUG", "HANDSHAKE", "PHONE", "READ",
-    "WRITE", "RUN_AWAY", "ENTER", "EXIT",
-    "KNEEL", "SLOW_WALK"
+EMOTIONS = [
+    "happy",
+    "sad",
+    "angry",
+    "surprised",
+    "scared",
+    "thinking",
+    "neutral"
+]
+
+ACTION_KEYWORDS = {
+
+    "walk": [
+        "walk", "walking", "হাঁট", "चल", "चलना"
+    ],
+
+    "run": [
+        "run", "running", "দৌড়", "दौड़"
+    ],
+
+    "wave": [
+        "wave", "waving", "হাত নাড়", "हाथ हिला"
+    ],
+
+    "sit": [
+        "sit", "sitting", "বসে", "बैठ"
+    ],
+
+    "think": [
+        "think", "thinking", "ভাব", "सोच"
+    ],
+
+    "talk": [
+        "say", "speak", "talk", "বল", "बोल"
+    ],
+
+    "point": [
+        "point", "ইশারা", "इशारा"
+    ],
+
+    "idle": []
 }
 
-EMOTION_TAGS = {
-    "HAPPY", "SAD", "ANGRY", "SURPRISED",
-    "CONFUSED", "ROMANTIC", "HEROIC",
-    "SCARED", "SHY", "CRYING", "LAUGHING",
-    "NEUTRAL", "EXCITED", "SERIOUS",
-    "DISAPPOINTED", "LOVE", "WORRIED", "SMILE"
-}
 
-OBJECT_TAGS = {
-    "PAPER", "PHONE", "BOOK", "CHAIR",
-    "TABLE", "WINDOW", "DOOR", "CAR",
-    "FLOWER", "GIFT", "BAG", "SWORD",
-    "BALL", "LAMP", "CUP"
-}
+def detect_emotion(text):
 
-SCENE_TAGS = {
-    "NIGHT", "DAY", "ROOM", "OUTDOOR",
-    "RAIN", "SUNSET", "SUNRISE", "CITY",
-    "FOREST", "BEACH", "SCHOOL", "HOME",
-    "DARK", "DREAM", "FLASHBACK"
-}
+    value = text.lower()
+
+    mapping = {
+
+        "happy": [
+            "happy", "smile", "laugh",
+            "খুশি", "হাসি",
+            "खुश", "हंस"
+        ],
+
+        "sad": [
+            "sad", "cry", "tears",
+            "দুঃখ", "কাঁদ",
+            "दुख", "रो"
+        ],
+
+        "angry": [
+            "angry", "shout", "furious",
+            "রাগ", "চিৎকার",
+            "गुस्सा", "चिल्ला"
+        ],
+
+        "surprised": [
+            "surprised", "shock",
+            "অবাক", "চমকে",
+            "हैरान", "चौंक"
+        ],
+
+        "scared": [
+            "scared", "fear", "afraid",
+            "ভয়", "ভীত",
+            "डर", "भय"
+        ],
+
+        "thinking": [
+            "thinking", "wonder",
+            "ভাবছে", "চিন্তা",
+            "सोच", "विचार"
+        ]
+    }
+
+    for emotion, words in mapping.items():
+
+        if any(word in value for word in words):
+            return emotion
+
+    return "neutral"
+
+
+def detect_action(text):
+
+    value = text.lower()
+
+    for action, keywords in ACTION_KEYWORDS.items():
+
+        if any(word in value for word in keywords):
+            return action
+
+    return "talk"
+
+
+def clean_dialogue(text):
+
+    text = re.sub(r"\[[^\]]*\]", "", text)
+    text = re.sub(r"\([^)]*\)", "", text)
+
+    return text.strip()
 
 
 def parse_script(script):
 
-    scenes = []
+    lines = []
 
-    current_character = "Narrator"
-    current_action = "TALK"
-    current_emotion = "NEUTRAL"
-    current_scene = "ROOM"
-    current_objects = []
+    current_speaker = "Aarav"
 
-    for raw_line in script.replace("\r", "").split("\n"):
+    raw_lines = script.replace("\r", "").split("\n")
 
-        line = raw_line.strip()
+    for raw in raw_lines:
 
-        if not line:
+        raw = raw.strip()
+
+        if not raw:
             continue
 
-        tags = re.findall(r"\[([^\]]+)\]", line)
+        speaker = current_speaker
+        dialogue = raw
+        emotion = None
+        action = None
 
-        text_line = re.sub(
-            r"\[[^\]]+\]",
-            "",
-            line
-        ).strip()
-
-        for raw_tag in tags:
-
-            tag = raw_tag.strip().upper()
-
-            if tag in ACTION_TAGS:
-                current_action = tag
-
-            elif tag in EMOTION_TAGS:
-                current_emotion = tag
-
-            elif tag in SCENE_TAGS:
-                current_scene = tag
-
-            elif tag in OBJECT_TAGS:
-                if tag not in current_objects:
-                    current_objects.append(tag)
-
-            elif tag not in {
-                "FADE", "CUT", "CAMERA",
-                "THE END", "END"
-            }:
-                if len(tag) <= 35:
-                    current_character = tag.title()
-
-        if not text_line:
-            continue
-
-        # Supports: Aarav: Hello
-        match = re.match(
-            r"^([A-Za-z][A-Za-z0-9 _-]{0,25}):\s*(.*)$",
-            text_line
+        # [Aarav] [HAPPY] [WALK]
+        speaker_match = re.match(
+            r"^\[([A-Za-z0-9 _-]+)\]\s*(.*)$",
+            dialogue
         )
 
-        if match:
-            current_character = match.group(1).strip()
-            text_line = match.group(2).strip()
+        if speaker_match:
 
-        if text_line:
+            possible = speaker_match.group(1).strip()
 
-            scenes.append({
-                "character": current_character,
-                "text": text_line,
-                "action": current_action,
-                "emotion": current_emotion,
-                "scene": current_scene,
-                "objects": list(current_objects)
-            })
+            if possible.lower() not in EMOTIONS and possible.lower() not in ACTION_KEYWORDS:
 
-            current_action = "TALK"
-            current_emotion = "NEUTRAL"
-            current_objects = []
+                speaker = possible
+                current_speaker = speaker
+                dialogue = speaker_match.group(2).strip()
 
-    if not scenes:
+        # Emotion tags
+        emotion_match = re.search(
+            r"\[(HAPPY|SAD|ANGRY|SURPRISED|SCARED|THINKING|NEUTRAL)\]",
+            dialogue,
+            re.IGNORECASE
+        )
 
-        scenes.append({
-            "character": "Narrator",
-            "text": script.strip() or "Welcome to NEXORA.",
-            "action": "TALK",
-            "emotion": "NEUTRAL",
-            "scene": "ROOM",
-            "objects": []
+        if emotion_match:
+            emotion = emotion_match.group(1).lower()
+
+        # Action tags
+        action_match = re.search(
+            r"\[(WALK|RUN|WAVE|SIT|THINK|TALK|POINT|IDLE)\]",
+            dialogue,
+            re.IGNORECASE
+        )
+
+        if action_match:
+            action = action_match.group(1).lower()
+
+        # Name: dialogue
+        colon_match = re.match(
+            r"^([A-Za-z][A-Za-z0-9 _-]{0,25}):\s*(.*)$",
+            dialogue
+        )
+
+        if colon_match:
+
+            speaker = colon_match.group(1).strip()
+            current_speaker = speaker
+            dialogue = colon_match.group(2).strip()
+
+        dialogue = clean_dialogue(dialogue)
+
+        if not dialogue:
+            continue
+
+        emotion = emotion or detect_emotion(dialogue)
+        action = action or detect_action(dialogue)
+
+        lines.append({
+
+            "speaker": speaker,
+            "dialogue": dialogue,
+            "emotion": emotion,
+            "action": action,
+            "duration": 3.0
+
         })
 
-    return scenes
+    return lines
 
 
 # ============================================================
-# AUDIO GENERATION
+# VOICE ENGINE
 # ============================================================
 
-def run_async(coroutine):
+VOICE_MAP = {
 
-    return asyncio.run(coroutine)
+    "hindi": "hi-IN-SwaraNeural",
+    "english": "en-US-JennyNeural"
+
+}
 
 
-async def generate_tts(text, output_path, language):
+async def create_voice(text, output_path, lang_mode):
 
-    import edge_tts
-
-    if language.lower() == "hindi":
-        voice = "hi-IN-SwaraNeural"
-    else:
-        voice = "en-US-JennyNeural"
-
-    communicator = edge_tts.Communicate(
-        text=text,
-        voice=voice,
-        rate="+0%",
-        volume="+0%"
+    voice = VOICE_MAP.get(
+        lang_mode,
+        VOICE_MAP["hindi"]
     )
 
-    await communicator.save(str(output_path))
+    communicate = edge_tts.Communicate(
+        text,
+        voice
+    )
+
+    await communicate.save(str(output_path))
 
 
-def make_voice_audio(scenes, output_path, language):
+def generate_voice(text, output_path, lang_mode):
 
-    try:
-
-        dialogue = []
-
-        for scene in scenes:
-            value = scene.get("text", "").strip()
-            if value:
-                dialogue.append(value)
-
-        full_text = ". ".join(dialogue)
-
-        if not full_text:
-            return False
-
-        run_async(
-            generate_tts(
-                full_text,
-                output_path,
-                language
-            )
+    asyncio.run(
+        create_voice(
+            text,
+            output_path,
+            lang_mode
         )
-
-        return (
-            Path(output_path).exists()
-            and Path(output_path).stat().st_size > 0
-        )
-
-    except Exception:
-
-        traceback.print_exc()
-        return False
+    )
 
 
 # ============================================================
-# FFMPEG
+# VIDEO UTILITIES
 # ============================================================
 
 def get_ffmpeg():
+
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
-def probe_duration(file_path):
+def get_media_duration(path):
+
+    ffmpeg = get_ffmpeg()
 
     command = [
-        get_ffmpeg(),
-        "-i",
-        str(file_path)
+        ffmpeg,
+        "-i", str(path),
+        "-f", "null",
+        "-"
     ]
 
     result = subprocess.run(
         command,
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
-        timeout=30
+        text=True
     )
 
     match = re.search(
-        r"Duration:\s*(\d+):(\d+):(\d+)\.(\d+)",
+        r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)",
         result.stderr
     )
 
     if not match:
-        return 0
+        return 3.0
 
-    h, m, s, ms = match.groups()
+    hours, minutes, seconds = match.groups()
 
     return (
-        int(h) * 3600
-        + int(m) * 60
-        + int(s)
-        + float("0." + ms)
+        int(hours) * 3600 +
+        int(minutes) * 60 +
+        float(seconds)
     )
 
 
-def encode_audio_video(
-    silent_video,
-    output_video,
-    audio_file=None
-):
+# ============================================================
+# SCENE ENGINE
+# ============================================================
 
-    command = [
-        get_ffmpeg(),
-        "-y",
-        "-i",
-        str(silent_video)
+def create_background(width, height, scene_index=0):
+
+    image = Image.new(
+        "RGB",
+        (width, height)
+    )
+
+    pixels = image.load()
+
+    palettes = [
+
+        ((17, 24, 49), (50, 39, 89)),
+
+        ((22, 37, 61), (16, 72, 87)),
+
+        ((43, 27, 54), (90, 43, 65)),
+
+        ((18, 34, 46), (34, 64, 73))
+
     ]
 
-    if audio_file and Path(audio_file).exists():
+    top, bottom = palettes[
+        scene_index % len(palettes)
+    ]
 
-        command.extend([
-            "-i", str(audio_file),
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-shortest"
-        ])
+    for y in range(height):
 
-    else:
-        command.append("-an")
+        t = y / max(1, height - 1)
 
-    command.extend([
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        str(output_video)
-    ])
-
-    result = subprocess.run(
-        command,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-        timeout=600
-    )
-
-    if result.returncode != 0:
-
-        raise RuntimeError(
-            "Video encoding failed: "
-            + result.stderr[-1500:]
+        color = tuple(
+            int(top[i] * (1 - t) + bottom[i] * t)
+            for i in range(3)
         )
 
+        for x in range(width):
+            pixels[x, y] = color
 
-# ============================================================
-# BACKGROUND COLORS
-# ============================================================
+    draw = ImageDraw.Draw(image, "RGBA")
 
-def color_for_scene(scene):
+    # Distant lights
+    random.seed(scene_index + 100)
 
-    colors = {
+    for _ in range(24):
 
-        "ROOM": ((12, 19, 38), (29, 41, 70)),
-        "NIGHT": ((4, 8, 25), (20, 35, 75)),
-        "OUTDOOR": ((55, 115, 170), (180, 210, 220)),
-        "DAY": ((70, 145, 220), (190, 225, 245)),
-        "SUNSET": ((90, 45, 95), (245, 145, 100)),
-        "SUNRISE": ((80, 100, 160), (245, 190, 120)),
-        "RAIN": ((15, 25, 50), (45, 75, 110)),
-        "CITY": ((10, 15, 35), (55, 65, 100)),
-        "FOREST": ((5, 40, 25), (35, 100, 60)),
-        "BEACH": ((25, 100, 160), (220, 195, 140)),
-        "SCHOOL": ((50, 75, 110), (150, 180, 200)),
-        "HOME": ((25, 30, 50), (75, 80, 105)),
-        "DARK": ((0, 0, 0), (12, 12, 25)),
-        "DREAM": ((35, 10, 70), (100, 70, 160)),
-        "FLASHBACK": ((70, 60, 40), (160, 135, 90))
-    }
+        x = random.randint(0, width)
+        y = random.randint(0, int(height * 0.55))
 
-    return colors.get(scene, colors["ROOM"])
-
-
-def make_gradient(width, height, scene):
-
-    top, bottom = color_for_scene(scene)
-
-    y = np.linspace(
-        0,
-        1,
-        height,
-        dtype=np.float32
-    )[:, None, None]
-
-    top_color = np.array(
-        top,
-        dtype=np.float32
-    )[None, None, :]
-
-    bottom_color = np.array(
-        bottom,
-        dtype=np.float32
-    )[None, None, :]
-
-    gradient = (
-        top_color * (1 - y)
-        + bottom_color * y
-    )
-
-    gradient = np.broadcast_to(
-        gradient,
-        (height, width, 3)
-    )
-
-    return Image.fromarray(
-        gradient.astype(np.uint8),
-        mode="RGB"
-    )
-
-
-# ============================================================
-# SCENE BACKGROUNDS
-# ============================================================
-
-def draw_background(draw, width, height, scene, frame):
-
-    scene = scene.upper()
-
-    horizon = int(height * 0.72)
-
-    if scene in ["ROOM", "HOME", "SCHOOL"]:
-
-        draw.rectangle(
-            [0, horizon, width, height],
-            fill=(35, 35, 55)
-        )
-
-        for x in range(0, width, 90):
-
-            draw.line(
-                [(x, horizon), (x - 50, height)],
-                fill=(65, 65, 85),
-                width=2
-            )
-
-        wx = int(width * 0.67)
-        wy = int(height * 0.15)
-
-        draw.rectangle(
-            [wx, wy, wx + 130, wy + 180],
-            fill=(20, 45, 85),
-            outline=(140, 180, 220),
-            width=5
-        )
-
-        draw.line(
-            [(wx + 65, wy), (wx + 65, wy + 180)],
-            fill=(140, 180, 220),
-            width=4
-        )
-
-        draw.line(
-            [(wx, wy + 90), (wx + 130, wy + 90)],
-            fill=(140, 180, 220),
-            width=4
-        )
+        radius = random.randint(2, 8)
 
         draw.ellipse(
-            [width - 100, 70, width - 40, 130],
-            fill=(255, 210, 120)
+            (
+                x-radius,
+                y-radius,
+                x+radius,
+                y+radius
+            ),
+            fill=(120, 190, 255, 30)
         )
 
-    elif scene == "CITY":
+    # Ground
+    ground_y = int(height * 0.83)
 
-        draw.rectangle(
-            [0, horizon, width, height],
-            fill=(20, 22, 35)
-        )
+    draw.rectangle(
+        (0, ground_y, width, height),
+        fill=(9, 13, 25)
+    )
 
-        for x in range(0, width, 90):
+    draw.line(
+        (0, ground_y, width, ground_y),
+        fill=(100, 180, 210, 90),
+        width=2
+    )
 
-            building_height = 130 + (x * 7 % 180)
-
-            draw.rectangle(
-                [
-                    x,
-                    horizon - building_height,
-                    x + 70,
-                    horizon
-                ],
-                fill=(18, 24, 45)
-            )
-
-            for wy in range(
-                horizon - building_height + 20,
-                horizon - 15,
-                40
-            ):
-
-                draw.rectangle(
-                    [x + 12, wy, x + 24, wy + 12],
-                    fill=(255, 205, 110)
-                )
-
-    elif scene == "FOREST":
-
-        draw.rectangle(
-            [0, horizon, width, height],
-            fill=(12, 50, 30)
-        )
-
-        for x in range(20, width, 100):
-
-            draw.rectangle(
-                [x + 25, 170, x + 45, horizon],
-                fill=(70, 45, 25)
-            )
-
-            draw.ellipse(
-                [x - 35, 80, x + 95, 260],
-                fill=(15, 85, 45)
-            )
-
-    elif scene == "BEACH":
-
-        draw.rectangle(
-            [0, horizon - 80, width, height],
-            fill=(205, 180, 120)
-        )
-
-        draw.rectangle(
-            [0, horizon - 100, width, horizon],
-            fill=(35, 125, 180)
-        )
-
-    else:
-
-        draw.rectangle(
-            [0, horizon, width, height],
-            fill=(30, 35, 50)
-        )
-
-    if scene == "RAIN":
-
-        random.seed(frame // 2)
-
-        for _ in range(45):
-
-            x = random.randint(0, width)
-            y = random.randint(0, height)
-
-            draw.line(
-                [(x, y), (x - 7, y + 18)],
-                fill=(130, 170, 220),
-                width=2
-            )
+    return image
 
 
 # ============================================================
-# CHARACTER ENGINE
+# HUMAN CHARACTER RIG
 # ============================================================
+
+def draw_limb(draw, p1, p2, color, thickness):
+
+    draw.line(
+        [p1, p2],
+        fill=color,
+        width=thickness
+    )
+
+    radius = thickness // 2
+
+    for point in [p1, p2]:
+
+        x, y = point
+
+        draw.ellipse(
+            (
+                x-radius,
+                y-radius,
+                x+radius,
+                y+radius
+            ),
+            fill=color
+        )
+
 
 def draw_character(
     image,
     x,
-    y,
-    scale,
-    name,
-    style,
-    action,
-    emotion,
-    frame
+    ground_y,
+    frame,
+    emotion="neutral",
+    action="talk",
+    character_index=0,
+    scale=1.0
 ):
 
-    draw = ImageDraw.Draw(image)
+    draw = ImageDraw.Draw(image, "RGBA")
 
-    style = style.lower()
+    # Character palette
+    palettes = [
 
-    movement = math.sin(frame / 8.0) * 14
+        {
+            "skin": (224, 170, 132),
+            "hair": (35, 27, 25),
+            "shirt": (36, 145, 180),
+            "pants": (31, 39, 65),
+            "shoe": (12, 15, 22)
+        },
 
-    if action == "RUN":
-        movement *= 2
+        {
+            "skin": (190, 135, 103),
+            "hair": (20, 19, 22),
+            "shirt": (135, 74, 160),
+            "pants": (35, 42, 56),
+            "shoe": (12, 15, 22)
+        },
 
-    bounce = abs(math.sin(frame / 8.0)) * 9
+        {
+            "skin": (235, 190, 157),
+            "hair": (74, 45, 29),
+            "shirt": (190, 100, 74),
+            "pants": (34, 43, 62),
+            "shoe": (12, 15, 22)
+        }
 
-    if action == "JUMP":
-        bounce = abs(math.sin(frame / 5.0)) * 60
+    ]
 
-    if action == "SIT":
-        y += int(35 * scale)
+    colors = palettes[
+        character_index % len(palettes)
+    ]
 
-    x = int(x)
-    y = int(y - bounce)
+    skin = colors["skin"]
+    hair = colors["hair"]
+    shirt = colors["shirt"]
+    pants = colors["pants"]
+    shoe = colors["shoe"]
 
-    head_size = int(65 * scale)
+    s = scale
 
-    skin = (235, 180, 145)
-    shirt = (40, 170, 230)
-    pants = (30, 40, 65)
-    hair = (35, 25, 20)
+    def P(px, py):
+        return (
+            int(x + px * s),
+            int(ground_y + py * s)
+        )
 
-    line_width = max(3, int(5 * scale))
+    # Movement
+    walk = math.sin(frame * 0.16)
+    bob = abs(math.sin(frame * 0.16)) * 5
 
-    if style == "stickman":
+    if action == "walk":
+        leg_motion = walk * 20
+        arm_motion = walk * 16
 
-        draw.ellipse(
-            [
-                x - head_size // 2,
-                y - head_size,
-                x + head_size // 2,
-                y
-            ],
-            outline=(245, 245, 255),
-            width=line_width
+    elif action == "run":
+        leg_motion = walk * 34
+        arm_motion = walk * 28
+        bob *= 1.7
+
+    else:
+        leg_motion = 0
+        arm_motion = math.sin(frame * 0.07) * 3
+
+    if action == "wave":
+        arm_motion = -25 + math.sin(frame * 0.24) * 18
+
+    if action == "think":
+        arm_motion = -12
+
+    body_bob = bob if action in ["walk", "run"] else math.sin(frame * 0.07) * 2
+
+    # Character dimensions
+    head_y = -175 - body_bob
+
+    shoulder_y = -115 - body_bob
+    waist_y = -60 - body_bob
+
+    # Legs
+    hip_left = P(-15, -60 - body_bob)
+    hip_right = P(15, -60 - body_bob)
+
+    left_knee = P(
+        -20 + leg_motion * 0.4,
+        -30 - body_bob
+    )
+
+    right_knee = P(
+        20 - leg_motion * 0.4,
+        -30 - body_bob
+    )
+
+    left_foot = P(
+        -22 + leg_motion,
+        -5
+    )
+
+    right_foot = P(
+        22 - leg_motion,
+        -5
+    )
+
+    # Feet
+    draw_limb(draw, left_knee, left_foot, pants, int(15*s))
+    draw_limb(draw, right_knee, right_foot, pants, int(15*s))
+
+    draw_limb(
+        draw,
+        left_foot,
+        P(-12 + leg_motion, 0),
+        shoe,
+        int(13*s)
+    )
+
+    draw_limb(
+        draw,
+        right_foot,
+        P(32 - leg_motion, 0),
+        shoe,
+        int(13*s)
+    )
+
+    # Torso
+    torso = [
+
+        P(-25, -125 - body_bob),
+        P(25, -125 - body_bob),
+        P(20, -60 - body_bob),
+        P(-20, -60 - body_bob)
+
+    ]
+
+    draw.polygon(
+        torso,
+        fill=shirt
+    )
+
+    # Neck
+    draw.rectangle(
+        (
+            P(-7, -135 - body_bob),
+            P(7, -118 - body_bob)
+        ),
+        fill=skin
+    )
+
+    # Arms
+    left_shoulder = P(-24, -115 - body_bob)
+    right_shoulder = P(24, -115 - body_bob)
+
+    left_elbow = P(
+        -43 - arm_motion * 0.3,
+        -82 - body_bob
+    )
+
+    right_elbow = P(
+        43 + arm_motion * 0.3,
+        -82 - body_bob
+    )
+
+    left_hand = P(
+        -48 - arm_motion * 0.5,
+        -53 - body_bob
+    )
+
+    right_hand = P(
+        48 + arm_motion,
+        -53 - body_bob
+    )
+
+    if action == "wave":
+
+        right_elbow = P(40, -150 - body_bob)
+        right_hand = P(
+            55 + math.sin(frame * 0.25) * 8,
+            -185 - body_bob
+        )
+
+    if action == "think":
+
+        right_elbow = P(35, -95 - body_bob)
+        right_hand = P(16, -165 - body_bob)
+
+    if action == "point":
+
+        right_elbow = P(55, -115 - body_bob)
+        right_hand = P(100, -145 - body_bob)
+
+    draw_limb(
+        draw,
+        left_shoulder,
+        left_elbow,
+        shirt,
+        int(13*s)
+    )
+
+    draw_limb(
+        draw,
+        left_elbow,
+        left_hand,
+        skin,
+        int(10*s)
+    )
+
+    draw_limb(
+        draw,
+        right_shoulder,
+        right_elbow,
+        shirt,
+        int(13*s)
+    )
+
+    draw_limb(
+        draw,
+        right_elbow,
+        right_hand,
+        skin,
+        int(10*s)
+    )
+
+    # Head
+    hx = x
+    hy = ground_y + head_y * s
+
+    radius_x = int(28*s)
+    radius_y = int(35*s)
+
+    draw.ellipse(
+        (
+            hx-radius_x,
+            hy-radius_y,
+            hx+radius_x,
+            hy+radius_y
+        ),
+        fill=skin
+    )
+
+    # Hair
+    draw.pieslice(
+        (
+            hx-radius_x,
+            hy-radius_y-7*s,
+            hx+radius_x,
+            hy+radius_y
+        ),
+        180,
+        360,
+        fill=hair
+    )
+
+    draw.ellipse(
+        (
+            hx-radius_x,
+            hy-radius_y,
+            hx+radius_x,
+            hy-radius_y+15*s
+        ),
+        fill=hair
+    )
+
+    # Eyes
+    eye_y = hy - 3*s
+
+    eye_color = (30, 25, 25)
+
+    if emotion == "angry":
+
+        draw.line(
+            (hx-17*s, eye_y-6*s, hx-6*s, eye_y-2*s),
+            fill=eye_color,
+            width=max(1, int(3*s))
         )
 
         draw.line(
-            [(x, y), (x, y + int(110 * scale))],
-            fill=(245, 245, 255),
-            width=line_width
-        )
-
-        arm_move = int(movement * scale)
-
-        if action == "WAVE":
-            left_end = (
-                x - int(45 * scale),
-                y + int(70 * scale)
-            )
-            right_end = (
-                x + int(45 * scale),
-                y - int(45 * scale)
-            )
-
-        elif action == "POINT":
-            left_end = (
-                x - int(45 * scale),
-                y + int(70 * scale)
-            )
-            right_end = (
-                x + int(90 * scale),
-                y + int(10 * scale)
-            )
-
-        else:
-            left_end = (
-                x - int(45 * scale) - arm_move,
-                y + int(70 * scale)
-            )
-            right_end = (
-                x + int(45 * scale) + arm_move,
-                y + int(70 * scale)
-            )
-
-        draw.line(
-            [(x, y + int(30 * scale)), left_end],
-            fill=(245, 245, 255),
-            width=line_width
-        )
-
-        draw.line(
-            [(x, y + int(30 * scale)), right_end],
-            fill=(245, 245, 255),
-            width=line_width
-        )
-
-        draw.line(
-            [
-                (x, y + int(110 * scale)),
-                (x - int(30 * scale) + arm_move, y + int(175 * scale))
-            ],
-            fill=(245, 245, 255),
-            width=line_width
-        )
-
-        draw.line(
-            [
-                (x, y + int(110 * scale)),
-                (x + int(30 * scale) - arm_move, y + int(175 * scale))
-            ],
-            fill=(245, 245, 255),
-            width=line_width
+            (hx+6*s, eye_y-2*s, hx+17*s, eye_y-6*s),
+            fill=eye_color,
+            width=max(1, int(3*s))
         )
 
     else:
 
         draw.ellipse(
-            [
-                x - int(55 * scale),
-                y + int(160 * scale),
-                x + int(55 * scale),
-                y + int(180 * scale)
-            ],
-            fill=(15, 15, 25)
-        )
-
-        leg_move = int(movement * scale)
-
-        draw.line(
-            [
-                (x - int(12 * scale), y + int(100 * scale)),
-                (x - int(25 * scale) + leg_move, y + int(180 * scale))
-            ],
-            fill=pants,
-            width=max(5, int(20 * scale))
-        )
-
-        draw.line(
-            [
-                (x + int(12 * scale), y + int(100 * scale)),
-                (x + int(25 * scale) - leg_move, y + int(180 * scale))
-            ],
-            fill=pants,
-            width=max(5, int(20 * scale))
+            (
+                hx-15*s,
+                eye_y-3*s,
+                hx-8*s,
+                eye_y+5*s
+            ),
+            fill=eye_color
         )
 
         draw.ellipse(
-            [
-                x - int(50 * scale),
-                y + int(165 * scale),
-                x - int(8 * scale),
-                y + int(190 * scale)
-            ],
-            fill=(20, 20, 25)
+            (
+                hx+8*s,
+                eye_y-3*s,
+                hx+15*s,
+                eye_y+5*s
+            ),
+            fill=eye_color
         )
+
+    # Mouth
+    mouth_y = hy + 15*s
+
+    if emotion == "happy":
+
+        draw.arc(
+            (
+                hx-12*s,
+                mouth_y-9*s,
+                hx+12*s,
+                mouth_y+9*s
+            ),
+            10,
+            170,
+            fill=(105, 35, 38),
+            width=max(1, int(3*s))
+        )
+
+    elif emotion == "sad":
+
+        draw.arc(
+            (
+                hx-12*s,
+                mouth_y,
+                hx+12*s,
+                mouth_y+12*s
+            ),
+            190,
+            350,
+            fill=(105, 35, 38),
+            width=max(1, int(3*s))
+        )
+
+    elif emotion == "surprised":
 
         draw.ellipse(
-            [
-                x + int(8 * scale),
-                y + int(165 * scale),
-                x + int(50 * scale),
-                y + int(190 * scale)
-            ],
-            fill=(20, 20, 25)
+            (
+                hx-5*s,
+                mouth_y-4*s,
+                hx+5*s,
+                mouth_y+7*s
+            ),
+            fill=(90, 30, 35)
         )
 
-        draw.rounded_rectangle(
-            [
-                x - int(25 * scale),
-                y,
-                x + int(25 * scale),
-                y + int(130 * scale)
-            ],
-            radius=int(12 * scale),
-            fill=shirt
-        )
+    else:
 
-        arm_y = y + int(25 * scale)
-        arm_length = int(60 * scale)
-
-        if action == "WAVE":
-
-            left_end = (
-                x - arm_length,
-                arm_y + arm_length
-            )
-
-            right_end = (
-                x + arm_length,
-                arm_y - int(60 * scale)
-                + int(math.sin(frame / 3) * 12)
-            )
-
-        elif action == "POINT":
-
-            left_end = (
-                x - arm_length,
-                arm_y + arm_length
-            )
-
-            right_end = (
-                x + arm_length * 2,
-                arm_y - 5
-            )
-
-        elif action in ["FIGHT", "PUNCH", "KICK"]:
-
-            left_end = (
-                x - arm_length,
-                arm_y - 12
-            )
-
-            right_end = (
-                x + arm_length,
-                arm_y + 15
-            )
-
-        else:
-
-            left_end = (
-                x - arm_length,
-                arm_y + int(movement * scale)
-            )
-
-            right_end = (
-                x + arm_length,
-                arm_y - int(movement * scale)
-            )
-
-        draw.line(
-            [(x - int(25 * scale), arm_y), left_end],
-            fill=skin,
-            width=max(5, int(15 * scale))
+        mouth_open = (
+            abs(math.sin(frame * 0.65)) * 5
+            if action == "talk"
+            else 1
         )
 
         draw.line(
-            [(x + int(25 * scale), arm_y), right_end],
-            fill=skin,
-            width=max(5, int(15 * scale))
+            (
+                hx-8*s,
+                mouth_y,
+                hx+8*s,
+                mouth_y+mouth_open
+            ),
+            fill=(90, 35, 35),
+            width=max(1, int(3*s))
         )
-
-        head_top = y - head_size
-
-        draw.ellipse(
-            [
-                x - head_size // 2,
-                head_top,
-                x + head_size // 2,
-                y + int(10 * scale)
-            ],
-            fill=skin
-        )
-
-        draw.pieslice(
-            [
-                x - head_size // 2,
-                head_top - int(12 * scale),
-                x + head_size // 2,
-                y
-            ],
-            180,
-            360,
-            fill=hair
-        )
-
-        eye_y = head_top + int(33 * scale)
-        eye_size = max(2, int(5 * scale))
-
-        draw.ellipse(
-            [
-                x - int(17 * scale),
-                eye_y,
-                x - int(17 * scale) + eye_size,
-                eye_y + eye_size
-            ],
-            fill=(15, 15, 20)
-        )
-
-        draw.ellipse(
-            [
-                x + int(12 * scale),
-                eye_y,
-                x + int(12 * scale) + eye_size,
-                eye_y + eye_size
-            ],
-            fill=(15, 15, 20)
-        )
-
-        mouth_y = head_top + int(50 * scale)
-
-        if emotion in [
-            "HAPPY", "SMILE", "LAUGHING", "EXCITED"
-        ]:
-
-            draw.arc(
-                [
-                    x - int(14 * scale),
-                    mouth_y - int(5 * scale),
-                    x + int(14 * scale),
-                    mouth_y + int(15 * scale)
-                ],
-                0,
-                180,
-                fill=(100, 25, 25),
-                width=max(2, int(3 * scale))
-            )
-
-        elif emotion in [
-            "SAD", "CRYING", "DISAPPOINTED"
-        ]:
-
-            draw.arc(
-                [
-                    x - int(14 * scale),
-                    mouth_y,
-                    x + int(14 * scale),
-                    mouth_y + int(16 * scale)
-                ],
-                180,
-                360,
-                fill=(100, 25, 25),
-                width=max(2, int(3 * scale))
-            )
-
-        elif emotion in ["SURPRISED", "SCARED"]:
-
-            draw.ellipse(
-                [
-                    x - int(5 * scale),
-                    mouth_y,
-                    x + int(5 * scale),
-                    mouth_y + int(12 * scale)
-                ],
-                fill=(80, 20, 20)
-            )
-
-        else:
-
-            draw.line(
-                [
-                    (x - int(11 * scale), mouth_y + int(5 * scale)),
-                    (x + int(11 * scale), mouth_y + int(5 * scale))
-                ],
-                fill=(100, 25, 25),
-                width=max(2, int(3 * scale))
-            )
-
-        if emotion in ["CRYING", "SAD"]:
-
-            draw.line(
-                [
-                    (x - int(17 * scale), eye_y + 5),
-                    (x - int(17 * scale), eye_y + int(22 * scale))
-                ],
-                fill=(80, 180, 255),
-                width=max(2, int(3 * scale))
-            )
-
-    font = load_font(
-        max(12, int(16 * scale)),
-        True
-    )
-
-    draw.text(
-        (x, y + int(205 * scale)),
-        name,
-        font=font,
-        fill=(240, 245, 255),
-        anchor="mm"
-    )
 
 
 # ============================================================
-# OBJECTS
+# SUBTITLE ENGINE
 # ============================================================
 
-def draw_objects(draw, objects, width, height):
-
-    for obj in objects:
-
-        x = int(width * 0.68)
-        y = int(height * 0.55)
-
-        if obj == "PAPER":
-
-            draw.rectangle(
-                [x, y, x + 80, y + 105],
-                fill=(245, 240, 220),
-                outline=(30, 30, 30),
-                width=3
-            )
-
-            for i in range(4):
-
-                draw.line(
-                    [
-                        (x + 10, y + 20 + i * 20),
-                        (x + 68, y + 20 + i * 20)
-                    ],
-                    fill=(100, 100, 100),
-                    width=2
-                )
-
-        elif obj == "PHONE":
-
-            draw.rounded_rectangle(
-                [x, y, x + 48, y + 95],
-                radius=7,
-                fill=(15, 15, 20),
-                outline=(180, 190, 210),
-                width=3
-            )
-
-            draw.rectangle(
-                [x + 5, y + 10, x + 43, y + 80],
-                fill=(50, 100, 160)
-            )
-
-        elif obj == "FLOWER":
-
-            draw.line(
-                [(x, y), (x, y + 80)],
-                fill=(20, 150, 60),
-                width=5
-            )
-
-            draw.ellipse(
-                [x - 16, y - 16, x + 16, y + 16],
-                fill=(255, 100, 150)
-            )
-
-        elif obj == "BOOK":
-
-            draw.rectangle(
-                [x, y, x + 85, y + 65],
-                fill=(160, 70, 50),
-                outline=(240, 220, 170),
-                width=3
-            )
-
-        elif obj == "CUP":
-
-            draw.rectangle(
-                [x, y, x + 40, y + 48],
-                fill=(230, 230, 240),
-                outline=(80, 80, 90),
-                width=3
-            )
-
-
-# ============================================================
-# SUBTITLE SYSTEM
-# ============================================================
-
-def draw_subtitle(image, text, width, height):
-
-    if not text:
-        return
+def draw_subtitle(image, text):
 
     draw = ImageDraw.Draw(image)
 
+    width, height = image.size
+
     font = load_font(
-        max(18, int(width * 0.032)),
-        True
+        max(18, int(width * 0.033)),
+        bold=True
     )
 
-    words = text.split()
+    max_chars = 42
 
+    words = text.split()
     lines = []
     current = ""
 
@@ -1091,13 +906,9 @@ def draw_subtitle(image, text, width, height):
 
         test = (current + " " + word).strip()
 
-        if len(test) > 34:
-
-            if current:
-                lines.append(current)
-
+        if len(test) > max_chars and current:
+            lines.append(current)
             current = word
-
         else:
             current = test
 
@@ -1106,382 +917,479 @@ def draw_subtitle(image, text, width, height):
 
     lines = lines[:3]
 
-    line_height = int(width * 0.05)
-    total_height = len(lines) * line_height
+    line_height = int(width * 0.055)
 
-    y = height - total_height - int(height * 0.10)
+    total_height = len(lines) * line_height + 30
+
+    box_y = height - total_height - 30
 
     draw.rounded_rectangle(
-        [
-            18,
-            y - 12,
-            width - 18,
-            y + total_height + 12
-        ],
-        radius=12,
-        fill=(5, 8, 18)
+        (
+            20,
+            box_y,
+            width - 20,
+            height - 18
+        ),
+        radius=15,
+        fill=(0, 0, 0, 175)
     )
 
-    for line in lines:
+    for i, line in enumerate(lines):
 
-        draw.text(
-            (width // 2, y),
+        bbox = draw.textbbox(
+            (0, 0),
             line,
-            font=font,
-            fill=(255, 255, 255),
-            anchor="mt",
-            stroke_width=1,
-            stroke_fill=(0, 0, 0)
+            font=font
         )
 
-        y += line_height
+        text_width = bbox[2] - bbox[0]
+
+        tx = (width - text_width) // 2
+        ty = box_y + 12 + i * line_height
+
+        draw.text(
+            (tx+2, ty+2),
+            line,
+            font=font,
+            fill=(0, 0, 0)
+        )
+
+        draw.text(
+            (tx, ty),
+            line,
+            font=font,
+            fill=(255, 255, 255)
+        )
 
 
 # ============================================================
-# RENDER ENGINE
+# CINEMATIC RENDER ENGINE
 # ============================================================
 
-def render_animation(
-    scenes,
-    output_file,
-    ratio,
-    style,
-    fps,
-    job_id
+def render_scene_frame(
+    width,
+    height,
+    frame,
+    scene_index,
+    scene,
+    character_positions
 ):
 
-    if ratio == "16:9":
-        width = 960
-        height = 540
-    else:
-        width = 540
-        height = 960
-
-    width -= width % 2
-    height -= height % 2
-
-    scene_duration = 3.0
-
-    duration = min(
-        len(scenes) * scene_duration,
-        MAX_DURATION
+    image = create_background(
+        width,
+        height,
+        scene_index
     )
 
-    total_frames = max(
-        1,
-        int(duration * fps)
+    # Cinematic glow
+    overlay = Image.new(
+        "RGBA",
+        (width, height),
+        (0, 0, 0, 0)
     )
+
+    glow = ImageDraw.Draw(overlay)
+
+    glow.ellipse(
+        (
+            width * 0.2,
+            height * 0.1,
+            width * 0.8,
+            height * 0.8
+        ),
+        fill=(50, 110, 180, 16)
+    )
+
+    overlay = overlay.filter(
+        ImageFilter.GaussianBlur(55)
+    )
+
+    image = Image.alpha_composite(
+        image.convert("RGBA"),
+        overlay
+    ).convert("RGB")
+
+    speaker = scene["speaker"]
+
+    char_index = character_positions[speaker]
+
+    center_x = width // 2
+
+    if len(character_positions) > 1:
+
+        if char_index % 2 == 0:
+            center_x = int(width * 0.34)
+        else:
+            center_x = int(width * 0.68)
+
+    ground_y = int(height * 0.84)
+
+    scale = min(width / 540, height / 960) * 1.5
+
+    draw_character(
+        image,
+        center_x,
+        ground_y,
+        frame,
+        emotion=scene["emotion"],
+        action=scene["action"],
+        character_index=char_index,
+        scale=scale
+    )
+
+    draw_subtitle(
+        image,
+        scene["dialogue"]
+    )
+
+    return image
+
+
+def write_raw_video(output_path, scenes, width, height, job_id):
+
+    ffmpeg = get_ffmpeg()
 
     command = [
-        get_ffmpeg(),
+
+        ffmpeg,
+
         "-y",
+
         "-f", "rawvideo",
         "-vcodec", "rawvideo",
         "-pix_fmt", "rgb24",
         "-s", f"{width}x{height}",
-        "-r", str(fps),
+        "-r", str(FPS),
+
         "-i", "-",
+
         "-an",
+
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-pix_fmt", "yuv420p",
+
         "-movflags", "+faststart",
-        str(output_file)
+
+        str(output_path)
+
     ]
 
     process = subprocess.Popen(
         command,
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        bufsize=1024 * 1024
+        stderr=subprocess.PIPE
     )
 
-    frame_index = 0
+    speakers = list(dict.fromkeys(
+        scene["speaker"] for scene in scenes
+    ))
+
+    positions = {
+        name: index
+        for index, name in enumerate(speakers)
+    }
+
+    total_frames = sum(
+        max(1, int(scene["duration"] * FPS))
+        for scene in scenes
+    )
+
+    current_frame = 0
 
     try:
 
-        for scene_index, scene_data in enumerate(scenes):
+        for scene_index, scene in enumerate(scenes):
 
-            scene_name = scene_data.get("scene", "ROOM")
-            action = scene_data.get("action", "TALK")
-            emotion = scene_data.get("emotion", "NEUTRAL")
-            character = scene_data.get("character", "Character")
-            objects = scene_data.get("objects", [])
-            dialogue = scene_data.get("text", "")
-
-            frames_per_scene = int(
-                scene_duration * fps
+            scene_frames = max(
+                1,
+                int(scene["duration"] * FPS)
             )
 
-            for local_frame in range(frames_per_scene):
+            for local_frame in range(scene_frames):
 
-                img = make_gradient(
+                image = render_scene_frame(
                     width,
                     height,
-                    scene_name
+                    local_frame,
+                    scene_index,
+                    scene,
+                    positions
                 )
 
-                draw = ImageDraw.Draw(img)
-
-                draw_background(
-                    draw,
-                    width,
-                    height,
-                    scene_name,
-                    frame_index
+                process.stdin.write(
+                    np.asarray(
+                        image,
+                        dtype=np.uint8
+                    ).tobytes()
                 )
 
-                draw_objects(
-                    draw,
-                    objects,
-                    width,
-                    height
-                )
+                current_frame += 1
 
-                if ratio == "16:9":
-                    char_x = int(width * 0.50)
-                    char_y = int(height * 0.46)
-                    scale = 1.0
-                else:
-                    char_x = int(width * 0.50)
-                    char_y = int(height * 0.45)
-                    scale = 1.15
-
-                if action in [
-                    "WALK", "RUN", "SLOW_WALK", "RUN_AWAY"
-                ]:
-
-                    movement = (
-                        local_frame / max(1, frames_per_scene)
-                    )
-
-                    if action == "RUN":
-                        movement *= 1.5
-
-                    char_x = int(
-                        width * (0.20 + 0.60 * movement)
-                    )
-
-                elif action == "WINDOW_EXIT":
-                    char_x = int(width * 0.75)
-
-                elif action == "WINDOW_ENTER":
-                    char_x = int(width * 0.30)
-
-                elif action in ["EXIT", "RUN_AWAY"]:
-                    char_x = int(
-                        width * (
-                            0.50
-                            + 0.40 * local_frame / frames_per_scene
-                        )
-                    )
-
-                elif action == "ENTER":
-                    char_x = int(
-                        width * (
-                            0.10
-                            + 0.40 * local_frame / frames_per_scene
-                        )
-                    )
-
-                draw_character(
-                    img,
-                    char_x,
-                    char_y,
-                    scale,
-                    character,
-                    style,
-                    action,
-                    emotion,
-                    local_frame
-                )
-
-                if scene_index == 0 and local_frame < fps:
-
-                    title_font = load_font(
-                        max(20, int(width * 0.045)),
-                        True
-                    )
-
-                    draw.text(
-                        (width // 2, int(height * 0.07)),
-                        "NEXORA ANIMATION",
-                        font=title_font,
-                        fill=(100, 220, 255),
-                        anchor="mm"
-                    )
-
-                draw_subtitle(
-                    img,
-                    dialogue,
-                    width,
-                    height
-                )
-
-                frame = np.asarray(
-                    img.convert("RGB"),
-                    dtype=np.uint8
-                )
-
-                try:
-                    process.stdin.write(frame.tobytes())
-                except (BrokenPipeError, OSError):
-                    raise RuntimeError(
-                        "FFmpeg stopped while receiving video frames."
-                    )
-
-                frame_index += 1
-
-                if frame_index % 12 == 0:
+                if current_frame % 10 == 0:
 
                     progress = int(
-                        10 + (
-                            frame_index / total_frames
-                        ) * 78
+                        55 +
+                        (current_frame / max(1, total_frames)) * 35
                     )
 
                     update_job(
                         job_id,
-                        status="rendering",
-                        progress=min(progress, 88),
-                        message="Rendering animation frames..."
+                        progress=progress,
+                        message="Rendering animation..."
                     )
-
-                del frame
-                del img
 
         process.stdin.close()
 
-        return_code = process.wait(timeout=600)
+        stderr = process.stderr.read()
+        return_code = process.wait()
 
         if return_code != 0:
-
             raise RuntimeError(
-                f"FFmpeg rendering failed with exit code: {return_code}"
+                stderr.decode(
+                    "utf-8",
+                    errors="ignore"
+                )[-3000:]
             )
 
-    finally:
+    except Exception:
 
-        if process.poll() is None:
+        try:
             process.kill()
+        except Exception:
+            pass
 
-        gc.collect()
+        raise
+
+
+# ============================================================
+# AUDIO ENGINE
+# ============================================================
+
+def combine_audio_files(audio_files, output_path):
+
+    if not audio_files:
+        return None
+
+    ffmpeg = get_ffmpeg()
+
+    list_file = output_path.parent / (
+        output_path.stem + "_audio_list.txt"
+    )
+
+    with open(list_file, "w", encoding="utf-8") as file:
+
+        for audio in audio_files:
+
+            escaped = str(audio).replace("'", "'\\''")
+
+            file.write(
+                "file '" + escaped + "'\n"
+            )
+
+    command = [
+
+        ffmpeg,
+        "-y",
+
+        "-f", "concat",
+        "-safe", "0",
+
+        "-i", str(list_file),
+
+        "-c:a", "aac",
+        "-b:a", "128k",
+
+        str(output_path)
+
+    ]
+
+    subprocess.run(
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        check=True
+    )
+
+    return output_path
+
+
+def mux_video_audio(video_path, audio_path, output_path):
+
+    ffmpeg = get_ffmpeg()
+
+    command = [
+
+        ffmpeg,
+        "-y",
+
+        "-i", str(video_path),
+        "-i", str(audio_path),
+
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+
+        "-c:v", "copy",
+        "-c:a", "aac",
+
+        "-shortest",
+        "-movflags", "+faststart",
+
+        str(output_path)
+
+    ]
+
+    subprocess.run(
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        check=True
+    )
 
 
 # ============================================================
 # COMPLETE ANIMATION JOB
 # ============================================================
 
-def process_animation_job(
-    job_id,
-    script,
-    ratio,
-    style,
-    voice_mode,
-    language,
-    uploaded_voice
-):
+def process_animation_job(job_id, script, ratio, style, voice_mode, lang_mode, voice_file=None):
 
     work_dir = JOB_DIR / job_id
-    work_dir.mkdir(parents=True, exist_ok=True)
 
-    silent_video = work_dir / "silent.mp4"
-    generated_audio = work_dir / "voice.mp3"
-    final_video = OUTPUT_DIR / f"{job_id}.mp4"
+    work_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
     try:
 
-        with render_lock:
+        update_job(
+            job_id,
+            status="processing",
+            progress=3,
+            message="Understanding your story..."
+        )
 
-            update_job(
-                job_id,
-                status="rendering",
-                progress=2,
-                message="Preparing animation..."
+        scenes = parse_script(script)
+
+        if not scenes:
+            raise ValueError(
+                "No valid dialogue found in your script."
             )
 
-            scenes = parse_script(script)
+        if voice_mode == "manual" and voice_file:
 
-            if not scenes:
-                raise RuntimeError("No scenes found in script.")
+            uploaded_voice = UPLOAD_DIR / (
+                job_id + Path(voice_file.filename).suffix
+            )
 
-            audio_file = None
+            voice_file.save(uploaded_voice)
 
-            if uploaded_voice and Path(uploaded_voice).exists():
+            # Manual voice is used as a single narration track.
+            audio_files = [uploaded_voice]
 
-                audio_file = uploaded_voice
+            for scene in scenes:
+                scene["duration"] = 3.0
+
+        else:
+
+            audio_files = []
+
+            for index, scene in enumerate(scenes):
 
                 update_job(
                     job_id,
-                    progress=5,
-                    message="Using uploaded voice recording..."
+                    progress=8 + int(
+                        index / max(1, len(scenes)) * 20
+                    ),
+                    message="Generating dialogue voice..."
                 )
 
-            elif voice_mode == "auto":
-
-                update_job(
-                    job_id,
-                    progress=5,
-                    message="Generating AI voice..."
+                audio_path = work_dir / (
+                    f"voice_{index:03d}.mp3"
                 )
 
-                success = make_voice_audio(
-                    scenes,
-                    generated_audio,
-                    language
+                generate_voice(
+                    scene["dialogue"],
+                    audio_path,
+                    lang_mode
                 )
 
-                if success:
-                    audio_file = generated_audio
+                audio_files.append(audio_path)
 
-            update_job(
-                job_id,
-                status="rendering",
-                progress=10,
-                message="Creating animation scenes..."
+                scene["duration"] = max(
+                    2.5,
+                    get_media_duration(audio_path)
+                )
+
+        total_duration = sum(
+            scene["duration"]
+            for scene in scenes
+        )
+
+        if total_duration > MAX_DURATION:
+
+            raise ValueError(
+                f"Your animation is too long. Maximum duration is {MAX_DURATION} seconds."
             )
 
-            render_animation(
-                scenes=scenes,
-                output_file=silent_video,
-                ratio=ratio,
-                style=style,
-                fps=DEFAULT_FPS,
-                job_id=job_id
-            )
+        update_job(
+            job_id,
+            progress=35,
+            message="Preparing animation scenes..."
+        )
 
-            update_job(
-                job_id,
-                status="encoding",
-                progress=90,
-                message="Encoding final MP4..."
-            )
+        if ratio == "16:9":
 
-            encode_audio_video(
-                silent_video,
-                final_video,
-                audio_file
-            )
+            width = 960
+            height = 540
 
-            if not final_video.exists():
-                raise RuntimeError("Final MP4 was not created.")
+        else:
 
-            if final_video.stat().st_size == 0:
-                raise RuntimeError("Final MP4 is empty.")
+            width = 540
+            height = 960
 
-            duration = probe_duration(final_video)
+        silent_video = work_dir / "silent.mp4"
+        audio_output = work_dir / "audio.m4a"
 
-            update_job(
-                job_id,
-                status="completed",
-                progress=100,
-                message="Animation completed successfully!",
-                video_url=f"/api/video/{job_id}",
-                file_name=f"NEXORA_{job_id}.mp4",
-                file_size=final_video.stat().st_size,
-                duration=duration
-            )
+        final_video = VIDEO_DIR / (
+            job_id + ".mp4"
+        )
+
+        write_raw_video(
+            silent_video,
+            scenes,
+            width,
+            height,
+            job_id
+        )
+
+        update_job(
+            job_id,
+            progress=93,
+            message="Combining video and audio..."
+        )
+
+        combine_audio_files(
+            audio_files,
+            audio_output
+        )
+
+        mux_video_audio(
+            silent_video,
+            audio_output,
+            final_video
+        )
+
+        update_job(
+            job_id,
+            status="completed",
+            progress=100,
+            message="Animation completed!",
+            video_url=f"/api/video/{job_id}",
+            duration=round(total_duration, 2),
+            scenes=len(scenes)
+        )
 
     except Exception as error:
 
@@ -1491,206 +1399,152 @@ def process_animation_job(
             job_id,
             status="failed",
             progress=0,
-            message="Animation rendering failed.",
+            message=str(error),
             error=str(error)
         )
 
     finally:
 
-        try:
-            if silent_video.exists():
-                silent_video.unlink()
-        except Exception:
-            pass
-
         gc.collect()
 
 
 # ============================================================
-# FRONTEND ROUTE
+# API ROUTES
 # ============================================================
 
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
 
     index_file = BASE_DIR / "index.html"
 
-    if index_file.exists():
-        return send_file(index_file)
+    if not index_file.exists():
+        return "NEXORA AI Animation Studio backend is running."
 
-    return jsonify({
-        "name": "NEXORA AI Animation Studio",
-        "status": "online",
-        "message": "Backend running. index.html not found."
-    })
+    return send_file(index_file)
 
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
-
-@app.route("/api/ping", methods=["GET"])
+@app.route("/api/ping")
 def ping():
 
     return jsonify({
-        "success": True,
+
         "status": "online",
         "app": "NEXORA AI Animation Studio",
-        "version": "2.0",
-        "time": datetime.utcnow().isoformat()
+        "version": "1.0.0",
+        "engine": "Human 2D Rig Animation",
+        "fps": FPS
+
     })
 
-
-# ============================================================
-# START RENDER
-# ============================================================
 
 @app.route("/api/start", methods=["POST"])
 def start_animation():
 
-    try:
+    script = request.form.get(
+        "script",
+        ""
+    ).strip()
 
-        script = request.form.get(
-            "script", ""
-        ).strip()
+    ratio = request.form.get(
+        "ratio",
+        "9:16"
+    )
 
-        ratio = request.form.get(
-            "ratio", "9:16"
-        )
+    style = request.form.get(
+        "style",
+        "cartoon"
+    )
 
-        style = request.form.get(
-            "style", "cartoon"
-        )
+    voice_mode = request.form.get(
+        "voice_mode",
+        "auto"
+    )
 
-        voice_mode = request.form.get(
-            "voice_mode", "auto"
-        )
+    lang_mode = request.form.get(
+        "lang_mode",
+        "hindi"
+    )
 
-        language = request.form.get(
-            "lang_mode", "hindi"
-        )
+    voice_file = request.files.get(
+        "voice_file"
+    )
 
-        if not script:
+    if not script:
 
-            return jsonify({
-                "success": False,
-                "error": "Please enter an animation script."
-            }), 400
+        return jsonify({
+            "error": "Please enter your story or dialogue."
+        }), 400
 
-        if len(script) > 50000:
+    if ratio not in ["9:16", "16:9"]:
 
-            return jsonify({
-                "success": False,
-                "error": "Script is too long."
-            }), 400
+        ratio = "9:16"
 
-        if ratio not in ["9:16", "16:9"]:
-            ratio = "9:16"
+    if lang_mode not in ["hindi", "english"]:
 
-        if style not in ["cartoon", "stickman"]:
-            style = "cartoon"
+        lang_mode = "hindi"
 
-        if voice_mode not in ["auto", "manual"]:
-            voice_mode = "auto"
+    if voice_mode not in ["auto", "manual"]:
 
-        if language.lower() not in ["hindi", "english"]:
-            language = "hindi"
+        voice_mode = "auto"
 
-        # Avoid excessive queued jobs on a small server
-        with jobs_lock:
+    with jobs_lock:
 
-            active_jobs = [
-                item for item in jobs.values()
-                if item.get("status") in [
-                    "queued", "rendering", "encoding"
-                ]
+        active_jobs = sum(
+
+            1 for job in jobs.values()
+
+            if job.get("status") in [
+                "queued",
+                "processing"
             ]
 
-            if len(active_jobs) >= 2:
-
-                return jsonify({
-                    "success": False,
-                    "error": "Render queue is busy. Please wait for the current video."
-                }), 429
-
-        job_id = uuid.uuid4().hex[:12]
-
-        uploaded_voice_path = None
-
-        if "voice_file" in request.files:
-
-            voice = request.files["voice_file"]
-
-            if voice and voice.filename:
-
-                filename = secure_filename(
-                    voice.filename
-                )
-
-                extension = Path(filename).suffix.lower()
-
-                if extension not in ALLOWED_AUDIO:
-
-                    return jsonify({
-                        "success": False,
-                        "error": "Unsupported voice file format."
-                    }), 400
-
-                uploaded_voice_path = (
-                    UPLOAD_DIR / f"{job_id}{extension}"
-                )
-
-                voice.save(uploaded_voice_path)
-
-        with jobs_lock:
-
-            jobs[job_id] = {
-                "job_id": job_id,
-                "status": "queued",
-                "progress": 0,
-                "message": "Waiting for render worker...",
-                "created_at": time.time(),
-                "updated_at": time.time(),
-                "video_url": None,
-                "file_name": None,
-                "error": None
-            }
-
-        executor.submit(
-            process_animation_job,
-            job_id,
-            script,
-            ratio,
-            style,
-            voice_mode,
-            language,
-            uploaded_voice_path
         )
 
-        return jsonify({
-            "success": True,
+        if active_jobs >= 2:
+
+            return jsonify({
+
+                "error": "Server queue is full. Please wait."
+
+            }), 429
+
+        job_id = str(uuid.uuid4())
+
+        jobs[job_id] = {
+
             "job_id": job_id,
             "status": "queued",
-            "message": "Animation job accepted.",
-            "status_url": f"/api/status/{job_id}",
-            "video_url": None
-        }), 202
+            "progress": 0,
+            "message": "Waiting for animation engine...",
+            "created_at": time.time(),
+            "updated_at": time.time()
 
-    except Exception as error:
+        }
 
-        traceback.print_exc()
+    executor.submit(
 
-        return jsonify({
-            "success": False,
-            "error": str(error)
-        }), 500
+        process_animation_job,
+
+        job_id,
+        script,
+        ratio,
+        style,
+        voice_mode,
+        lang_mode,
+        voice_file
+
+    )
+
+    return jsonify({
+
+        "success": True,
+        "job_id": job_id,
+        "message": "Animation job created."
+
+    })
 
 
-# ============================================================
-# CHECK RENDER STATUS
-# ============================================================
-
-@app.route("/api/status/<job_id>", methods=["GET"])
+@app.route("/api/status/<job_id>")
 def animation_status(job_id):
 
     job = get_job(job_id)
@@ -1698,94 +1552,130 @@ def animation_status(job_id):
     if not job:
 
         return jsonify({
-            "success": False,
-            "error": "Job not found."
-        }), 404
-
-    return jsonify({
-        "success": True,
-        "job_id": job_id,
-        "status": job.get("status"),
-        "progress": job.get("progress", 0),
-        "message": job.get("message", ""),
-        "error": job.get("error"),
-        "video_url": job.get("video_url"),
-        "file_name": job.get("file_name"),
-        "file_size": job.get("file_size"),
-        "duration": job.get("duration")
-    })
-
-
-# ============================================================
-# VIDEO PLAY / DOWNLOAD
-# ============================================================
-
-@app.route("/api/video/<job_id>", methods=["GET"])
-def download_video(job_id):
-
-    video_file = OUTPUT_DIR / f"{job_id}.mp4"
-
-    if not video_file.exists():
-        abort(404)
-
-    download = request.args.get("dl") == "1"
-
-    return send_file(
-        video_file,
-        mimetype="video/mp4",
-        as_attachment=download,
-        download_name=f"NEXORA_{job_id}.mp4",
-        conditional=True
-    )
-
-
-# ============================================================
-# JOB INFORMATION
-# ============================================================
-
-@app.route("/api/job/<job_id>", methods=["GET"])
-def job_information(job_id):
-
-    job = get_job(job_id)
-
-    if not job:
-
-        return jsonify({
-            "success": False,
             "error": "Job not found."
         }), 404
 
     return jsonify(job)
 
 
+@app.route("/api/job/<job_id>")
+def animation_job(job_id):
+
+    job = get_job(job_id)
+
+    if not job:
+
+        return jsonify({
+            "error": "Job not found."
+        }), 404
+
+    return jsonify(job)
+
+
+@app.route("/api/video/<job_id>")
+def get_video(job_id):
+
+    video_path = VIDEO_DIR / (
+        job_id + ".mp4"
+    )
+
+    if not video_path.exists():
+
+        return jsonify({
+            "error": "Video is not ready."
+        }), 404
+
+    return send_file(
+
+        video_path,
+
+        mimetype="video/mp4",
+
+        as_attachment=False,
+
+        download_name="NEXORA_Animation.mp4"
+
+    )
+
+
+@app.route("/api/download/<job_id>")
+def download_video(job_id):
+
+    video_path = VIDEO_DIR / (
+        job_id + ".mp4"
+    )
+
+    if not video_path.exists():
+
+        return jsonify({
+            "error": "Video is not ready."
+        }), 404
+
+    return send_file(
+
+        video_path,
+
+        mimetype="video/mp4",
+
+        as_attachment=True,
+
+        download_name="NEXORA_Animation.mp4"
+
+    )
+
+
+@app.route("/api/health")
+def health():
+
+    return jsonify({
+
+        "status": "healthy",
+        "time": datetime.utcnow().isoformat(),
+        "active_jobs": sum(
+
+            1 for job in jobs.values()
+
+            if job.get("status") in [
+                "queued",
+                "processing"
+            ]
+
+        )
+
+    })
+
+
 # ============================================================
 # ERROR HANDLERS
 # ============================================================
-
-@app.errorhandler(404)
-def not_found(error):
-
-    return jsonify({
-        "success": False,
-        "error": "Requested resource was not found."
-    }), 404
-
 
 @app.errorhandler(413)
 def file_too_large(error):
 
     return jsonify({
-        "success": False,
-        "error": "File too large. Maximum upload size is 100 MB."
+
+        "error": "Uploaded file is too large. Maximum is 100 MB."
+
     }), 413
 
 
-@app.errorhandler(500)
-def server_error(error):
+@app.errorhandler(404)
+def not_found(error):
 
     return jsonify({
-        "success": False,
+
+        "error": "Requested resource was not found."
+
+    }), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+
+    return jsonify({
+
         "error": "Internal server error."
+
     }), 500
 
 
@@ -1800,8 +1690,13 @@ if __name__ == "__main__":
     )
 
     app.run(
+
         host="0.0.0.0",
+
         port=port,
+
         debug=False,
+
         threaded=True
+
     )
