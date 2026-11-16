@@ -3,1115 +3,1447 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="theme-color" content="#04060c">
-<title>NEXORA 2D Animation Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#080b14">
+<title>NEXORA AI Animation Studio</title>
 
 <style>
 :root{
---bg:#04060c;
---card:#0e1627;
---input:#080e1b;
---border:rgba(148,163,184,.18);
---cyan:#22d3ee;
---violet:#a855f7;
---green:#10b981;
---red:#fb4565;
---white:#f8fafc;
---muted:#94a3b8;
+  --bg:#080b14;
+  --panel:#101625;
+  --panel2:#141d30;
+  --border:rgba(120,160,220,.16);
+  --cyan:#35d9f5;
+  --violet:#9370ff;
+  --text:#f1f5ff;
+  --muted:#8c9ab4;
+  --green:#40e6a0;
+  --red:#ff627e;
 }
 
 *{
-box-sizing:border-box;
-margin:0;
-padding:0;
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
 }
 
 body{
-min-height:100vh;
-background:
-radial-gradient(circle at 80% 0%,#17234a 0%,transparent 35%),
-radial-gradient(circle at 0% 50%,#15102b 0%,transparent 35%),
-var(--bg);
-color:var(--white);
-font-family:system-ui,-apple-system,Segoe UI,sans-serif;
-padding-bottom:40px;
+  min-height:100vh;
+  background:
+    radial-gradient(ellipse at 10% 0%,rgba(34,115,180,.13),transparent 40%),
+    radial-gradient(ellipse at 90% 20%,rgba(120,70,200,.12),transparent 35%),
+    var(--bg);
+  color:var(--text);
+  font-family:Inter,Arial,sans-serif;
 }
 
-button,input,select,textarea{
-font:inherit;
-}
-
-.topbar{
-position:sticky;
-top:0;
-z-index:100;
-background:rgba(4,6,12,.94);
-backdrop-filter:blur(16px);
-border-bottom:1px solid var(--border);
-padding:13px 18px;
-display:flex;
-justify-content:space-between;
-align-items:center;
-gap:10px;
-}
-
-.brand{
-display:flex;
-align-items:center;
-gap:11px;
-}
-
-.logo{
-width:42px;
-height:42px;
-display:grid;
-place-items:center;
-border-radius:12px;
-background:linear-gradient(135deg,var(--cyan),var(--violet));
-color:#020617;
-font-size:16px;
-font-weight:1000;
-box-shadow:0 0 25px rgba(34,211,238,.2);
-}
-
-.brand-name{
-font-size:15px;
-font-weight:950;
-letter-spacing:.5px;
-}
-
-.brand-sub{
-font-size:10px;
-color:var(--cyan);
-margin-top:3px;
-}
-
-.status-badge{
-font-size:10px;
-font-weight:850;
-padding:7px 11px;
-border-radius:30px;
-background:rgba(16,185,129,.12);
-border:1px solid rgba(16,185,129,.3);
-color:#34d399;
-white-space:nowrap;
-}
-
-.container{
-max-width:1150px;
-margin:auto;
-padding:18px;
-display:grid;
-grid-template-columns:1.05fr .95fr;
-gap:17px;
-align-items:start;
-}
-
-.card{
-background:linear-gradient(145deg,rgba(17,27,46,.96),rgba(9,14,26,.97));
-border:1px solid var(--border);
-border-radius:17px;
-padding:17px;
-margin-bottom:15px;
-box-shadow:0 10px 35px rgba(0,0,0,.15);
-}
-
-.card-title{
-font-size:14px;
-font-weight:900;
-margin-bottom:15px;
-display:flex;
-align-items:center;
-gap:9px;
-}
-
-.step{
-width:25px;
-height:25px;
-display:grid;
-place-items:center;
-border-radius:8px;
-background:rgba(34,211,238,.13);
-color:var(--cyan);
-}
-
-.label{
-display:block;
-font-size:10px;
-font-weight:850;
-letter-spacing:.7px;
-color:var(--muted);
-margin-bottom:8px;
-text-transform:uppercase;
-}
-
-.option-grid{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:10px;
-margin-bottom:13px;
-}
-
-.option{
-padding:13px 8px;
-border-radius:11px;
-border:1px solid var(--border);
-background:var(--input);
-color:var(--muted);
-font-size:11px;
-font-weight:850;
-cursor:pointer;
-transition:.2s;
-}
-
-.option.active{
-border-color:var(--cyan);
-background:rgba(34,211,238,.1);
-color:var(--cyan);
-box-shadow:inset 0 0 15px rgba(34,211,238,.05);
-}
-
-select,textarea,input[type=file]{
-width:100%;
-background:var(--input);
-border:1px solid var(--border);
-border-radius:11px;
-padding:12px;
-color:var(--white);
-outline:none;
-font-size:12px;
-}
-
-select:focus,textarea:focus{
-border-color:var(--cyan);
-}
-
-textarea{
-min-height:240px;
-resize:vertical;
-line-height:1.7;
+button,input,textarea,select{
+  font:inherit;
 }
 
 button{
-cursor:pointer;
+  cursor:pointer;
+}
+
+.app{
+  max-width:1250px;
+  margin:auto;
+  padding:18px;
+}
+
+header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+  padding:15px 0 22px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:22px;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.logo{
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  color:#07101b;
+  font-weight:1000;
+  font-size:21px;
+  box-shadow:0 0 25px rgba(53,217,245,.25);
+}
+
+.brand h1{
+  font-size:19px;
+  letter-spacing:1px;
+}
+
+.brand p{
+  color:var(--muted);
+  font-size:11px;
+  margin-top:4px;
+}
+
+.status{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 13px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  border-radius:30px;
+  font-size:11px;
+  color:var(--muted);
+}
+
+.dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#e9ae4d;
+}
+
+.dot.online{
+  background:var(--green);
+  box-shadow:0 0 10px var(--green);
+}
+
+.hero{
+  margin:24px 0;
+}
+
+.hero h2{
+  font-size:clamp(25px,5vw,37px);
+  letter-spacing:-1px;
+  line-height:1.2;
+}
+
+.gradient{
+  background:linear-gradient(90deg,var(--cyan),#b18aff);
+  background-clip:text;
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+.hero p{
+  color:var(--muted);
+  margin-top:10px;
+  font-size:13px;
+  line-height:1.7;
+}
+
+.layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);
+  gap:18px;
+  align-items:start;
+}
+
+.panel{
+  background:linear-gradient(145deg,rgba(20,29,48,.96),rgba(12,18,31,.96));
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 15px 45px rgba(0,0,0,.15);
+  margin-bottom:17px;
+}
+
+.panel-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:17px;
+}
+
+.panel-title h3{
+  font-size:15px;
+}
+
+.panel-title span{
+  font-size:10px;
+  color:var(--cyan);
+  background:rgba(53,217,245,.08);
+  padding:6px 9px;
+  border-radius:20px;
+}
+
+label{
+  display:block;
+  color:#bdc9df;
+  font-size:12px;
+  margin-bottom:9px;
+}
+
+textarea{
+  width:100%;
+  min-height:240px;
+  resize:vertical;
+  padding:15px;
+  background:#090f1c;
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:12px;
+  outline:none;
+  line-height:1.8;
+  font-size:13px;
+}
+
+textarea:focus,input:focus,select:focus{
+  border-color:var(--cyan);
+  box-shadow:0 0 0 3px rgba(53,217,245,.08);
+}
+
+textarea::placeholder{
+  color:#66748e;
+}
+
+.hint{
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.7;
+  margin-top:9px;
+}
+
+.actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
 }
 
 .btn{
-padding:11px 14px;
-border-radius:10px;
-border:1px solid var(--border);
-background:#1c293e;
-color:white;
-font-size:11px;
-font-weight:850;
+  border:1px solid var(--border);
+  background:#182238;
+  color:var(--text);
+  padding:10px 13px;
+  border-radius:9px;
+  font-size:11px;
+  transition:.2s;
+}
+
+.btn:hover{
+  border-color:var(--cyan);
+  transform:translateY(-1px);
+}
+
+.btn.primary{
+  background:linear-gradient(100deg,#23bcd8,#7661e8);
+  border:0;
+  color:white;
+  font-weight:800;
 }
 
 .btn:disabled{
-opacity:.45;
-cursor:not-allowed;
+  opacity:.5;
+  cursor:not-allowed;
+  transform:none;
 }
 
-.btn-primary{
-width:100%;
-padding:15px;
-margin-top:12px;
-border:none;
-border-radius:12px;
-background:linear-gradient(120deg,var(--cyan),var(--violet));
-color:#030712;
-font-size:13px;
-font-weight:1000;
-box-shadow:0 5px 25px rgba(34,211,238,.14);
+.grid2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:13px;
 }
 
-.btn-primary:disabled{
-opacity:.5;
+.field{
+  margin-bottom:17px;
 }
 
-.btn-row{
-display:flex;
-gap:9px;
-margin-top:10px;
+select,input[type="text"]{
+  width:100%;
+  padding:12px;
+  border:1px solid var(--border);
+  background:#090f1c;
+  color:var(--text);
+  border-radius:10px;
+  outline:none;
+  font-size:12px;
 }
 
-.btn-row button{
-flex:1;
+input[type="file"]{
+  width:100%;
+  color:var(--muted);
+  font-size:11px;
+  background:#090f1c;
+  border:1px dashed var(--border);
+  padding:13px;
+  border-radius:10px;
 }
 
-.voice-panel{
-padding:12px;
-border:1px solid var(--border);
-background:rgba(0,0,0,.13);
-border-radius:12px;
-margin-top:10px;
+.segment{
+  display:flex;
+  gap:8px;
 }
 
-.small-info{
-font-size:10px;
-color:var(--muted);
-line-height:1.6;
-margin-top:9px;
+.segment button{
+  flex:1;
+  padding:12px 8px;
+  background:#0b1220;
+  border:1px solid var(--border);
+  color:var(--muted);
+  border-radius:10px;
+  font-size:12px;
 }
 
-.progress-area{
-padding:12px;
-border:1px solid var(--border);
-border-radius:12px;
-background:var(--input);
+.segment button.active{
+  color:var(--cyan);
+  border-color:var(--cyan);
+  background:rgba(53,217,245,.08);
 }
 
-.progress-head{
-display:flex;
-justify-content:space-between;
-align-items:center;
-font-size:11px;
-font-weight:800;
-gap:10px;
+.generate{
+  width:100%;
+  padding:16px;
+  border:0;
+  border-radius:12px;
+  color:white;
+  background:linear-gradient(105deg,#1fbddc,#7956ee);
+  font-size:14px;
+  font-weight:900;
+  letter-spacing:.5px;
+  box-shadow:0 8px 25px rgba(75,120,255,.2);
+  transition:.2s;
 }
 
-.progress-track{
-height:10px;
-background:#020617;
-border-radius:20px;
-overflow:hidden;
-margin:12px 0;
+.generate:active{
+  transform:scale(.98);
 }
 
-.progress-fill{
-height:100%;
-width:0%;
-border-radius:20px;
-background:linear-gradient(90deg,var(--cyan),var(--violet),var(--red));
-transition:width .3s;
+.generate:disabled{
+  opacity:.5;
+  cursor:not-allowed;
 }
 
-.progress-note{
-font-size:10px;
-color:var(--muted);
+.preview{
+  min-height:300px;
+  background:
+    radial-gradient(ellipse at center,rgba(43,93,140,.15),transparent 70%),
+    #080d18;
+  border:1px solid var(--border);
+  border-radius:14px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  padding:15px;
+  text-align:center;
 }
 
-.output-box{
-min-height:260px;
-margin-top:13px;
-padding:13px;
-border:1px dashed rgba(148,163,184,.25);
-border-radius:13px;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-text-align:center;
-color:var(--muted);
+.preview-icon{
+  font-size:45px;
+  margin-bottom:15px;
+  filter:drop-shadow(0 0 20px rgba(53,217,245,.35));
 }
 
-.output-icon{
-font-size:40px;
-margin-bottom:10px;
+.preview h4{
+  font-size:14px;
+}
+
+.preview p{
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.7;
+  margin-top:8px;
 }
 
 video{
-width:100%;
-max-height:550px;
-background:black;
-border-radius:12px;
+  width:100%;
+  max-height:550px;
+  border-radius:10px;
+  background:#000;
 }
 
-.download-btn{
-display:block;
-padding:14px;
-margin-top:12px;
-background:var(--green);
-color:#02140e;
-font-size:12px;
-font-weight:950;
-text-decoration:none;
-text-align:center;
-border-radius:11px;
+.progress-area{
+  display:none;
+  margin-top:18px;
 }
 
-.error{
-color:#fb7185;
+.progress-top{
+  display:flex;
+  justify-content:space-between;
+  font-size:11px;
+  color:var(--muted);
+  margin-bottom:9px;
+  gap:10px;
 }
 
-.success{
-color:#34d399;
+.progress-track{
+  height:8px;
+  background:#070d18;
+  border-radius:20px;
+  overflow:hidden;
+  border:1px solid var(--border);
 }
 
-.hidden{
-display:none!important;
+.progress-fill{
+  width:0%;
+  height:100%;
+  background:linear-gradient(90deg,var(--cyan),var(--violet));
+  border-radius:20px;
+  transition:width .5s;
 }
 
-.footer{
-text-align:center;
-padding:18px;
-color:#64748b;
-font-size:10px;
+.message{
+  font-size:11px;
+  color:var(--cyan);
+  margin-top:10px;
+  line-height:1.6;
+}
+
+.result-actions{
+  display:none;
+  gap:9px;
+  margin-top:15px;
+}
+
+.result-actions .btn{
+  flex:1;
+  text-align:center;
+  text-decoration:none;
+}
+
+.engine-list{
+  display:grid;
+  gap:12px;
+}
+
+.engine-item{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:12px;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.055);
+  border-radius:11px;
+}
+
+.engine-icon{
+  width:35px;
+  height:35px;
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  background:rgba(53,217,245,.08);
+  font-size:17px;
+}
+
+.engine-item h4{
+  font-size:11px;
+}
+
+.engine-item p{
+  color:var(--muted);
+  font-size:10px;
+  margin-top:4px;
+}
+
+.tag{
+  margin-left:auto;
+  color:var(--green);
+  font-size:9px;
+}
+
+.script-guide{
+  margin-top:14px;
+  padding:13px;
+  background:rgba(53,217,245,.045);
+  border:1px solid rgba(53,217,245,.12);
+  border-radius:11px;
+}
+
+.script-guide h4{
+  font-size:11px;
+  margin-bottom:8px;
+  color:var(--cyan);
+}
+
+.script-guide p{
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.9;
+  white-space:pre-line;
+}
+
+footer{
+  text-align:center;
+  color:#64728b;
+  font-size:10px;
+  padding:25px 10px;
+}
+
+.toast{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translate(-50%,20px);
+  background:#1b2940;
+  border:1px solid var(--border);
+  color:white;
+  padding:12px 18px;
+  border-radius:10px;
+  font-size:12px;
+  opacity:0;
+  pointer-events:none;
+  transition:.3s;
+  z-index:100;
+  max-width:90%;
+  text-align:center;
+}
+
+.toast.show{
+  opacity:1;
+  transform:translate(-50%,0);
 }
 
 @media(max-width:850px){
-.container{
-grid-template-columns:1fr;
-padding:12px;
-}
-.topbar{
-padding:11px 12px;
-}
-.brand-name{
-font-size:12px;
-}
-.brand-sub{
-font-size:9px;
-}
+  .layout{
+    grid-template-columns:1fr;
+  }
 }
 
-@media(max-width:400px){
-.option-grid{
-gap:7px;
-}
-.option{
-font-size:10px;
-}
-.card{
-padding:13px;
-}
-.status-badge{
-font-size:9px;
-padding:6px;
-}
+@media(max-width:480px){
+  .app{
+    padding:12px;
+  }
+
+  header{
+    padding:10px 0 17px;
+  }
+
+  .brand h1{
+    font-size:15px;
+  }
+
+  .status{
+    padding:8px;
+    font-size:9px;
+  }
+
+  .panel{
+    padding:15px;
+  }
+
+  textarea{
+    min-height:220px;
+  }
+
+  .grid2{
+    gap:9px;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<header class="topbar">
+<div class="app">
 
-<div class="brand">
-<div class="logo">NX</div>
-<div>
-<div class="brand-name">NEXORA ANIMATION STUDIO</div>
-<div class="brand-sub">PROCEDURAL 2D • CHARACTER RIG • VIDEO ENGINE</div>
-</div>
-</div>
+<header>
 
-<div class="status-badge" id="connection-badge">
-● CONNECTING
-</div>
+  <div class="brand">
+
+    <div class="logo">N</div>
+
+    <div>
+      <h1>NEXORA <span class="gradient">AI</span></h1>
+      <p>ANIMATION STUDIO · HUMAN 2D ENGINE</p>
+    </div>
+
+  </div>
+
+  <div class="status">
+    <span class="dot" id="serverDot"></span>
+    <span id="serverStatus">Connecting...</span>
+  </div>
 
 </header>
 
 
-<main class="container">
+<section class="hero">
 
-<section>
+  <h2>
+    Your Story.<br>
+    <span class="gradient">Animated Automatically.</span>
+  </h2>
 
-<!-- VIDEO SETTINGS -->
-
-<div class="card">
-
-<div class="card-title">
-<span class="step">01</span>
-Video Format & Character Style
-</div>
-
-<span class="label">Video Aspect Ratio</span>
-
-<div class="option-grid">
-<button class="option active" data-group="ratio" data-value="9:16">
-9:16 REELS / SHORTS
-</button>
-
-<button class="option" data-group="ratio" data-value="16:9">
-16:9 YOUTUBE
-</button>
-</div>
-
-<span class="label">Animation Style</span>
-
-<div class="option-grid">
-<button class="option active" data-group="style" data-value="cartoon">
-🎨 2D CARTOON
-</button>
-
-<button class="option" data-group="style" data-value="stickman">
-🏃 STICKMAN
-</button>
-</div>
-
-<p class="small-info">
-Select the video format and animation style before rendering.
-</p>
-
-</div>
-
-
-<!-- VOICE SETTINGS -->
-
-<div class="card">
-
-<div class="card-title">
-<span class="step">02</span>
-Voice & Audio Settings
-</div>
-
-<div class="option-grid">
-<button class="option active" data-group="voice" data-value="auto">
-🤖 AI VOICE
-</button>
-
-<button class="option" data-group="voice" data-value="manual">
-🎙 OWN VOICE
-</button>
-</div>
-
-<div id="auto-voice-box" class="voice-panel">
-
-<span class="label">Voice Language</span>
-
-<select id="lang-mode">
-<option value="HINDI">Hindi / Hinglish</option>
-<option value="ENGLISH">Indian English</option>
-</select>
-
-<p class="small-info">
-AI voice generation requires the corresponding backend TTS support.
-</p>
-
-</div>
-
-<div id="manual-voice-box" class="voice-panel hidden">
-
-<span class="label">Upload Audio</span>
-
-<input type="file" id="voice-file" accept="audio/*">
-
-<div class="btn-row">
-
-<button class="btn" id="btn-rec">
-🔴 Record
-</button>
-
-<button class="btn" id="btn-stop" disabled>
-⏹ Stop
-</button>
-
-</div>
-
-<div id="rec-status" class="small-info"></div>
-
-<p class="small-info">
-Microphone recording requires HTTPS and browser permission.
-</p>
-
-</div>
-
-</div>
-
-
-<!-- SCRIPT EDITOR -->
-
-<div class="card">
-
-<div class="card-title">
-<span class="step">03</span>
-Story & Action Script
-</div>
-
-<textarea id="script" placeholder="Write your story here...
-
-Example:
-
-[Aarav] [HAPPY] Hello friends!
-[WALK] [Aarav] [HAPPY] Today I am walking on the road.
-[WAVE] [Maya] [HAPPY] Hello Aarav!"></textarea>
-
-<div class="btn-row">
-<button class="btn" id="btn-demo">
-📄 Load Demo
-</button>
-
-<button class="btn" id="btn-clear">
-🗑 Clear Script
-</button>
-</div>
-
-<button class="btn-primary" id="btn-render">
-🎬 START 2D ANIMATION RENDER
-</button>
-
-<p class="small-info">
-Keep the browser open while your video is rendering.
-</p>
-
-</div>
+  <p>
+    Transform your dialogue and story into cinematic 2D human-character animation.
+    Write your script, select your voice and start rendering.
+  </p>
 
 </section>
 
 
-<!-- OUTPUT -->
+<div class="layout">
 
-<section>
+<!-- LEFT COLUMN -->
 
-<div class="card">
+<div>
 
-<div class="card-title">
-<span class="step">04</span>
-Animation Render Output
+  <section class="panel">
+
+    <div class="panel-title">
+      <h3>✦ AI Story Director</h3>
+      <span>STORY INPUT</span>
+    </div>
+
+    <label for="script">Your Story / Dialogue Script</label>
+
+    <textarea
+      id="script"
+      placeholder="[Aarav] [HAPPY] [WAVE]
+Hello! Welcome to my world.
+
+[Rohan] [SURPRISED]
+What happened here?
+
+[Aarav] [THINK]
+I am trying to understand everything."
+    ></textarea>
+
+    <p class="hint">
+      Tip: Use character names and optional tags such as
+      [HAPPY], [SAD], [ANGRY], [WALK], [RUN], [WAVE], [THINK].
+      Each dialogue should be on a separate line.
+    </p>
+
+    <div class="actions">
+
+      <button class="btn" id="demoBtn">
+        ✦ Load Demo
+      </button>
+
+      <button class="btn" id="clearBtn">
+        Clear Script
+      </button>
+
+      <button class="btn" id="sampleBtn">
+        Script Example
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <section class="panel">
+
+    <div class="panel-title">
+      <h3>⚙ Animation Settings</h3>
+      <span>CONFIGURATION</span>
+    </div>
+
+    <div class="field">
+
+      <label>Video Aspect Ratio</label>
+
+      <div class="segment">
+
+        <button class="active" data-ratio="9:16">
+          9:16 Portrait
+        </button>
+
+        <button data-ratio="16:9">
+          16:9 Landscape
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="grid2">
+
+      <div class="field">
+
+        <label for="style">Animation Style</label>
+
+        <select id="style">
+          <option value="cartoon">Human 2D Cartoon</option>
+        </select>
+
+      </div>
+
+      <div class="field">
+
+        <label for="lang">Dialogue Language</label>
+
+        <select id="lang">
+          <option value="hindi">Hindi</option>
+          <option value="english">English</option>
+        </select>
+
+      </div>
+
+    </div>
+
+
+    <div class="field">
+
+      <label>Voice Mode</label>
+
+      <div class="segment">
+
+        <button class="active" data-voice="auto">
+          AI Voice
+        </button>
+
+        <button data-voice="manual">
+          Own Voice
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="field" id="voiceUploadArea" style="display:none">
+
+      <label for="voiceFile">Upload Your Voice Recording</label>
+
+      <input
+        type="file"
+        id="voiceFile"
+        accept="audio/*"
+      >
+
+      <p class="hint">
+        Your uploaded recording will be used as one audio track.
+      </p>
+
+    </div>
+
+  </section>
+
+
+  <section class="panel">
+
+    <div class="panel-title">
+      <h3>🚀 Generate Animation</h3>
+      <span>RENDER ENGINE</span>
+    </div>
+
+    <button class="generate" id="generateBtn">
+      ✦ START AI ANIMATION
+    </button>
+
+    <div class="progress-area" id="progressArea">
+
+      <div class="progress-top">
+
+        <span id="progressMessage">Preparing...</span>
+
+        <strong id="progressPercent">0%</strong>
+
+      </div>
+
+      <div class="progress-track">
+
+        <div class="progress-fill" id="progressFill"></div>
+
+      </div>
+
+      <p class="message" id="renderMessage">
+        Initializing animation engine...
+      </p>
+
+    </div>
+
+  </section>
+
 </div>
 
-<div class="progress-area">
 
-<div class="progress-head">
-<span id="status-text">READY TO RENDER</span>
-<span id="progress-number">0%</span>
+<!-- RIGHT COLUMN -->
+
+<div>
+
+  <section class="panel">
+
+    <div class="panel-title">
+      <h3>🎬 Animation Preview</h3>
+      <span>OUTPUT</span>
+    </div>
+
+    <div class="preview" id="preview">
+
+      <div class="preview-icon">🎥</div>
+
+      <h4>Your Animation Will Appear Here</h4>
+
+      <p>
+        Write your story and press Start AI Animation.
+        Your rendered video will appear in this area.
+      </p>
+
+    </div>
+
+    <div class="result-actions" id="resultActions">
+
+      <a class="btn primary" id="downloadBtn" href="#" download>
+        ⬇ Download Video
+      </a>
+
+      <button class="btn" id="newBtn">
+        New Project
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <section class="panel">
+
+    <div class="panel-title">
+      <h3>🧠 Studio Engines</h3>
+      <span>ENGINE STATUS</span>
+    </div>
+
+    <div class="engine-list">
+
+      <div class="engine-item">
+
+        <div class="engine-icon">🧠</div>
+
+        <div>
+          <h4>AI Story Director</h4>
+          <p>Dialogue and scene interpretation</p>
+        </div>
+
+        <span class="tag">READY</span>
+
+      </div>
+
+
+      <div class="engine-item">
+
+        <div class="engine-icon">🧍</div>
+
+        <div>
+          <h4>Human Character Rig</h4>
+          <p>Articulated character animation</p>
+        </div>
+
+        <span class="tag">READY</span>
+
+      </div>
+
+
+      <div class="engine-item">
+
+        <div class="engine-icon">🏃</div>
+
+        <div>
+          <h4>Motion Engine</h4>
+          <p>Procedural movement system</p>
+        </div>
+
+        <span class="tag">READY</span>
+
+      </div>
+
+
+      <div class="engine-item">
+
+        <div class="engine-icon">🎭</div>
+
+        <div>
+          <h4>Emotion Engine</h4>
+          <p>Emotion-driven facial acting</p>
+        </div>
+
+        <span class="tag">READY</span>
+
+      </div>
+
+
+      <div class="engine-item">
+
+        <div class="engine-icon">🎙</div>
+
+        <div>
+          <h4>Voice Engine</h4>
+          <p>Dialogue audio generation</p>
+        </div>
+
+        <span class="tag">READY</span>
+
+      </div>
+
+
+      <div class="engine-item">
+
+        <div class="engine-icon">🎞</div>
+
+        <div>
+          <h4>Cinematic Renderer</h4>
+          <p>MP4 video rendering</p>
+        </div>
+
+        <span class="tag">READY</span>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <section class="panel">
+
+    <div class="panel-title">
+      <h3>📖 Script Guide</h3>
+    </div>
+
+    <div class="script-guide">
+
+      <h4>CHARACTER FORMAT</h4>
+
+      <p>Aarav: Hello everyone!
+Rohan: How are you?
+
+[Aarav] [HAPPY] [WAVE]
+Hello my friend!
+
+[Rohan] [SAD]
+I am feeling sad today.</p>
+
+    </div>
+
+    <div class="script-guide">
+
+      <h4>SUPPORTED TAGS</h4>
+
+      <p>EMOTIONS:
+[HAPPY] [SAD] [ANGRY]
+[SURPRISED] [SCARED] [THINKING]
+
+ACTIONS:
+[WALK] [RUN] [WAVE]
+[SIT] [THINK] [POINT] [TALK]</p>
+
+    </div>
+
+  </section>
+
 </div>
 
-<div class="progress-track">
-<div class="progress-fill" id="progress-fill"></div>
-</div>
-
-<div class="progress-note" id="progress-note">
-Your animation will appear here after rendering.
-</div>
-
-</div>
-
-<div class="output-box" id="output-area">
-
-<div class="output-icon">🎬</div>
-
-<strong>NEXORA RENDER STUDIO</strong>
-
-<p class="small-info">
-Your completed animation video will appear here.
-</p>
-
-</div>
-
 </div>
 
 
-<div class="card">
-
-<div class="card-title">
-<span class="step">05</span>
-Engine Information
-</div>
-
-<div class="progress-note" id="engine-info">
-Checking backend connection...
-</div>
-
-<div style="height:12px"></div>
-
-<button class="btn" id="btn-check" style="width:100%">
-↻ CHECK BACKEND CONNECTION
-</button>
-
-</div>
-
-</section>
-
-</main>
-
-
-<footer class="footer">
-NEXORA 2D ANIMATION STUDIO • BUILT FOR CREATIVE STORYTELLING
+<footer>
+  NEXORA AI ANIMATION STUDIO<br>
+  Human 2D Animation Production System
 </footer>
+
+</div>
+
+
+<div class="toast" id="toast"></div>
 
 
 <script>
+"use strict";
 
-/* =====================================
-   NEXORA FRONTEND ENGINE
-===================================== */
+const API_BASE = window.location.origin;
 
-/*
-When HTML is served by Flask, same-origin is used.
-When testing locally, change this to your Render URL.
-*/
+let selectedRatio = "9:16";
+let selectedVoice = "auto";
+let currentJobId = null;
+let pollingTimer = null;
+let isRendering = false;
 
-const API_BASE = window.location.protocol.startsWith("http")
-  ? window.location.origin
-  : "http://127.0.0.1:5000";
-
-
-let ratio = "9:16";
-let style = "cartoon";
-let voiceMode = "auto";
-
-let mediaRecorder = null;
-let audioChunks = [];
-let recordedBlob = null;
-let pollTimer = null;
-
-
-/* =====================================
-   ELEMENTS
-===================================== */
 
 const $ = id => document.getElementById(id);
 
-const statusText = $("status-text");
-const progressFill = $("progress-fill");
-const progressNumber = $("progress-number");
-const progressNote = $("progress-note");
-const outputArea = $("output-area");
-const renderButton = $("btn-render");
+
+function toast(message){
+
+  const element = $("toast");
+
+  element.textContent = message;
+  element.classList.add("show");
+
+  setTimeout(() => {
+    element.classList.remove("show");
+  }, 3000);
+
+}
 
 
-/* =====================================
-   OPTION SELECTORS
-===================================== */
+async function checkServer(){
 
-document.querySelectorAll(".option").forEach(button => {
+  try{
+
+    const response = await fetch(
+      API_BASE + "/api/ping",
+      {cache:"no-store"}
+    );
+
+    if(!response.ok){
+      throw new Error("Server unavailable");
+    }
+
+    const data = await response.json();
+
+    $("serverDot").classList.add("online");
+    $("serverStatus").textContent = "Server Online";
+
+    return data;
+
+  }catch(error){
+
+    $("serverDot").classList.remove("online");
+    $("serverStatus").textContent = "Server Offline";
+
+    return null;
+
+  }
+
+}
+
+
+function setRatio(ratio){
+
+  selectedRatio = ratio;
+
+  document.querySelectorAll("[data-ratio]").forEach(button => {
+
+    button.classList.toggle(
+      "active",
+      button.dataset.ratio === ratio
+    );
+
+  });
+
+}
+
+
+function setVoice(voice){
+
+  selectedVoice = voice;
+
+  document.querySelectorAll("[data-voice]").forEach(button => {
+
+    button.classList.toggle(
+      "active",
+      button.dataset.voice === voice
+    );
+
+  });
+
+  $("voiceUploadArea").style.display =
+    voice === "manual" ? "block" : "none";
+
+}
+
+
+document.querySelectorAll("[data-ratio]").forEach(button => {
 
   button.addEventListener("click", () => {
-
-    const group = button.dataset.group;
-    const value = button.dataset.value;
-
-    document.querySelectorAll(
-      `.option[data-group="${group}"]`
-    ).forEach(item => item.classList.remove("active"));
-
-    button.classList.add("active");
-
-    if(group === "ratio"){
-      ratio = value;
-    }
-
-    if(group === "style"){
-      style = value;
-    }
-
-    if(group === "voice"){
-
-      voiceMode = value;
-
-      $("auto-voice-box").classList.toggle(
-        "hidden", value !== "auto"
-      );
-
-      $("manual-voice-box").classList.toggle(
-        "hidden", value !== "manual"
-      );
-
-    }
-
+    setRatio(button.dataset.ratio);
   });
 
 });
 
 
-/* =====================================
-   DEMO SCRIPT
-===================================== */
+document.querySelectorAll("[data-voice]").forEach(button => {
 
-const DEMO_SCRIPT = `[Aarav] [HAPPY] Hello friends! Welcome to my world.
+  button.addEventListener("click", () => {
+    setVoice(button.dataset.voice);
+  });
 
-[WALK] [Aarav] [HAPPY] Today I am walking on a beautiful city road.
-
-[WAVE] [Maya] [HAPPY] Hello Aarav! How are you?
-
-[POINT] [Aarav] [SURPRISED] Look at that beautiful city!
-
-[RUN] [Aarav] [HAPPY] Let's go and explore!`;
-
-
-$("btn-demo").addEventListener("click", () => {
-  $("script").value = DEMO_SCRIPT;
 });
 
 
-$("btn-clear").addEventListener("click", () => {
+$("demoBtn").addEventListener("click", () => {
+
+  $("script").value =
+`[Aarav] [HAPPY] [WAVE]
+Hello! Welcome to my world.
+
+[Rohan] [SURPRISED]
+Wow! What happened here?
+
+[Aarav] [THINK]
+I am trying to understand everything.
+
+[Rohan] [HAPPY]
+That sounds interesting!`;
+
+  toast("Demo script loaded.");
+
+});
+
+
+$("sampleBtn").addEventListener("click", () => {
+
+  $("script").value =
+`[Aarav] [HAPPY] [WAVE]
+Hello everyone!
+
+[Rohan] [SURPRISED]
+Hey! What are you doing?
+
+[Aarav] [THINK]
+I am planning something special.
+
+[Rohan] [HAPPY]
+Really? Tell me more!`;
+
+  toast("Script example loaded.");
+
+});
+
+
+$("clearBtn").addEventListener("click", () => {
+
   $("script").value = "";
-});
 
-
-/* =====================================
-   MICROPHONE RECORDING
-===================================== */
-
-$("btn-rec").addEventListener("click", async () => {
-
-  try{
-
-    if(!navigator.mediaDevices?.getUserMedia){
-      throw new Error("Microphone is not supported.");
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio:true
-    });
-
-    audioChunks = [];
-
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.ondataavailable = event => {
-      if(event.data.size > 0){
-        audioChunks.push(event.data);
-      }
-    };
-
-    mediaRecorder.onstop = () => {
-
-      recordedBlob = new Blob(audioChunks, {
-        type: mediaRecorder.mimeType || "audio/webm"
-      });
-
-      $("rec-status").textContent =
-        "Recording completed. Audio ready.";
-
-      stream.getTracks().forEach(track => track.stop());
-
-    };
-
-    mediaRecorder.start();
-
-    $("btn-rec").disabled = true;
-    $("btn-stop").disabled = false;
-
-    $("rec-status").textContent = "Recording...";
-
-  }catch(error){
-
-    $("rec-status").textContent = error.message;
-
-  }
+  toast("Script cleared.");
 
 });
 
 
-$("btn-stop").addEventListener("click", () => {
+function showProgress(percent, message){
 
-  if(mediaRecorder && mediaRecorder.state !== "inactive"){
-    mediaRecorder.stop();
-  }
+  const value = Math.max(
+    0,
+    Math.min(100, Number(percent) || 0)
+  );
 
-  $("btn-rec").disabled = false;
-  $("btn-stop").disabled = true;
+  $("progressArea").style.display = "block";
 
-});
+  $("progressFill").style.width = value + "%";
 
+  $("progressPercent").textContent = value + "%";
 
-/* =====================================
-   BACKEND CONNECTION CHECK
-===================================== */
+  $("progressMessage").textContent = message || "Processing...";
 
-async function checkBackend(){
-
-  const badge = $("connection-badge");
-  const info = $("engine-info");
-
-  badge.textContent = "● CHECKING";
-
-  try{
-
-    const response = await fetch(API_BASE + "/api/ping", {
-      cache:"no-store"
-    });
-
-    if(!response.ok){
-      throw new Error("Backend unavailable");
-    }
-
-    const data = await response.json();
-
-    badge.textContent = "● ENGINE ONLINE";
-    info.textContent =
-      "NEXORA Backend Connected • Version " +
-      (data.version || "Unknown");
-
-    badge.style.color = "#34d399";
-
-  }catch(error){
-
-    badge.textContent = "● OFFLINE";
-    badge.style.color = "#fb7185";
-
-    info.textContent =
-      "Backend connection failed: " + error.message;
-
-  }
+  $("renderMessage").textContent = message || "Please wait...";
 
 }
 
 
-$("btn-check").addEventListener("click", checkBackend);
+function showVideo(url){
 
+  $("preview").innerHTML = "";
 
-/* =====================================
-   PROGRESS UI
-===================================== */
+  const video = document.createElement("video");
 
-function updateProgress(value){
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+  video.src = url;
 
-  value = Math.max(0, Math.min(100, Number(value) || 0));
+  $("preview").appendChild(video);
 
-  progressFill.style.width = value + "%";
-  progressNumber.textContent = value + "%";
+  $("resultActions").style.display = "flex";
+
+  $("downloadBtn").href =
+    API_BASE + url.replace("/api/video/","/api/download/");
 
 }
 
 
-/* =====================================
-   RENDER ENGINE
-===================================== */
+function setRendering(value){
 
-async function startRender(){
+  isRendering = value;
+
+  $("generateBtn").disabled = value;
+
+  $("generateBtn").textContent = value
+    ? "⏳ RENDERING ANIMATION..."
+    : "✦ START AI ANIMATION";
+
+}
+
+
+async function startAnimation(){
+
+  if(isRendering){
+    return;
+  }
 
   const script = $("script").value.trim();
 
   if(!script){
-    alert("Please write your animation script first.");
+
+    toast("Please write your story first.");
+
+    $("script").focus();
+
     return;
+
   }
 
-  if(pollTimer){
-    clearInterval(pollTimer);
-    pollTimer = null;
+  if(script.length > 30000){
+
+    toast("Script is too long. Please reduce it.");
+
+    return;
+
   }
 
-  renderButton.disabled = true;
+  if(selectedVoice === "manual"){
 
-  statusText.textContent = "STARTING RENDER...";
-  progressNote.textContent = "Sending animation request...";
-  updateProgress(2);
+    const file = $("voiceFile").files[0];
 
-  outputArea.innerHTML = `
-    <div class="output-icon">⚙️</div>
-    <strong>RENDERING YOUR ANIMATION</strong>
-    <p class="small-info">Please wait while NEXORA processes your story.</p>
-  `;
+    if(!file){
 
-  const formData = new FormData();
+      toast("Please upload your voice recording.");
 
-  formData.append("script", script);
-  formData.append("ratio", ratio);
-  formData.append("style", style);
-  formData.append("voice_mode", voiceMode);
-  formData.append("lang_mode", $("lang-mode").value);
+      return;
 
-  if(voiceMode === "manual"){
+    }
 
-    const file = $("voice-file").files?.[0];
+    if(file.size > 100 * 1024 * 1024){
 
-    if(file){
+      toast("Voice file must be below 100 MB.");
 
-      formData.append("voice_file", file);
-
-    }else if(recordedBlob){
-
-      formData.append(
-        "voice_file",
-        recordedBlob,
-        "recorded_voice.webm"
-      );
-
-    }else{
-
-      alert("Please upload or record your voice.");
-      renderButton.disabled = false;
       return;
 
     }
 
   }
 
+  setRendering(true);
+
+  $("resultActions").style.display = "none";
+
+  $("preview").innerHTML =
+    `<div class="preview-icon">⚙️</div>
+     <h4>Preparing Your Animation</h4>
+     <p>Story Director is processing your script.</p>`;
+
+  showProgress(2,"Connecting to animation engine...");
+
+  const formData = new FormData();
+
+  formData.append("script",script);
+  formData.append("ratio",selectedRatio);
+  formData.append("style",$("style").value);
+  formData.append("voice_mode",selectedVoice);
+  formData.append("lang_mode",$("lang").value);
+
+  if(selectedVoice === "manual"){
+
+    formData.append(
+      "voice_file",
+      $("voiceFile").files[0]
+    );
+
+  }
 
   try{
 
-    const response = await fetch(API_BASE + "/api/start", {
-      method:"POST",
-      body:formData
-    });
+    const response = await fetch(
+      API_BASE + "/api/start",
+      {
+        method:"POST",
+        body:formData
+      }
+    );
 
-    const result = await response.json();
+    const data = await response.json();
 
-    if(!response.ok || !result.success || !result.job_id){
-      throw new Error(result.error || "Could not start rendering.");
+    if(!response.ok){
+
+      throw new Error(
+        data.error || "Could not start animation."
+      );
+
     }
 
-    const jobId = result.job_id;
+    currentJobId = data.job_id;
 
-    statusText.textContent = "RENDERING...";
-    progressNote.textContent = "Animation job: " + jobId;
+    toast("Animation job created!");
 
-    await pollStatus(jobId);
+    showProgress(3,"Animation job started...");
+
+    pollJob(currentJobId);
 
   }catch(error){
 
-    statusText.textContent = "RENDER FAILED";
-    progressNote.textContent = error.message;
+    setRendering(false);
 
-    outputArea.innerHTML = `
-      <div class="output-icon">⚠️</div>
-      <strong class="error">RENDER ERROR</strong>
-      <p class="small-info">${escapeHTML(error.message)}</p>
-    `;
+    showProgress(0,error.message);
 
-    renderButton.disabled = false;
+    $("preview").innerHTML =
+      `<div class="preview-icon">⚠️</div>
+       <h4>Unable to Start</h4>
+       <p>${escapeHTML(error.message)}</p>`;
+
+    toast(error.message);
 
   }
 
 }
 
 
-/* =====================================
-   JOB STATUS POLLING
-===================================== */
+function escapeHTML(value){
 
-function pollStatus(jobId){
+  return String(value).replace(
+    /[&<>"']/g,
+    char => ({
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#039;"
+    })[char]
+  );
 
-  return new Promise((resolve, reject) => {
-
-    let finished = false;
-
-    const finish = (error) => {
-
-      if(finished) return;
-
-      finished = true;
-
-      if(pollTimer){
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-
-      renderButton.disabled = false;
-
-      if(error) reject(error);
-      else resolve();
-
-    };
+}
 
 
-    async function check(){
+async function pollJob(jobId){
 
-      try{
+  if(pollingTimer){
+    clearTimeout(pollingTimer);
+  }
 
-        const response = await fetch(
-          API_BASE + "/api/status/" + encodeURIComponent(jobId),
-          {cache:"no-store"}
+  async function check(){
+
+    try{
+
+      const response = await fetch(
+        API_BASE + "/api/status/" + encodeURIComponent(jobId),
+        {cache:"no-store"}
+      );
+
+      const data = await response.json();
+
+      if(!response.ok){
+
+        throw new Error(
+          data.error || "Unable to read job status."
         );
 
-        const status = await response.json();
+      }
 
-        if(!response.ok || !status.success){
-          throw new Error(status.error || "Status request failed.");
-        }
+      showProgress(
+        data.progress || 0,
+        data.message || "Processing..."
+      );
 
-        updateProgress(status.progress);
+      if(data.status === "completed"){
 
-        statusText.textContent =
-          String(status.status || "PROCESSING").toUpperCase();
+        setRendering(false);
 
-        progressNote.textContent =
-          "NEXORA processing your animation...";
+        showProgress(100,"Animation completed!");
 
+        showVideo(
+          data.video_url + "?t=" + Date.now()
+        );
 
-        if(status.status === "completed"){
+        toast("Your animation is ready!");
 
-          finish();
-
-          const videoUrl = API_BASE + status.video_url;
-
-          outputArea.innerHTML = `
-            <video controls autoplay loop playsinline>
-              <source src="${videoUrl}" type="video/mp4">
-              Your browser does not support video playback.
-            </video>
-
-            <a class="download-btn"
-               href="${videoUrl}"
-               download="NEXORA_Animation.mp4">
-               ⬇ DOWNLOAD MP4 VIDEO
-            </a>
-          `;
-
-          statusText.textContent = "RENDER COMPLETED";
-          progressNote.textContent = "Your animation is ready.";
-          updateProgress(100);
-
-        }
-
-
-        if(status.status === "failed"){
-
-          finish(new Error(status.error || "Rendering failed."));
-
-          statusText.textContent = "RENDER FAILED";
-
-          progressNote.textContent =
-            status.error || "Unknown rendering error.";
-
-          outputArea.innerHTML = `
-            <div class="output-icon">❌</div>
-            <strong class="error">RENDER FAILED</strong>
-            <p class="small-info">${escapeHTML(status.error || "Unknown error")}</p>
-          `;
-
-        }
-
-      }catch(error){
-
-        finish(error);
-
-        statusText.textContent = "CONNECTION ERROR";
-        progressNote.textContent = error.message;
-
-        outputArea.innerHTML = `
-          <div class="output-icon">⚠️</div>
-          <strong class="error">STATUS ERROR</strong>
-          <p class="small-info">${escapeHTML(error.message)}</p>
-        `;
+        return;
 
       }
+
+      if(data.status === "failed"){
+
+        setRendering(false);
+
+        showProgress(
+          0,
+          data.error || data.message || "Rendering failed."
+        );
+
+        $("preview").innerHTML =
+          `<div class="preview-icon">❌</div>
+           <h4>Rendering Failed</h4>
+           <p>${escapeHTML(data.error || data.message || "Unknown error")}</p>`;
+
+        toast("Animation rendering failed.");
+
+        return;
+
+      }
+
+      pollingTimer = setTimeout(
+        check,
+        1800
+      );
+
+    }catch(error){
+
+      setRendering(false);
+
+      showProgress(
+        0,
+        error.message
+      );
+
+      toast(error.message);
 
     }
 
+  }
 
-    check();
-
-    pollTimer = setInterval(check, 1500);
-
-  });
+  check();
 
 }
 
 
-/* =====================================
-   SAFE HTML TEXT
-===================================== */
-
-function escapeHTML(value){
-
-  return String(value).replace(/[&<>"']/g, character => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#39;"
-  })[character]);
-
-}
+$("generateBtn").addEventListener(
+  "click",
+  startAnimation
+);
 
 
-/* =====================================
-   START BUTTON
-===================================== */
+$("newBtn").addEventListener("click", () => {
 
-renderButton.addEventListener("click", startRender);
+  if(isRendering){
+
+    toast("Please wait for current rendering.");
+
+    return;
+
+  }
+
+  currentJobId = null;
+
+  $("script").value = "";
+
+  $("progressArea").style.display = "none";
+
+  $("resultActions").style.display = "none";
+
+  $("preview").innerHTML =
+    `<div class="preview-icon">🎥</div>
+     <h4>Your Animation Will Appear Here</h4>
+     <p>Write your story and press Start AI Animation.</p>`;
+
+  toast("New project ready.");
+
+});
 
 
-/* =====================================
-   INITIALIZE
-===================================== */
+window.addEventListener("online", checkServer);
 
-checkBackend();
+window.addEventListener("offline", () => {
+
+  $("serverDot").classList.remove("online");
+
+  $("serverStatus").textContent = "No Internet";
+
+});
+
+
+checkServer();
 
 </script>
 
