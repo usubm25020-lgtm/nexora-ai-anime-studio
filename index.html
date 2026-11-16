@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA AI PRO — 3D-Anime &amp; Reels Director Studio</title>
+  <title>NEXORA 2D ANIMATION STUDIO — Puppet, Stickman &amp; Lip-Sync</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -42,8 +42,8 @@
       background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399;
     }
     .wrap {
-      max-width: 1140px; margin: 0 auto; padding: 16px;
-      display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+      max-width: 1100px; margin: 0 auto; padding: 16px;
+      display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
       gap: 16px; align-items: start;
     }
     @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
@@ -51,26 +51,26 @@
       background: var(--bg-card); border: 1px solid var(--border);
       border-radius: 14px; padding: 16px; margin-bottom: 14px;
     }
-    .card-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .card-title { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
     .label {
       display: block; font-size: 11px; font-weight: 800;
       text-transform: uppercase; color: var(--dim); margin-bottom: 6px;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
     .pill {
-      padding: 12px; border-radius: 10px; border: 2px solid var(--border);
-      background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800;
+      padding: 11px; border-radius: 10px; border: 2px solid var(--border);
+      background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
     .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
-    select, textarea {
+    select, textarea, input[type="file"] {
       width: 100%; background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--text); padding: 11px; font-size: 13px;
+      border-radius: 10px; color: var(--text); padding: 10px; font-size: 13px;
       font-family: inherit; outline: none;
     }
-    textarea { min-height: 220px; line-height: 1.55; resize: vertical; }
+    textarea { min-height: 210px; line-height: 1.55; resize: vertical; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 11px 14px; border-radius: 10px; border: 1px solid var(--border);
+      padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
       background: #1e293b; color: #fff; font-size: 12px; font-weight: 800; cursor: pointer;
     }
     .btn-primary {
@@ -78,19 +78,9 @@
       background: linear-gradient(135deg, var(--cyan), var(--violet));
       color: #030712; font-size: 14px; font-weight: 900; margin-top: 10px;
     }
-    .btn-emerald {
-      width: 100%; padding: 14px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: #030712; font-size: 14px; font-weight: 900; margin-top: 10px;
-    }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet), var(--rose)); transition: width 0.25s; }
-    .shot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
-    .shot-card { background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 11px; display: flex; flex-direction: column; }
-    .shot-card img { width: 100%; aspect-ratio: 9/14; object-fit: cover; display: block; }
-    .shot-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 6px; margin-top: auto; }
-    .mini-btn { padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: #1e293b; color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; text-align: center; }
-    video { width: 100%; max-height: 480px; border-radius: 12px; background: #000; margin-top: 8px; }
+    video { width: 100%; max-height: 500px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
       background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
@@ -100,184 +90,182 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">AI</div>
+      <div class="logo">2D</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA AI PRO v2</div>
-        <div style="font-size:11px; color:var(--cyan);">Hinglish-to-Visual AI • Shot Director • 2.5D MP4</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA 2D PUPPET STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">Not Your Type &amp; Stickman Rig • Audio Lip-Sync • Cars/Bikes/Trees</div>
       </div>
     </div>
-    <div class="badge">🟢 AI Brain Online</div>
+    <div class="badge">🟢 24 FPS Rig Online</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Format, Style &amp; Speed</div>
-        <div class="grid-2" style="margin-top:8px;">
-          <div class="pill active" data-r="9:16">9:16 Reels / Shorts</div>
-          <div class="pill" data-r="16:9">16:9 YouTube</div>
+        <div class="card-title">1. Video Format &amp; Character Rig Style</div>
+        <div class="grid-2">
+          <div class="pill active" data-group="ratio" data-val="9:16">9:16 Reels / Shorts</div>
+          <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube</div>
         </div>
 
         <div class="grid-2">
-          <div>
-            <span class="label">AI Visual Style</span>
-            <select id="style">
-              <option value="golu_yash" selected>Golu Yash 3D-Anime Realism</option>
-              <option value="manhwa_pro">Korean Manhwa / Webtoon Pro</option>
-              <option value="shinkai">Makoto Shinkai Cinema Scenery</option>
-              <option value="dark_horror">Dark Supernatural / Horror</option>
-            </select>
+          <div class="pill active" data-group="style" data-val="cartoon">🎨 Not Your Type (2D Cartoon)</div>
+          <div class="pill" data-group="style" data-val="stickman">🏃 Viral Stickman Rig</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">2. Voiceover &amp; Real Audio Lip-Sync</div>
+        <div class="grid-2">
+          <div class="pill active" data-group="voice" data-val="auto">🤖 Auto AI Voiceover</div>
+          <div class="pill" data-group="voice" data-val="manual">🎙 My Own Voice (Upload / Mic)</div>
+        </div>
+
+        <div id="auto-voice-box">
+          <span class="label">AI Voice Language</span>
+          <select id="lang-mode">
+            <option value="HINDI" selected>Hindi / Hinglish Natural Voice (Madhur / Swara)</option>
+            <option value="ENGLISH">Indian English Voice (Prabhat / Neerja)</option>
+          </select>
+        </div>
+
+        <div id="manual-voice-box" style="display:none;">
+          <span class="label">Upload Your Voice Audio (.mp3 / .wav / .m4a) OR Record Mic</span>
+          <input type="file" id="voice-file" accept="audio/*" />
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button type="button" class="btn" id="btn-rec" style="flex:1; background:#be123c;">🔴 Record Mic</button>
+            <button type="button" class="btn" id="btn-stop-rec" style="flex:1;" disabled>⏹ Stop</button>
           </div>
-          <div>
-            <span class="label">Voice Speed: <span id="wps-lbl" style="color:var(--cyan);">2.6 w/s</span></span>
-            <input type="range" id="wps" min="1.5" max="4.0" step="0.1" value="2.6" style="width:100%; margin-top:12px; accent-color:#22d3ee;" />
-          </div>
+          <div id="rec-status" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
         </div>
       </div>
 
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">2. Story Script</div>
-          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Load Viral Script</button>
+          <div class="card-title">3. Story &amp; Action Script</div>
+          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Load Demo Script</button>
         </div>
-        <textarea id="script" placeholder="Paste your Hinglish / Hindi / English story script..."></textarea>
-
-        <div class="grid-2" style="margin-top:4px;">
-          <button class="btn btn-primary" id="btn-scenes">🎨 Step 1: Generate AI Scenes</button>
-          <button class="btn btn-emerald" id="btn-auto">⚡ Auto-Generate Full MP4</button>
-        </div>
+        <textarea id="script" placeholder="Write your story actions (e.g., jumping out of home window onto the road with cars, bikes, trees)..."></textarea>
+        <button class="btn btn-primary" id="btn-generate">🎬 Render 24 FPS 2D Animated Video</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Live Render &amp; MP4 Video</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:6px;">
-          Ready — Generate AI Scenes first to inspect/edit every shot, or Auto-Generate Full MP4
+        <div class="card-title">4. Live Animation Output</div>
+        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
+          Ready — Choose Auto AI Voice or Upload Your Own Voice, then click Render!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
-        <div id="render-btn-wrap"></div>
         <div id="video-area"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">4. Storyboard Shots (Regenerate or Upload Any Scene)</div>
-        <div class="shot-grid" id="shot-grid"></div>
       </div>
     </div>
   </main>
-
-  <input type="file" id="shot-file-picker" accept="image/*" style="display:none;" />
 
   <script>
     const API_BASE = window.location.protocol.startsWith("http")
       ? window.location.origin
       : "http://127.0.0.1:5000";
 
-    const SAMPLE_SCRIPT = `SCENE 1: RAINY FOREST ROAD - MIDNIGHT
-[WIDE] [Narrator] [CHILL] Is jungli raste par raat ke baarah baje jo rukta hai, woh kabhi wapas nahi jaata!
-[MEDIUM] [Aarav] [CONFUSED] [WALK] Tez baarish mein Aarav ki bike achanak ek purani haveli ke saamne band pad gayi.
-[CLOSEUP] [Aarav] [SHOCK] Usne phone ki torch jalayi toh saamne khidki par ek laal aankhon wali parchhai dikhi!
+    const DEMO_SCRIPT = `SCENE 1: SUNNY CITY ROAD WITH HOME AND TREES
+[WINDOW_EXIT] [Aarav] [HAPPY] Dekho dosto, aaj main ghar ki khidki se kood kar seedha sadak par aa gaya hoon!
+[POINT] [Aarav] [HEROIC] Mere peeche hawa mein hilte ped hain aur sadak par car aur bike tez raftar se chal rahi hain!
 
-SCENE 2: ANCIENT HAVELI HALL - CANDLELIGHT
-[WIDE] [Sakchunni] [HEROIC] Haveli ka darwaza khud ba khud khula aur andar ek khoobsurat par rahasyamayi ladki khadi thi.
-[OTS] [Sakchunni] [ROMANTIC] Woh muskurake boli — Main woh purani Sakchunni nahi hoon Aarav, main is jungle ki rakshak hoon!
-[CLOSEUP] [Aarav] [FEAR] Par tabhi hawa mein kaala dhuan utha aur uske peeche ek khatarnak saya aa gaya!
-
-SCENE 3: NEON MOONLIGHT ROOFTOP - NIGHT
-[ORBIT] [Sakchunni] [ANGRY] [FIGHT] Sakchunni ne apni neeli aur laal shaktiyon se us saye ko ek jhatke mein raakh kar diya!
-[MEDIUM] [Aarav] [HAPPY] Subah ki pehli kiran ke saath baarish ruk gayi aur Aarav ne muskurake use shukriya kaha.`;
+SCENE 2: BUSY CITY STREET - DAYTIME
+[PAPER] [Aarav] [CONFUSED] Haath mein script pakad kar main soch raha hoon ki agla viral video kaunsa banaya jaye?
+[WAVE] [Meera] [ROMANTIC] Tabhi Meera ne haath hila kar kaha — Chalo Aarav, milkar ek zabardast kahani banate hain!`;
 
     let ratio = "9:16";
-    let currentJobId = null;
-    let uploadShotIdx = -1;
+    let style = "cartoon";
+    let voiceMode = "auto";
+    let recordedBlob = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
 
     document.querySelectorAll(".pill").forEach(p => {
       p.onclick = () => {
-        document.querySelectorAll(".pill").forEach(x => x.classList.remove("active"));
+        const grp = p.dataset.group;
+        document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
-        ratio = p.dataset.r;
+        if (grp === "ratio") ratio = p.dataset.val;
+        if (grp === "style") style = p.dataset.val;
+        if (grp === "voice") {
+          voiceMode = p.dataset.val;
+          document.getElementById("auto-voice-box").style.display = voiceMode === "auto" ? "block" : "none";
+          document.getElementById("manual-voice-box").style.display = voiceMode === "manual" ? "block" : "none";
+        }
       };
     });
 
-    const wps = document.getElementById("wps");
-    wps.oninput = () => { document.getElementById("wps-lbl").textContent = wps.value + " w/s"; };
-
     document.getElementById("btn-sample").onclick = () => {
-      document.getElementById("script").value = SAMPLE_SCRIPT;
+      document.getElementById("script").value = DEMO_SCRIPT;
     };
 
-    function renderShotCards(beats) {
-      document.getElementById("shot-grid").innerHTML = beats.map((b, i) => `
-        <div class="shot-card">
-          <img id="img-shot-${i}" src="${API_BASE}/api/preview/${b.preview_file}" />
-          <div style="padding:6px;">
-            <strong style="color:#22d3ee;">#${b.index} ${b.speaker}</strong>
-            <div style="color:#cbd5e1; margin-top:2px;">${b.caption}</div>
-          </div>
-          <div class="shot-actions">
-            <button type="button" class="mini-btn" onclick="regenShot(${i})">🔄 Regen</button>
-            <button type="button" class="mini-btn" onclick="triggerUpload(${i})">🖼 Upload</button>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    window.regenShot = async (idx) => {
-      if (!currentJobId) return;
-      document.getElementById("status-txt").textContent = `Regenerating Shot #${idx + 1} with new AI seed...`;
-      const r = await fetch(`${API_BASE}/api/regen_shot/${currentJobId}/${idx}`, { method: "POST" });
-      const d = await r.json();
-      if (d.ok) {
-        document.getElementById(`img-shot-${idx}`).src = `${API_BASE}/api/preview/${d.preview_file}`;
-        document.getElementById("status-txt").textContent = `Shot #${idx + 1} updated! Click Render Final MP4 anytime.`;
+    // Live Mic Recording Support
+    document.getElementById("btn-rec").onclick = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(audioChunks, { type: "audio/webm" });
+          document.getElementById("rec-status").textContent = "✅ Mic Voice Recorded! Ready for Lip-Sync.";
+        };
+        mediaRecorder.start();
+        document.getElementById("btn-rec").disabled = true;
+        document.getElementById("btn-stop-rec").disabled = false;
+        document.getElementById("rec-status").textContent = "🎙 Recording your voice... speak your script!";
+      } catch (err) {
+        alert("Mic permission denied or unavailable. Please upload an audio file instead.");
       }
     };
 
-    window.triggerUpload = (idx) => {
-      uploadShotIdx = idx;
-      document.getElementById("shot-file-picker").click();
+    document.getElementById("btn-stop-rec").onclick = () => {
+      if (mediaRecorder) mediaRecorder.stop();
+      document.getElementById("btn-rec").disabled = false;
+      document.getElementById("btn-stop-rec").disabled = true;
     };
 
-    document.getElementById("shot-file-picker").onchange = async (e) => {
-      const file = e.target.files?.[0];
-      if (!file || !currentJobId || uploadShotIdx < 0) return;
+    document.getElementById("btn-generate").onclick = async () => {
+      const script = document.getElementById("script").value.trim();
+      if (!script) { alert("Please enter your story script first!"); return; }
+
+      document.getElementById("video-area").innerHTML = "";
+      document.getElementById("prog-bar").style.width = "4%";
+
       const fd = new FormData();
-      fd.append("file", file);
-      const r = await fetch(`${API_BASE}/api/upload_shot/${currentJobId}/${uploadShotIdx}`, { method: "POST", body: fd });
-      const d = await r.json();
-      if (d.ok) {
-        document.getElementById(`img-shot-${uploadShotIdx}`).src = `${API_BASE}/api/preview/${d.preview_file}`;
-        document.getElementById("status-txt").textContent = `Custom image applied to Shot #${uploadShotIdx + 1}!`;
+      fd.append("script", script);
+      fd.append("ratio", ratio);
+      fd.append("style", style);
+      fd.append("voice_mode", voiceMode);
+      fd.append("lang_mode", document.getElementById("lang-mode").value);
+
+      if (voiceMode === "manual") {
+        const pickedFile = document.getElementById("voice-file").files?.[0];
+        if (pickedFile) {
+          fd.append("voice_file", pickedFile);
+        } else if (recordedBlob) {
+          fd.append("voice_file", recordedBlob, "mic_voice.webm");
+        } else {
+          alert("Please upload an audio file or record your voice first!");
+          return;
+        }
       }
-    };
 
-    window.triggerFinalMp4 = async () => {
-      if (!currentJobId) return;
-      await fetch(`${API_BASE}/api/render_mp4/${currentJobId}`, { method: "POST" });
-      pollJob(currentJobId);
-    };
+      const res = await fetch(API_BASE + "/api/start", { method: "POST", body: fd });
+      const { job_id } = await res.json();
 
-    function pollJob(jobId) {
       const poll = setInterval(async () => {
-        const r = await fetch(API_BASE + "/api/status/" + jobId);
+        const r = await fetch(API_BASE + "/api/status/" + job_id);
         const st = await r.json();
         document.getElementById("status-txt").textContent = st.message;
         document.getElementById("prog-bar").style.width = st.progress + "%";
 
-        if (st.beats && st.beats.length) {
-          renderShotCards(st.beats);
-        }
-
-        if (st.status === "scenes_ready") {
+        if (st.status === "done") {
           clearInterval(poll);
-          document.getElementById("render-btn-wrap").innerHTML = `
-            <button class="btn btn-emerald" onclick="triggerFinalMp4()">🎬 Render Final MP4 Video Now</button>
-          `;
-        } else if (st.status === "done") {
-          clearInterval(poll);
-          const streamUrl = `${API_BASE}/api/video/${jobId}`;
-          const dlUrl = `${API_BASE}/api/video/${jobId}?dl=1`;
+          const streamUrl = `${API_BASE}/api/video/${job_id}`;
+          const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
           document.getElementById("video-area").innerHTML = `
             <video src="${streamUrl}" controls autoplay loop playsinline></video>
             <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download MP4 (${st.file_name})</a>
@@ -285,36 +273,8 @@ SCENE 3: NEON MOONLIGHT ROOFTOP - NIGHT
         } else if (st.status === "error") {
           clearInterval(poll);
         }
-      }, 1500);
-    }
-
-    async function startJob(autoRender) {
-      const script = document.getElementById("script").value.trim();
-      if (!script) { alert("Please paste your story script first!"); return; }
-
-      document.getElementById("video-area").innerHTML = "";
-      document.getElementById("render-btn-wrap").innerHTML = "";
-      document.getElementById("shot-grid").innerHTML = "";
-      document.getElementById("prog-bar").style.width = "4%";
-
-      const res = await fetch(API_BASE + "/api/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          script,
-          ratio,
-          style: document.getElementById("style").value,
-          wps: parseFloat(wps.value),
-          auto_render: autoRender
-        })
-      });
-      const { job_id } = await res.json();
-      currentJobId = job_id;
-      pollJob(job_id);
-    }
-
-    document.getElementById("btn-scenes").onclick = () => startJob(false);
-    document.getElementById("btn-auto").onclick = () => startJob(true);
+      }, 1200);
+    };
   </script>
 </body>
 </html>
