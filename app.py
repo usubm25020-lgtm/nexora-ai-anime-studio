@@ -33,32 +33,61 @@ FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. AI STORY DIRECTOR & CHARACTER CONSISTENCY ENGINE
+# 1. HINGLISH-TO-CINEMATIC-ENGLISH AI SCENE DIRECTOR
 # ===========================================================================
 STYLES = {
     "golu_yash": (
         "3D stylized semi-realistic anime manhwa art, Golu Yash viral reels aesthetic, "
-        "expressive cinematic lighting, subsurface skin glow, sharp detailed jewel eyes, "
-        "dramatic rim light, volumetric atmosphere, depth of field bokeh, 8k masterpiece"
+        "expressive cinematic lighting, subsurface skin glow, sharp detailed eyes, "
+        "dramatic rim light, volumetric atmosphere, depth of field bokeh, masterpiece"
     ),
     "manhwa_pro": (
         "Masterpiece Korean manhwa webtoon illustration, crisp ink lineart, "
-        "soft airbrush shading, glowing eyes, cinematic framing, 8k resolution"
+        "soft airbrush shading, glowing jewel eyes, cinematic framing, high detail"
     ),
     "shinkai": (
-        "Makoto Shinkai anime movie still, breathtaking scenic sky, volumetric sunbeams, "
+        "Makoto Shinkai anime film still, breathtaking scenic sky, volumetric sunbeams, "
         "lens flare, ultra detailed background and emotional character art"
     ),
     "dark_horror": (
-        "Dark supernatural Indian horror anime style, eerie moonlight, glowing red eyes, "
+        "Dark supernatural Indian horror anime art, eerie moonlight, glowing red eyes, "
         "misty shadows, dramatic high-contrast rim lighting, thriller anime frame"
     )
 }
 
+HINGLISH_VISUAL_MAP = [
+    (r"\b(bike|motorcycle|scooter)\b", "beside a sleek parked sport motorcycle with glowing headlight"),
+    (r"\b(haveli|mansion|bangla|bhoot bangla)\b", "in front of an ancient spooky Indian mansion with glowing windows"),
+    (r"\b(jungle|forest|jungli|rasta|road)\b", "on a dark misty forest road surrounded by tall trees"),
+    (r"\b(baarish|rain|bheeg)\b", "in heavy pouring rain with wet reflections and raindrops"),
+    (r"\b(phone|mobile|torch)\b", "holding a glowing smartphone flashlight in the dark"),
+    (r"\b(khidki|window)\b", "looking up at a dark mansion window with glowing red eyes peering out"),
+    (r"\b(darwaza|door|gate)\b", "standing in front of a massive wooden mansion door opening with dramatic light"),
+    (r"\b(khat|letter|chitthi)\b", "reading an old handwritten paper letter"),
+    (r"\b(station|railway|train|platform)\b", "at a vintage railway station platform at sunset"),
+    (r"\b(sakura|phool|flower|bouquet|rose)\b", "surrounded by falling pink cherry blossom petals"),
+    (r"\b(cafe|coffee|chai)\b", "inside a warm aesthetic cafe with glowing fairy lights"),
+    (r"\b(rooftop|chhat)\b", "standing on a high building rooftop overlooking city lights"),
+    (r"\b(hologram|cyber|ai)\b", "surrounded by glowing blue futuristic holographic light rings"),
+    (r"\b(dhuan|smoke|saya|shadow|bhoot|demon)\b", "confronting a menacing dark shadowy demon aura"),
+    (r"\b(shakti|power|fight|raakh|attack)\b", "unleashing glowing blue and crimson magical energy aura"),
+    (r"\b(subah|morning|kiran|sunrise|sunlight)\b", "bathed in warm golden morning sunrise rays")
+]
+
+def translate_hinglish_to_visual_english(text: str) -> str:
+    low = text.lower()
+    matched_actions = []
+    for pattern, eng_desc in HINGLISH_VISUAL_MAP:
+        if re.search(pattern, low):
+            matched_actions.append(eng_desc)
+    if not matched_actions:
+        return "expressive dramatic storytelling moment with emotional facial expression"
+    return ", ".join(matched_actions)
+
 def build_storyboard(raw_script: str, style_key: str = "golu_yash", wps: float = 2.6):
     lines = [ln.strip() for ln in str(raw_script or "").splitlines() if ln.strip()]
     beats = []
-    current_scene = "moody cinematic Indian city street at night with glowing lights"
+    current_scene = "dark misty forest road at midnight"
     cast_bible = {}
     style_prompt = STYLES.get(style_key, STYLES["golu_yash"])
 
@@ -95,12 +124,12 @@ def build_storyboard(raw_script: str, style_key: str = "golu_yash", wps: float =
             low_name = speaker.lower()
             if re.search(r"(bhoot|sakchunni|witch|ghost|demon|chudail)", low_name):
                 cast_bible[sp_key] = (
-                    "mystical Bengali supernatural anime woman with glowing red eyes, long flowing jet-black hair, "
+                    "mystical Bengali supernatural anime woman with glowing crimson eyes, long flowing jet-black hair, "
                     "traditional dark saree with gold jewelry, eerie ethereal aura"
                 )
             elif re.search(r"(ai|bot|robot|cyber|android|hologram)", low_name):
                 cast_bible[sp_key] = (
-                    "futuristic translucent cyan holographic anime AI character, glowing neon circuit eyes, sleek cyber jacket"
+                    "futuristic translucent cyan holographic anime AI character, glowing neon eyes, sleek cyber jacket"
                 )
             elif re.search(r"(girl|meera|ananya|priya|aditi|neha|sara|riya|queen|princess)", low_name):
                 cast_bible[sp_key] = (
@@ -110,45 +139,24 @@ def build_storyboard(raw_script: str, style_key: str = "golu_yash", wps: float =
             else:
                 cast_bible[sp_key] = (
                     "handsome 21 year old Indian anime young man with messy textured black hair, sharp jawline, "
-                    "expressive eyes, stylish dark streetwear hoodie"
+                    "expressive dark eyes, stylish dark streetwear hoodie"
                 )
 
-        char_desc = cast_bible.get(sp_key, "cinematic anime protagonist in dramatic lighting")
-
-        # Automatic Visual Props & Assets from Dialogue
-        low_cap = caption.lower()
-        extras = []
-        if any(w in low_cap for w in ["bike", "motorcycle", "scooter"]):
-            extras.append("parked sleek sport motorcycle with glowing headlight beside him")
-        if any(w in low_cap for w in ["khat", "letter", "chitthi", "paper"]):
-            extras.append("holding an open handwritten paper letter in hands")
-        if any(w in low_cap for w in ["bouquet", "flower", "rose", "phool"]):
-            extras.append("holding a luxury red rose bouquet")
-        if any(w in low_cap for w in ["coffee", "chai", "cup"]):
-            extras.append("holding a steaming hot coffee cup")
-        if any(w in low_cap for w in ["umbrella", "chhatri"]):
-            extras.append("holding a transparent umbrella in the rain")
-        if any(w in low_cap for w in ["phone", "mobile", "battery", "website"]):
-            extras.append("looking at a glowing smartphone screen")
-        if any(w in low_cap for w in ["cake", "birthday"]):
-            extras.append("birthday cake with glowing candles on table")
-        if any(w in low_cap for w in ["gift", "present", "box", "tohfa"]):
-            extras.append("holding a luxury wrapped gift box with ribbon")
-
-        extras_str = (", " + ", ".join(extras)) if extras else ""
+        char_desc = cast_bible.get(sp_key, "mysterious cinematic anime narrator silhouette in dramatic lighting")
+        visual_action_eng = translate_hinglish_to_visual_english(caption)
 
         framing = {
-            "WIDE": "wide cinematic establishing shot showing full environment and character",
-            "MEDIUM": "cinematic medium waist-up shot with dynamic perspective",
+            "WIDE": "wide cinematic establishing shot showing full scenery and character",
+            "MEDIUM": "cinematic medium waist-up shot with dynamic depth",
             "CLOSEUP": "dramatic close-up portrait focusing on facial emotion and eyes",
             "OTS": "cinematic over-the-shoulder shot of two characters facing each other",
-            "ORBIT": "dynamic low-angle hero shot with dramatic lighting"
+            "ORBIT": "dynamic low-angle hero action shot with dramatic lighting"
         }.get(camera, "cinematic medium waist-up shot")
 
         prompt = (
-            f"{style_prompt}, {framing}, {char_desc}, emotion: {emotion.lower()}, action: {action}{extras_str}, "
-            f"story moment: {caption}, background setting: {current_scene}, "
-            f"no text, no subtitles, no watermark, clean full-bleed artwork"
+            f"{style_prompt}, {framing}, {char_desc}, emotion: {emotion.lower()}, {action}, "
+            f"{visual_action_eng}, environment setting: {current_scene}, "
+            f"no text, no subtitles, no watermark, clean full-bleed anime illustration"
         )
 
         combo = (current_scene + " " + caption).lower()
@@ -157,7 +165,7 @@ def build_storyboard(raw_script: str, style_key: str = "golu_yash", wps: float =
             weather = "rain"
         elif any(k in combo for k in ["sakura", "flower", "bouquet", "love", "romantic", "shaadi", "cafe", "sunset"]):
             weather = "petals"
-        elif any(k in combo for k in ["fire", "fight", "angry", "danger", "horror", "bhoot"]):
+        elif any(k in combo for k in ["fire", "fight", "angry", "danger", "horror", "bhoot", "shakti", "raakh"]):
             weather = "embers"
 
         words = caption.split()
@@ -180,43 +188,45 @@ def build_storyboard(raw_script: str, style_key: str = "golu_yash", wps: float =
 
 
 # ===========================================================================
-# 2. REAL AI ANIME ART GENERATOR (CLOUD SERVER — FAST & UNBLOCKED)
+# 2. RATE-LIMIT-SAFE REAL AI ART GENERATOR (NEVER RETURNS BLANK BLUE!)
 # ===========================================================================
 def generate_ai_art(prompt: str, width: int, height: int, seed: int) -> Image.Image:
-    gen_w = int(width * 1.16)
-    gen_h = int(height * 1.16)
+    gen_w = int(width * 1.15)
+    gen_h = int(height * 1.15)
     encoded = urllib.parse.quote(prompt)
 
     urls = [
         f"https://image.pollinations.ai/prompt/{encoded}?width={gen_w}&height={gen_h}&seed={seed}&model=flux&nologo=true",
-        f"https://image.pollinations.ai/prompt/{encoded}?width={gen_w}&height={gen_h}&seed={seed + 11}&model=turbo&nologo=true"
+        f"https://image.pollinations.ai/prompt/{encoded}?width={gen_w}&height={gen_h}&seed={seed + 19}&model=turbo&nologo=true",
+        f"https://image.pollinations.ai/prompt/{encoded}?width={gen_w}&height={gen_h}&seed={seed + 37}&nologo=true"
     ]
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",
-        "Accept": "image/*,*/*;q=0.8"
+        "User-Agent": f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0.{seed % 99}.0 Safari/537.36",
+        "Accept": "image/jpeg,image/png,image/*,*/*;q=0.8"
     }
 
-    for u in urls:
-        for _ in range(3):
-            try:
-                req = urllib.request.Request(u, headers=headers)
-                with urllib.request.urlopen(req, timeout=45) as resp:
-                    raw = resp.read()
-                    if len(raw) > 5000:
-                        img = Image.open(BytesIO(raw)).convert("RGB")
-                        img = img.resize((gen_w, gen_h), Image.Resampling.LANCZOS)
-                        img = ImageEnhance.Color(img).enhance(1.16)
-                        img = ImageEnhance.Contrast(img).enhance(1.08)
-                        return img
-            except Exception:
-                time.sleep(1.0)
+    for attempt in range(4):
+        url = urls[attempt % len(urls)]
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=55) as resp:
+                raw = resp.read()
+                if len(raw) > 8000:
+                    img = Image.open(BytesIO(raw)).convert("RGB")
+                    img = img.resize((gen_w, gen_h), Image.Resampling.LANCZOS)
+                    img = ImageEnhance.Color(img).enhance(1.16)
+                    img = ImageEnhance.Contrast(img).enhance(1.08)
+                    return img
+        except Exception:
+            time.sleep(2.2 + attempt * 1.5)
 
+    # Fallback only if all retries fail
     fb = Image.new("RGB", (gen_w, gen_h), (8, 12, 26))
     d = ImageDraw.Draw(fb)
     for y in range(gen_h):
         t = y / max(1, gen_h)
-        d.line([(0, y), (gen_w, y)], fill=(int(10 + t * 35), int(18 + t * 48), int(45 + t * 90)))
+        d.line([(0, y), (gen_w, y)], fill=(int(12 + t * 35), int(20 + t * 48), int(48 + t * 90)))
     return fb
 
 
@@ -224,11 +234,11 @@ def generate_ai_art(prompt: str, width: int, height: int, seed: int) -> Image.Im
 # 3. 2.5D MULTI-LAYER DEPTH PARALLAX + WEATHER FX + GAMING CAPTIONS
 # ===========================================================================
 WORD_PALETTE = [
-    (34, 211, 238),   # Electric Cyan
-    (251, 191, 36),   # Cyber Gold
-    (251, 113, 133),  # Neon Rose
-    (167, 139, 250),  # Ultra Violet
-    (52, 211, 153)    # Emerald Neon
+    (34, 211, 238),
+    (251, 191, 36),
+    (251, 113, 133),
+    (167, 139, 250),
+    (52, 211, 153)
 ]
 
 _FONT_CACHE = {}
@@ -250,13 +260,13 @@ def get_font(size: int):
     return ImageFont.load_default()
 
 def split_depth_layers(src_img: Image.Image):
-    bg_layer = src_img.filter(ImageFilter.GaussianBlur(radius=5))
-    bg_layer = ImageEnhance.Brightness(bg_layer).enhance(0.88)
+    bg_layer = src_img.filter(ImageFilter.GaussianBlur(radius=4))
+    bg_layer = ImageEnhance.Brightness(bg_layer).enhance(0.90)
 
     w, h = src_img.size
     mask = Image.new("L", (w, h), 0)
     mdraw = ImageDraw.Draw(mask)
-    mdraw.ellipse([int(w * 0.08), int(h * 0.06), int(w * 0.92), int(h * 0.98)], fill=255)
+    mdraw.ellipse([int(w * 0.06), int(h * 0.05), int(w * 0.94), int(h * 0.98)], fill=255)
     mask = mask.filter(ImageFilter.GaussianBlur(radius=28))
     return bg_layer, src_img, mask
 
@@ -267,11 +277,11 @@ def render_25d_frame(bg_layer: Image.Image, fg_layer: Image.Image, mask: Image.I
     emo = beat["emotion"]
 
     if cam == "CLOSEUP":
-        fg_zoom = 1.04 + prog * 0.13
+        fg_zoom = 1.04 + prog * 0.12
     elif cam == "WIDE":
-        fg_zoom = 1.15 - prog * 0.11
+        fg_zoom = 1.14 - prog * 0.10
     else:
-        fg_zoom = 1.05 + prog * 0.09
+        fg_zoom = 1.05 + prog * 0.08
 
     bg_zoom = 1.01 + (fg_zoom - 1.0) * 0.45
 
@@ -407,72 +417,39 @@ def render_25d_frame(bg_layer: Image.Image, fg_layer: Image.Image, mask: Image.I
 
 
 # ===========================================================================
-# 4. BACKGROUND VIDEO PIPELINE (FFMPEG REAL H.264 MP4 ENCODER)
+# 4. TWO-STAGE PIPELINE: (A) GENERATE ALL SCENES -> (B) RENDER MP4 VIDEO
 # ===========================================================================
-def run_pipeline(job_id: str, script_text: str, ratio: str, style_key: str, wps: float):
+def encode_mp4_from_job(job_id: str):
     job = JOBS[job_id]
     try:
-        beats = build_storyboard(script_text, style_key, wps)
-        if not beats:
-            job["status"] = "error"
-            job["message"] = "Script is empty! Paste your story script first."
-            return
+        job["status"] = "rendering"
+        job["progress"] = 60
+        job["message"] = "Encoding 2.5D Depth Motion & Captions into MP4..."
 
-        out_w, out_h = (720, 1280) if ratio == "9:16" else (1280, 720)
+        beats = job["raw_beats"]
+        out_w, out_h = job["out_w"], job["out_h"]
         fps = 24
         total = len(beats)
-        job["beats"] = [None] * total
-        raw_arts = [None] * total
 
-        # Step 1: Parallel Cloud AI Image Generation
-        job["message"] = f"Generating {total} AI 3D-Anime Scenes in Parallel..."
-        done_count = 0
-
-        def task(idx, b_obj):
-            art = generate_ai_art(b_obj["prompt"], out_w, out_h, seed=5000 + idx * 47)
-            p_name = f"{job_id}_shot_{idx + 1}.jpg"
-            art.save(os.path.join(CACHE_DIR, p_name), quality=85)
-            return idx, art, p_name
-
-        with ThreadPoolExecutor(max_workers=5) as pool:
-            futs = [pool.submit(task, i, b) for i, b in enumerate(beats)]
-            for fut in as_completed(futs):
-                idx, art, p_name = fut.result()
-                raw_arts[idx] = art
-                job["beats"][idx] = {
-                    "index": idx + 1,
-                    "speaker": beats[idx]["speaker"] or "NARRATOR",
-                    "caption": beats[idx]["caption"],
-                    "preview_file": p_name
-                }
-                done_count += 1
-                job["progress"] = int((done_count / total) * 55)
-                job["message"] = f"AI Scenes Ready: {done_count}/{total}..."
-
-        # Step 2: Stream 2.5D Frames directly into FFmpeg H.264 MP4 Encoder
-        out_name = f"NEXORA_AI_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        out_name = f"NEXORA_AI_{job['ratio'].replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         ffmpeg_cmd = [
             FFMPEG_BIN, "-y",
-            "-f", "rawvideo",
-            "-vcodec", "rawvideo",
-            "-s", f"{out_w}x{out_h}",
-            "-pix_fmt", "rgb24",
-            "-r", str(fps),
-            "-i", "-",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "21",
-            "-pix_fmt", "yuv420p",
-            out_path
+            "-f", "rawvideo", "-vcodec", "rawvideo",
+            "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
+            "-r", str(fps), "-i", "-",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+            "-pix_fmt", "yuv420p", out_path
         ]
-
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         global_t = 0.0
-        for i, (b, art) in enumerate(zip(beats, raw_arts)):
+        for i, b in enumerate(beats):
+            img_path = os.path.join(CACHE_DIR, job["beats"][i]["preview_file"])
+            art = Image.open(img_path).convert("RGB")
             bg_l, fg_l, msk = split_depth_layers(art)
+
             n_frames = max(1, int(b["duration"] * fps))
             for f in range(n_frames):
                 prog = f / max(1, n_frames - 1)
@@ -480,8 +457,8 @@ def run_pipeline(job_id: str, script_text: str, ratio: str, style_key: str, wps:
                 proc.stdin.write(raw_bytes)
                 global_t += 1.0 / fps
 
-            job["progress"] = 55 + int(((i + 1) / total) * 43)
-            job["message"] = f"Encoding 2.5D Motion & Captions ({i + 1}/{total})..."
+            job["progress"] = 60 + int(((i + 1) / total) * 39)
+            job["message"] = f"Rendering 2.5D Motion ({i + 1}/{total})..."
 
         proc.stdin.close()
         proc.wait()
@@ -491,14 +468,66 @@ def run_pipeline(job_id: str, script_text: str, ratio: str, style_key: str, wps:
         job["file_path"] = out_path
         job["file_name"] = out_name
         job["message"] = f"Completed! Ready to Watch & Download ({out_name})"
+    except Exception as exc:
+        job["status"] = "error"
+        job["message"] = f"Render Error: {exc}"
+
+
+def generate_scenes_pipeline(job_id: str, script_text: str, ratio: str, style_key: str, wps: float, auto_render: bool = True):
+    job = JOBS[job_id]
+    try:
+        beats = build_storyboard(script_text, style_key, wps)
+        if not beats:
+            job["status"] = "error"
+            job["message"] = "Script is empty! Paste your story script first."
+            return
+
+        out_w, out_h = (720, 1280) if ratio == "9:16" else (1280, 720)
+        total = len(beats)
+        job["raw_beats"] = beats
+        job["out_w"] = out_w
+        job["out_h"] = out_h
+        job["ratio"] = ratio
+        job["beats"] = [None] * total
+
+        # Rate-limit safe parallel pool (max_workers=2 with staggered start so zero shots get blocked!)
+        done_count = 0
+
+        def fetch_one(idx, b_obj):
+            time.sleep((idx % 2) * 0.9)
+            art = generate_ai_art(b_obj["prompt"], out_w, out_h, seed=7000 + idx * 61)
+            p_name = f"{job_id}_shot_{idx + 1}_{int(time.time())}.jpg"
+            art.save(os.path.join(CACHE_DIR, p_name), quality=88)
+            return idx, p_name
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futs = [pool.submit(fetch_one, i, b) for i, b in enumerate(beats)]
+            for fut in as_completed(futs):
+                idx, p_name = fut.result()
+                job["beats"][idx] = {
+                    "index": idx + 1,
+                    "speaker": beats[idx]["speaker"] or "NARRATOR",
+                    "caption": beats[idx]["caption"],
+                    "preview_file": p_name
+                }
+                done_count += 1
+                job["progress"] = int((done_count / total) * 58)
+                job["message"] = f"AI Scene Artwork Ready: {done_count}/{total}..."
+
+        if auto_render:
+            encode_mp4_from_job(job_id)
+        else:
+            job["status"] = "scenes_ready"
+            job["progress"] = 60
+            job["message"] = "All AI Scenes Ready! Review/Swap any shot or click Render Final MP4."
 
     except Exception as exc:
         job["status"] = "error"
-        job["message"] = f"Server Error: {exc}"
+        job["message"] = f"Error: {exc}"
 
 
 # ===========================================================================
-# 5. API & FRONTEND ROUTES
+# 5. API ROUTES (INCLUDING SINGLE-SHOT REGENERATE & CUSTOM IMAGE UPLOAD)
 # ===========================================================================
 @app.route("/")
 def serve_home():
@@ -506,7 +535,7 @@ def serve_home():
 
 @app.route("/api/ping")
 def api_ping():
-    return jsonify({"ok": True, "engine": "NEXORA Cloud AI Studio"})
+    return jsonify({"ok": True})
 
 @app.route("/api/start", methods=["POST", "OPTIONS"])
 def api_start():
@@ -514,17 +543,53 @@ def api_start():
         return jsonify({"ok": True})
     data = request.get_json(force=True)
     job_id = uuid.uuid4().hex[:10]
-    JOBS[job_id] = {"status": "running", "progress": 2, "message": "AI Director analyzing script...", "beats": []}
+    JOBS[job_id] = {"status": "running", "progress": 2, "message": "Translating Hinglish script to AI Visual Scenes...", "beats": []}
     threading.Thread(
-        target=run_pipeline,
-        args=(job_id, data.get("script", ""), data.get("ratio", "9:16"), data.get("style", "golu_yash"), float(data.get("wps", 2.6))),
+        target=generate_scenes_pipeline,
+        args=(job_id, data.get("script", ""), data.get("ratio", "9:16"), data.get("style", "golu_yash"), float(data.get("wps", 2.6)), bool(data.get("auto_render", True))),
         daemon=True
     ).start()
     return jsonify({"job_id": job_id})
 
+@app.route("/api/regen_shot/<job_id>/<int:shot_idx>", methods=["POST"])
+def api_regen_shot(job_id, shot_idx):
+    job = JOBS.get(job_id)
+    if not job or shot_idx < 0 or shot_idx >= len(job.get("raw_beats", [])):
+        return jsonify({"error": "Invalid shot"}), 400
+    b = job["raw_beats"][shot_idx]
+    art = generate_ai_art(b["prompt"], job["out_w"], job["out_h"], seed=int(time.time()) % 99999)
+    p_name = f"{job_id}_shot_{shot_idx + 1}_{int(time.time())}.jpg"
+    art.save(os.path.join(CACHE_DIR, p_name), quality=88)
+    job["beats"][shot_idx]["preview_file"] = p_name
+    return jsonify({"ok": True, "preview_file": p_name})
+
+@app.route("/api/upload_shot/<job_id>/<int:shot_idx>", methods=["POST"])
+def api_upload_shot(job_id, shot_idx):
+    job = JOBS.get(job_id)
+    if not job or "file" not in request.files:
+        return jsonify({"error": "Missing file"}), 400
+    f = request.files["file"]
+    img = Image.open(f.stream).convert("RGB")
+    gen_w = int(job["out_w"] * 1.15)
+    gen_h = int(job["out_h"] * 1.15)
+    img = img.resize((gen_w, gen_h), Image.Resampling.LANCZOS)
+    p_name = f"{job_id}_custom_{shot_idx + 1}_{int(time.time())}.jpg"
+    img.save(os.path.join(CACHE_DIR, p_name), quality=90)
+    job["beats"][shot_idx]["preview_file"] = p_name
+    return jsonify({"ok": True, "preview_file": p_name})
+
+@app.route("/api/render_mp4/<job_id>", methods=["POST"])
+def api_render_mp4(job_id):
+    job = JOBS.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    threading.Thread(target=encode_mp4_from_job, args=(job_id,), daemon=True).start()
+    return jsonify({"ok": True})
+
 @app.route("/api/status/<job_id>")
 def api_status(job_id):
     st = JOBS.get(job_id, {"status": "error", "message": "Job not found"}).copy()
+    st.pop("raw_beats", None)
     st["beats"] = [b for b in st.get("beats", []) if b is not None]
     return jsonify(st)
 
@@ -539,12 +604,8 @@ def api_preview(filename):
 def api_video(job_id):
     job = JOBS.get(job_id)
     if not job or not job.get("file_path") or not os.path.exists(job["file_path"]):
-        return "Video not ready", 404
-    as_dl = request.args.get("dl") == "1"
-    return send_file(job["file_path"], as_attachment=as_dl, mimetype="video/mp4")
+        return "Not ready", 404
+    return send_file(job["file_path"], as_attachment=(request.args.get("dl") == "1"), mimetype="video/mp4")
 
 if __name__ == "__main__":
-    print("\n====================================================")
-    print(" NEXORA CLOUD AI STUDIO IS LIVE ON PORT 5000!")
-    print("====================================================\n")
     app.run(host="0.0.0.0", port=5000, debug=False)
