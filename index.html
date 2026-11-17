@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA IK STUDIO — 2-Bone Biomechanical Puppet &amp; Lip-Sync</title>
+  <title>NEXORA STICKMAN COMBAT STUDIO — Keyframe Action &amp; Sword VFX</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -34,7 +34,7 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--violet));
+      background: linear-gradient(135deg, var(--cyan), var(--rose));
       display: grid; place-items: center; font-weight: 900; color: #030712;
     }
     .badge {
@@ -67,7 +67,7 @@
       border-radius: 10px; color: var(--text); padding: 10px; font-size: 13px;
       font-family: inherit; outline: none;
     }
-    textarea { min-height: 210px; line-height: 1.55; resize: vertical; }
+    textarea { min-height: 205px; line-height: 1.55; resize: vertical; }
     .tag-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
     .tag-chip {
       padding: 5px 9px; border-radius: 7px; border: 1px solid rgba(34, 211, 238, 0.35);
@@ -80,7 +80,7 @@
     }
     .btn-primary {
       width: 100%; padding: 14px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--violet));
+      background: linear-gradient(135deg, var(--cyan), var(--rose));
       color: #030712; font-size: 14px; font-weight: 900; margin-top: 10px;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
@@ -95,41 +95,36 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">IK</div>
+      <div class="logo">⚔️</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA 2-BONE IK STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">Human Biomechanics • Squash &amp; Stretch • Hand-Drawn Sketch BG</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA STICKMAN COMBAT STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">Locked Keyframe FK Rig • Sword Slash VFX • Auto Clash SFX</div>
       </div>
     </div>
-    <div class="badge">🟢 24 FPS IK Engine</div>
+    <div class="badge">🟢 24 FPS Combat Rig</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Format &amp; IK Character Rig</div>
-        <div class="grid-2">
+        <div class="card-title">1. Video Format</div>
+        <div class="grid-2" style="margin-bottom:0;">
           <div class="pill active" data-group="ratio" data-val="9:16">9:16 Reels / Shorts</div>
           <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube</div>
-        </div>
-
-        <div class="grid-2">
-          <div class="pill active" data-group="style" data-val="cartoon">🎨 Not Your Type (Cartoon IK)</div>
-          <div class="pill" data-group="style" data-val="stickman">🏃 Human Stickman IK Rig</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">2. Voiceover &amp; Waveform Lip-Sync</div>
+        <div class="card-title">2. Voiceover &amp; Sword Clash SFX</div>
         <div class="grid-2">
-          <div class="pill active" data-group="voice" data-val="auto">🤖 Auto AI Voiceover</div>
-          <div class="pill" data-group="voice" data-val="manual">🎙 My Own Voice (Upload / Mic)</div>
+          <div class="pill active" data-group="voice" data-val="auto">🤖 Auto AI Voice + Sword SFX</div>
+          <div class="pill" data-group="voice" data-val="manual">🎙 My Own Voice + Sword SFX</div>
         </div>
 
         <div id="auto-voice-box">
           <span class="label">AI Voice Language</span>
           <select id="lang-mode">
-            <option value="HINDI" selected>Hindi / Hinglish Natural Voice (Madhur / Swara)</option>
+            <option value="HINDI" selected>Hindi / Hinglish Anime Voice (Madhur / Swara)</option>
             <option value="ENGLISH">Indian English Voice (Prabhat / Neerja)</option>
           </select>
         </div>
@@ -147,30 +142,27 @@
 
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">3. Story &amp; IK Action Script</div>
-          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Load Viral IK Script</button>
+          <div class="card-title">3. Combat Story &amp; Action Script</div>
+          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Load Viral Fight Script</button>
         </div>
 
         <div class="tag-bar">
-          <span class="tag-chip" data-tag="[WALK]">+ [WALK]</span>
           <span class="tag-chip" data-tag="[RUN]">+ [RUN]</span>
-          <span class="tag-chip" data-tag="[JUMP]">+ [JUMP]</span>
-          <span class="tag-chip" data-tag="[POINT]">+ [POINT]</span>
-          <span class="tag-chip" data-tag="[WAVE]">+ [WAVE]</span>
-          <span class="tag-chip" data-tag="[PAPER]">+ [PAPER]</span>
-          <span class="tag-chip" data-tag="[FEAR]">+ [FEAR]</span>
+          <span class="tag-chip" data-tag="[SLASH]">+ [SLASH]</span>
+          <span class="tag-chip" data-tag="[JUMP_ATTACK]">+ [JUMP_ATTACK]</span>
+          <span class="tag-chip" data-tag="[STANCE]">+ [STANCE]</span>
         </div>
 
-        <textarea id="script" placeholder="Write SCENE location and character dialogue lines with IK action tags..."></textarea>
-        <button class="btn btn-primary" id="btn-generate">🎬 Render 24 FPS Human-IK Video</button>
+        <textarea id="script" placeholder="Write your stickman sword-fight story with action tags..."></textarea>
+        <button class="btn btn-primary" id="btn-generate">⚔️ Render 24 FPS Stickman Fight Video</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">4. Live Animation Output</div>
+        <div class="card-title">4. Live Combat Output</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Load the Viral IK Script or write your own story, then click Render!
+          Ready — Click "Load Viral Fight Script" and press Render!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -183,16 +175,12 @@
       ? window.location.origin
       : "http://127.0.0.1:5000";
 
-    const VIRAL_IK_SCRIPT = `SCENE 1: cozy Indian bedroom interior with study desk and window, hand-drawn sketch art
-[PAPER] [Aarav] [CONFUSED] Exam se ek raat pehle jab syllabus khol kar dekha toh pata chala ki abhi tak book ka cover bhi nahi khula!
-[POINT] [Aarav] [HEROIC] Par tension kis baat ki dosto, jab apna dimaag Einstein se bhi tez chalta hai!
-
-SCENE 2: modern city street with trees and houses, hand-drawn sketch art
-[WALK] [Aarav] [HAPPY] Subah full confidence ke saath main exam hall ki taraf chal pada!
-[RUN] [Aarav] [FEAR] Par question paper dekhte hi hosh ud gaye aur main wahan se seedha bhaag nikla!`;
+    const VIRAL_FIGHT_SCRIPT = `SCENE 1: MOONLIT DOJO ARENA
+[RUN] [Aarav] Jab dushman ne sab kuch chheen liya, tab maine apni talwar uthai aur bijli ki raftar se aage badha!
+[SLASH] [Aarav] Pehle hi vaar mein maine uske hosh uda diye — ek saath chingari aur hawa ka toofan utha!
+[JUMP_ATTACK] [Aarav] Aur aakhiri chhalang ke saath maine is ladai ka faisla hamesha ke liye kar diya!`;
 
     let ratio = "9:16";
-    let style = "cartoon";
     let voiceMode = "auto";
     let recordedBlob = null;
     let mediaRecorder = null;
@@ -204,7 +192,6 @@ SCENE 2: modern city street with trees and houses, hand-drawn sketch art
         document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "style") style = p.dataset.val;
         if (grp === "voice") {
           voiceMode = p.dataset.val;
           document.getElementById("auto-voice-box").style.display = voiceMode === "auto" ? "block" : "none";
@@ -215,7 +202,7 @@ SCENE 2: modern city street with trees and houses, hand-drawn sketch art
 
     const scriptBox = document.getElementById("script");
     document.getElementById("btn-sample").onclick = () => {
-      scriptBox.value = VIRAL_IK_SCRIPT;
+      scriptBox.value = VIRAL_FIGHT_SCRIPT;
     };
 
     document.querySelectorAll(".tag-chip").forEach(chip => {
@@ -235,12 +222,12 @@ SCENE 2: modern city street with trees and houses, hand-drawn sketch art
         mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
         mediaRecorder.onstop = () => {
           recordedBlob = new Blob(audioChunks, { type: "audio/webm" });
-          document.getElementById("rec-status").textContent = "✅ Mic Voice Recorded! Ready for Lip-Sync.";
+          document.getElementById("rec-status").textContent = "✅ Mic Voice Recorded!";
         };
         mediaRecorder.start();
         document.getElementById("btn-rec").disabled = true;
         document.getElementById("btn-stop-rec").disabled = false;
-        document.getElementById("rec-status").textContent = "🎙 Recording your voice... speak now!";
+        document.getElementById("rec-status").textContent = "🎙 Recording your voice...";
       } catch (err) {
         alert("Mic permission denied. Please upload an audio file instead.");
       }
@@ -254,7 +241,7 @@ SCENE 2: modern city street with trees and houses, hand-drawn sketch art
 
     document.getElementById("btn-generate").onclick = async () => {
       const script = scriptBox.value.trim();
-      if (!script) { alert("Please paste or write your story script first!"); return; }
+      if (!script) { alert("Please paste or write your combat script first!"); return; }
 
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
@@ -262,7 +249,6 @@ SCENE 2: modern city street with trees and houses, hand-drawn sketch art
       const fd = new FormData();
       fd.append("script", script);
       fd.append("ratio", ratio);
-      fd.append("style", style);
       fd.append("voice_mode", voiceMode);
       fd.append("lang_mode", document.getElementById("lang-mode").value);
 
