@@ -43,12 +43,11 @@ VOICE_MAP = {
 }
 
 async def _tts_save(text: str, voice_id: str, mp3_path: str):
-    # Slightly slower, deeper cinematic pacing for emotional retention
     comm = edge_tts.Communicate(text, voice_id, rate="-4%", pitch="-2Hz")
     await comm.save(mp3_path)
 
 def generate_tts_wav(text: str, is_female: bool, lang_mode: str, out_wav: str) -> float:
-    clean_txt = re.sub(r"[^\w\s,?!.'\-]", "", text).strip() or "Listen"
+    clean_txt = re.sub(r"[^a-zA-Z0-9\s,?!.'\-]", "", text).strip() or "Listen carefully"
     if lang_mode == "ENGLISH":
         vid = VOICE_MAP["FEMALE_ENGLISH"] if is_female else VOICE_MAP["MALE_ENGLISH"]
     else:
@@ -64,14 +63,14 @@ def generate_tts_wav(text: str, is_female: bool, lang_mode: str, out_wav: str) -
         if os.path.exists(tmp_mp3):
             os.remove(tmp_mp3)
     except Exception:
-        dur = max(2.4, len(clean_txt.split()) * 0.42)
+        dur = max(2.2, len(clean_txt.split()) * 0.40)
         subprocess.run(
             [FFMPEG_BIN, "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", str(dur), out_wav],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
 
     with wave.open(out_wav, "rb") as wf:
-        return max(2.0, wf.getnframes() / float(wf.getframerate()))
+        return max(1.8, wf.getnframes() / float(wf.getframerate()))
 
 def convert_custom_audio_to_wav(src_path: str, out_wav: str) -> float:
     subprocess.run(
@@ -79,21 +78,16 @@ def convert_custom_audio_to_wav(src_path: str, out_wav: str) -> float:
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
     )
     with wave.open(out_wav, "rb") as wf:
-        return max(2.0, wf.getnframes() / float(wf.getframerate()))
+        return max(1.8, wf.getnframes() / float(wf.getframerate()))
 
-def mix_emotional_soundscape(voice_wav: str, universe: str, out_mixed_wav: str) -> list:
-    """
-    Synthesizes a 432Hz emotional cinematic drone + subtle heartbeat sub-pulse
-    underneath the voiceover, and extracts frame-by-frame audio energy for the 3D core!
-    """
+def mix_emotional_soundscape(voice_wav: str, universe: str, out_mixed_wav: str, fps: int) -> list:
     with wave.open(voice_wav, "rb") as wf:
         rate = wf.getframerate()
         voice = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
 
     n = len(voice)
-    t = np.linspace(0, n / float(rate), n, endpoint=False)
+    t = np.linspace(0, n / float(rate), n, endpoint=False, dtype=np.float32)
 
-    # Emotional chord frequencies (432Hz harmonic tuning)
     if universe == "crimson_heart":
         f1, f2, f3 = 108.0, 162.0, 256.0
     elif universe == "quantum_cyan":
@@ -101,7 +95,6 @@ def mix_emotional_soundscape(voice_wav: str, universe: str, out_mixed_wav: str) 
     else:
         f1, f2, f3 = 114.0, 171.0, 216.0
 
-    # Slow breathing ambient pad
     lfo = 0.75 + 0.25 * np.sin(2 * np.pi * 0.18 * t)
     pad = (
         0.45 * np.sin(2 * np.pi * f1 * t) +
@@ -109,14 +102,12 @@ def mix_emotional_soundscape(voice_wav: str, universe: str, out_mixed_wav: str) 
         0.25 * np.sin(2 * np.pi * f3 * t + 1.6)
     ) * lfo * 0.11
 
-    # Subtle emotional heartbeat sub-pulse every 1.1 seconds
     beat_phase = (t % 1.1)
     hb1 = np.exp(-beat_phase * 28.0) * np.sin(2 * np.pi * 55.0 * beat_phase)
     hb2 = np.exp(-np.maximum(0.0, beat_phase - 0.18) * 32.0) * np.sin(2 * np.pi * 48.0 * np.maximum(0.0, beat_phase - 0.18)) * (beat_phase > 0.18)
     heartbeat = (hb1 + 0.7 * hb2) * 0.14
 
-    # Fade in/out edges cleanly
-    fade_len = min(int(0.5 * rate), n // 4)
+    fade_len = min(int(0.4 * rate), n // 4)
     if fade_len > 0:
         pad[:fade_len] *= np.linspace(0, 1, fade_len)
         pad[-fade_len:] *= np.linspace(1, 0, fade_len)
@@ -129,8 +120,7 @@ def mix_emotional_soundscape(voice_wav: str, universe: str, out_mixed_wav: str) 
         wf_out.setframerate(rate)
         wf_out.writeframes(pcm.tobytes())
 
-    # Extract smooth 24 FPS audio energy envelope for visual reactivity
-    step = max(1, int(rate / 24))
+    step = max(1, int(rate / fps))
     env, prev = [], 0.0
     for i in range(0, n, step):
         chunk = voice[i:i + step]
@@ -143,85 +133,91 @@ def mix_emotional_soundscape(voice_wav: str, universe: str, out_mixed_wav: str) 
 
 
 # ===========================================================================
-# 2. QUANTUM 3D CHAOTIC ATTRACTOR & PARTICLE FIELD ENGINE (IMPOSSIBLE BY HAND!)
+# 2. ULTRA-FAST QUANTUM 3D PARTICLE & RIBBON ENGINE (PRE-CACHED GLOW SPRITES)
 # ===========================================================================
 class QuantumVisualEngine:
     def __init__(self, w: int, h: int, universe: str):
         self.w = w
         self.h = h
         self.universe = universe
-        self.cx = w * 0.50
-        self.cy = h * 0.43
+        self.cx = int(w * 0.50)
+        self.cy = int(h * 0.42)
 
         if universe == "crimson_heart":
-            self.bg_top = (14, 4, 10)
+            self.bg_top = (16, 4, 12)
             self.bg_bot = (4, 2, 6)
-            self.c_primary = (244, 63, 94)    # Crimson Rose
-            self.c_secondary = (251, 146, 60) # Warm Amber
+            self.c_primary = (244, 63, 94)
+            self.c_secondary = (251, 146, 60)
             self.c_core = (255, 228, 230)
         elif universe == "quantum_cyan":
-            self.bg_top = (4, 14, 26)
+            self.bg_top = (4, 16, 28)
             self.bg_bot = (2, 5, 12)
-            self.c_primary = (34, 211, 238)   # Electric Cyan
-            self.c_secondary = (168, 85, 247) # Deep Violet
+            self.c_primary = (34, 211, 238)
+            self.c_secondary = (168, 85, 247)
             self.c_core = (224, 242, 254)
         else:
-            # golden_soul
-            self.bg_top = (16, 12, 6)
+            self.bg_top = (18, 13, 6)
             self.bg_bot = (5, 4, 2)
-            self.c_primary = (250, 204, 21)   # Sacred Gold
-            self.c_secondary = (56, 189, 248) # Celestial Blue
+            self.c_primary = (250, 204, 21)
+            self.c_secondary = (56, 189, 248)
             self.c_core = (254, 249, 195)
 
-        # Precompute deep space gradient canvas
         grad = np.zeros((h, w, 3), dtype=np.uint8)
         for ch in range(3):
             col_line = np.linspace(self.bg_top[ch], self.bg_bot[ch], h, dtype=np.uint8)[:, None]
             grad[:, :, ch] = np.repeat(col_line, w, axis=1)
         self.base_bg = Image.fromarray(grad, mode="RGB").convert("RGBA")
 
-        # Initialize 320 3D Quantum Stardust Particles in spherical harmonic orbits
+        # Pre-render the glowing core sprite ONCE so we never run slow blur per frame!
+        glow_sz = int(min(w, h) * 0.55)
+        g_img = Image.new("RGBA", (glow_sz, glow_sz), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(g_img)
+        gc = glow_sz // 2
+        gd.ellipse([gc - int(glow_sz * 0.34), gc - int(glow_sz * 0.34), gc + int(glow_sz * 0.34), gc + int(glow_sz * 0.34)], fill=(*self.c_primary, 110))
+        gd.ellipse([gc - int(glow_sz * 0.16), gc - int(glow_sz * 0.16), gc + int(glow_sz * 0.16), gc + int(glow_sz * 0.16)], fill=(*self.c_core, 235))
+        self.glow_sprite = g_img.filter(ImageFilter.GaussianBlur(radius=14))
+
+        # 180 3D Quantum Stardust Particles (fast & silky smooth on free CPU)
         rng = np.random.default_rng(1337)
-        self.num_pts = 320
+        self.num_pts = 180
         self.theta = rng.uniform(0, 2 * np.pi, self.num_pts)
         self.phi = rng.uniform(0, np.pi, self.num_pts)
-        self.radius = rng.uniform(0.28, 1.05, self.num_pts)
-        self.speed = rng.uniform(0.4, 1.35, self.num_pts)
-        self.sizes = rng.uniform(1.2, 3.8, self.num_pts)
+        self.radius = rng.uniform(0.30, 1.05, self.num_pts)
+        self.speed = rng.uniform(0.45, 1.35, self.num_pts)
+        self.sizes = rng.uniform(1.4, 3.8, self.num_pts)
 
-        # Persistent motion-trail buffer for silky light ribbons
-        self.trail_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        # Precompute unit circle angles for 3D ribbon
+        self.u_arr = np.linspace(0, 2.0 * np.pi, 76, endpoint=True)
 
     def render_frame(self, t: float, audio_energy: float, words: list, prog: float) -> bytes:
         scale = min(self.w, self.h) * 0.36
-        pulse = 1.0 + audio_energy * 0.38 + math.sin(t * 5.7) * 0.05
+        pulse = 1.0 + audio_energy * 0.36 + math.sin(t * 5.5) * 0.05
 
-        # Fade previous light-trail buffer slightly to create hypnotic ribbon persistence
-        trail_arr = np.array(self.trail_layer, dtype=np.float32)
-        trail_arr[:, :, 3] *= 0.80
-        self.trail_layer = Image.fromarray(trail_arr.astype(np.uint8), mode="RGBA")
-        tdraw = ImageDraw.Draw(self.trail_layer)
+        frame = self.base_bg.copy()
 
-        # 1. 3D Sacred Spirograph / Quantum Ribbon Wave (impossible to draw by hand!)
-        rot_y = t * 0.65
-        rot_x = math.sin(t * 0.42) * 0.55
-        cos_ry, sin_ry = math.cos(rot_y), math.sin(rot_y)
-        cos_rx, sin_rx = math.cos(rot_x), math.sin(rot_x)
+        # Paste pre-rendered glowing core with dynamic audio pulse scaling
+        core_scale = 0.85 + audio_energy * 0.45
+        gs_w = max(20, int(self.glow_sprite.width * core_scale))
+        gs_h = max(20, int(self.glow_sprite.height * core_scale))
+        scaled_glow = self.glow_sprite.resize((gs_w, gs_h), Image.Resampling.BILINEAR)
+        frame.alpha_composite(scaled_glow, (self.cx - gs_w // 2, self.cy - gs_h // 2))
 
-        ribbon_pts_1 = []
-        ribbon_pts_2 = []
-        steps = 110
-        freq_mod = 3.0 + audio_energy * 2.0
+        draw = ImageDraw.Draw(frame)
 
-        for i in range(steps + 1):
-            u = (i / float(steps)) * 2.0 * math.pi
-            # 3D Torus-Knot + Harmonic Wave modulation
-            r_wave = (0.72 + 0.24 * math.sin(freq_mod * u + t * 3.2) * (0.4 + audio_energy)) * pulse
-            x3 = r_wave * math.cos(u)
-            y3 = r_wave * math.sin(u)
-            z3 = 0.38 * math.sin(4.0 * u - t * 2.6) * (0.5 + audio_energy)
+        # 1. Vectorized 3D Torus-Knot & Harmonic Ribbons (3 interlocking trails for silky motion)
+        for trail_idx, dt_off in enumerate((0.12, 0.06, 0.0)):
+            tt = max(0.0, t - dt_off)
+            rot_y = tt * 0.65
+            rot_x = math.sin(tt * 0.42) * 0.55
+            cos_ry, sin_ry = math.cos(rot_y), math.sin(rot_y)
+            cos_rx, sin_rx = math.cos(rot_x), math.sin(rot_x)
+            freq_mod = 3.0 + audio_energy * 2.0
 
-            # 3D Rotation matrix (Y then X)
+            r_wave = (0.72 + 0.24 * np.sin(freq_mod * self.u_arr + tt * 3.2) * (0.4 + audio_energy)) * pulse
+            x3 = r_wave * np.cos(self.u_arr)
+            y3 = r_wave * np.sin(self.u_arr)
+            z3 = 0.38 * np.sin(4.0 * self.u_arr - tt * 2.6) * (0.5 + audio_energy)
+
             xr = x3 * cos_ry + z3 * sin_ry
             zr = -x3 * sin_ry + z3 * cos_ry
             yr = y3 * cos_rx - zr * sin_rx
@@ -230,21 +226,18 @@ class QuantumVisualEngine:
             persp = 2.4 / (2.4 + zf)
             sx = self.cx + xr * scale * persp
             sy = self.cy + yr * scale * persp
-            ribbon_pts_1.append((sx, sy))
+            pts1 = list(zip(sx.tolist(), sy.tolist()))
 
-            # Counter-rotating inner harmonic ribbon
             sx2 = self.cx - xr * scale * 0.72 * persp
             sy2 = self.cy + yr * scale * 0.72 * persp
-            ribbon_pts_2.append((sx2, sy2))
+            pts2 = list(zip(sx2.tolist(), sy2.tolist()))
 
-        tdraw.line(ribbon_pts_1, fill=(*self.c_primary, 175), width=max(2, int(3.2 * (self.w / 576.0))))
-        tdraw.line(ribbon_pts_2, fill=(*self.c_secondary, 150), width=max(2, int(2.4 * (self.w / 576.0))))
+            al_1 = 60 + trail_idx * 70
+            al_2 = 50 + trail_idx * 60
+            draw.line(pts1, fill=(*self.c_primary, al_1), width=2 + trail_idx)
+            draw.line(pts2, fill=(*self.c_secondary, al_2), width=1 + trail_idx)
 
-        # 2. Composite base + glowing trails
-        frame = Image.alpha_composite(self.base_bg, self.trail_layer)
-        draw = ImageDraw.Draw(frame)
-
-        # 3. Audio-Reactive Shockwave Rings expanding outward
+        # 2. Audio-Reactive Shockwave Rings
         for ring_i in range(3):
             ring_phase = ((t * 0.85 + ring_i * 0.33) % 1.0)
             rr = scale * (0.25 + ring_phase * 1.15) * (1.0 + audio_energy * 0.18)
@@ -256,7 +249,7 @@ class QuantumVisualEngine:
                     width=2
                 )
 
-        # 4. 3D Quantum Stardust Particle Field
+        # 3. 3D Quantum Stardust Particle Field
         ang_t = self.theta + t * self.speed * (0.55 + audio_energy * 0.45)
         r_cur = self.radius * scale * (0.88 + audio_energy * 0.32)
         px_3d = r_cur * np.sin(self.phi) * np.cos(ang_t)
@@ -268,36 +261,25 @@ class QuantumVisualEngine:
         sy_p = self.cy + py_3d * persp_p
 
         for idx in range(self.num_pts):
-            if pz_3d[idx] > -280:
-                sz = self.sizes[idx] * persp_p[idx] * (1.0 + audio_energy * 0.45)
-                if 0 <= sx_p[idx] < self.w and 0 <= sy_p[idx] < self.h:
-                    al = int(min(245, max(45, 165 * persp_p[idx])))
+            if pz_3d[idx] > -260:
+                sz = self.sizes[idx] * persp_p[idx] * (1.0 + audio_energy * 0.42)
+                x_p, y_p = float(sx_p[idx]), float(sy_p[idx])
+                if 0 <= x_p < self.w and 0 <= y_p < self.h:
+                    al = int(min(245, max(55, 175 * persp_p[idx])))
                     col = self.c_core if (idx % 5 == 0) else (self.c_primary if (idx % 2 == 0) else self.c_secondary)
-                    x_p, y_p = float(sx_p[idx]), float(sy_p[idx])
                     draw.ellipse([x_p - sz, y_p - sz, x_p + sz, y_p + sz], fill=(*col, al))
 
-        # 5. Luminous Quantum Soul Core in the Center
-        core_r = scale * (0.14 + audio_energy * 0.11)
-        glow_r = core_r * 2.2
-        glow_box = Image.new("RGBA", (self.w, self.h), (0, 0, 0, 0))
-        gdraw = ImageDraw.Draw(glow_box)
-        gdraw.ellipse([self.cx - glow_r, self.cy - glow_r, self.cx + glow_r, self.cy + glow_r], fill=(*self.c_primary, int(115 + audio_energy * 90)))
-        gdraw.ellipse([self.cx - core_r, self.cy - core_r, self.cx + core_r, self.cy + core_r], fill=(*self.c_core, 245))
-        glow_box = glow_box.filter(ImageFilter.GaussianBlur(radius=14))
-        frame = Image.alpha_composite(frame, glow_box)
-
-        # 6. Hypnotic Word-by-Word Kinetic Typography
+        # 4. Hypnotic Word-by-Word Kinetic Typography
         if words:
-            draw_t = ImageDraw.Draw(frame)
             active_idx = min(len(words) - 1, int(prog * len(words)))
-            font_size = max(24, int(self.w * 0.048)) if self.h > self.w else max(26, int(self.w * 0.028))
+            font_size = max(23, int(self.w * 0.046)) if self.h > self.w else max(25, int(self.w * 0.028))
             font = get_font(font_size)
             space_w = int(font_size * 0.36)
             max_line_w = int(self.w * 0.84)
 
             lines, curr_line, curr_w = [], [], 0
             for idx, wd in enumerate(words):
-                bbox = draw_t.textbbox((0, 0), wd, font=font)
+                bbox = draw.textbbox((0, 0), wd, font=font)
                 ww = bbox[2] - bbox[0]
                 if curr_line and curr_w + space_w + ww > max_line_w:
                     lines.append(curr_line)
@@ -323,7 +305,7 @@ class QuantumVisualEngine:
                         col = (255, 255, 255)
                     else:
                         col = (148, 163, 184)
-                    draw_t.text((cx_t, cy_t), wd, font=font, fill=(*col, 255), stroke_width=3, stroke_fill=(4, 6, 12, 255))
+                    draw.text((cx_t, cy_t), wd, font=font, fill=(*col, 255), stroke_width=3, stroke_fill=(4, 6, 12, 255))
                     cx_t += ww + space_w
 
         return frame.convert("RGB").tobytes()
@@ -357,6 +339,8 @@ def parse_story_beats(raw_script: str):
             continue
         tags = []
         caption = re.sub(r"\[([^\]]+)\]", lambda m: (tags.append(m.group(1).strip()), "")[1], ln).strip()
+        # Keep clean Latin/Hinglish letters so font & TTS never stall
+        caption = re.sub(r"[^\w\s,?!.'\-]", "", caption).strip()
         if not caption:
             continue
         speaker = tags[0] if tags else "Narrator"
@@ -375,11 +359,11 @@ def run_quantum_job(job_id: str, script_text: str, ratio: str, universe: str,
         beats = parse_story_beats(script_text)
         if not beats:
             job["status"] = "error"
-            job["message"] = "Please write or paste your story/motivation lines first!"
+            job["message"] = "Please write or paste your story lines first!"
             return
 
-        out_w, out_h = (576, 1024) if ratio == "9:16" else (1024, 576)
-        fps = 24
+        out_w, out_h = (540, 960) if ratio == "9:16" else (960, 540)
+        fps = 20
         total = len(beats)
 
         job["message"] = "Synthesizing Emotional Voiceover & 432Hz Soundscape..."
@@ -413,7 +397,7 @@ def run_quantum_job(job_id: str, script_text: str, ratio: str, universe: str,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
             )
 
-        energy_env = mix_emotional_soundscape(raw_wav, universe, mixed_wav)
+        energy_env = mix_emotional_soundscape(raw_wav, universe, mixed_wav, fps)
 
         engine = QuantumVisualEngine(out_w, out_h, universe)
         out_name = f"NEXORA_QUANTUM_{universe.upper()}_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
@@ -425,8 +409,8 @@ def run_quantum_job(job_id: str, script_text: str, ratio: str, universe: str,
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
             "-i", mixed_wav,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
-            "-c:a", "aac", "-b:a", "160k",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "21",
+            "-c:a", "aac", "-b:a", "128k",
             "-shortest", "-pix_fmt", "yuv420p", out_path
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -494,7 +478,7 @@ def api_start():
         voice_mode = data.get("voice_mode", "auto")
         lang_mode = data.get("lang_mode", "HINDI")
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing 3D Quantum Soul Engine..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing Fast 3D Quantum Engine..."}
     threading.Thread(
         target=run_quantum_job,
         args=(job_id, script_text, ratio, universe, voice_mode, lang_mode, custom_wav_path),
@@ -504,7 +488,7 @@ def api_start():
 
 @app.route("/api/status/<job_id>")
 def api_status(job_id):
-    return jsonify(JOBS.get(job_id, {"status": "error", "message": "Job not found"}))
+    return jsonify(JOBS.get(job_id, {"status": "error", "message": "Server restarted — please click Render again!"}))
 
 @app.route("/api/video/<job_id>")
 def api_video(job_id):
