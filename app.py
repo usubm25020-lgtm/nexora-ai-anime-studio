@@ -34,7 +34,7 @@ FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. VOICE & PROCEDURAL SWORD SFX AUDIO MIXER
+# 1. VOICE & METALLIC SWORD CLASH SFX MIXER
 # ===========================================================================
 VOICE_MAP = {
     "MALE_HINDI": "hi-IN-MadhurNeural",
@@ -44,7 +44,7 @@ VOICE_MAP = {
 }
 
 async def _tts_save(text: str, voice_id: str, mp3_path: str):
-    comm = edge_tts.Communicate(text, voice_id, rate="+8%")
+    comm = edge_tts.Communicate(text, voice_id, rate="+10%")
     await comm.save(mp3_path)
 
 def generate_tts_wav(text: str, is_female: bool, lang_mode: str, out_wav: str) -> float:
@@ -64,14 +64,14 @@ def generate_tts_wav(text: str, is_female: bool, lang_mode: str, out_wav: str) -
         if os.path.exists(tmp_mp3):
             os.remove(tmp_mp3)
     except Exception:
-        dur = max(2.2, len(clean_txt.split()) * 0.38)
+        dur = max(2.0, len(clean_txt.split()) * 0.36)
         subprocess.run(
             [FFMPEG_BIN, "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", str(dur), out_wav],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
 
     with wave.open(out_wav, "rb") as wf:
-        return max(1.8, wf.getnframes() / float(wf.getframerate()))
+        return max(1.6, wf.getnframes() / float(wf.getframerate()))
 
 def convert_custom_audio_to_wav(src_path: str, out_wav: str) -> float:
     subprocess.run(
@@ -79,10 +79,9 @@ def convert_custom_audio_to_wav(src_path: str, out_wav: str) -> float:
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
     )
     with wave.open(out_wav, "rb") as wf:
-        return max(1.8, wf.getnframes() / float(wf.getframerate()))
+        return max(1.6, wf.getnframes() / float(wf.getframerate()))
 
 def inject_combat_sfx(master_wav: str, impact_times: list, out_mixed_wav: str):
-    """Synthesizes crisp sword whoosh & metallic clash SFX at exact impact timestamps!"""
     try:
         with wave.open(master_wav, "rb") as wf:
             rate = wf.getframerate()
@@ -92,24 +91,22 @@ def inject_combat_sfx(master_wav: str, impact_times: list, out_mixed_wav: str):
         for t_hit, kind in impact_times:
             start_idx = int(t_hit * rate)
             if kind == "clash":
-                dur_s = int(0.28 * rate)
+                dur_s = int(0.24 * rate)
                 if start_idx + dur_s < len(sfx_track):
-                    t_arr = np.linspace(0, 0.28, dur_s, endpoint=False)
-                    env = np.exp(-t_arr * 16.0)
-                    # Metallic clang + low sub punch
+                    t_arr = np.linspace(0, 0.24, dur_s, endpoint=False)
+                    env = np.exp(-t_arr * 18.0)
                     ring = (
-                        0.45 * np.sin(2 * np.pi * 1450 * t_arr) +
-                        0.35 * np.sin(2 * np.pi * 2380 * t_arr) +
-                        0.65 * np.sin(2 * np.pi * 95 * np.exp(-t_arr * 12) * t_arr) +
-                        0.25 * np.random.uniform(-1, 1, dur_s)
-                    ) * env * 0.55
+                        0.45 * np.sin(2 * np.pi * 1580 * t_arr) +
+                        0.35 * np.sin(2 * np.pi * 2520 * t_arr) +
+                        0.60 * np.sin(2 * np.pi * 92 * np.exp(-t_arr * 12) * t_arr)
+                    ) * env * 0.50
                     sfx_track[start_idx:start_idx + dur_s] += ring
             else:
-                dur_s = int(0.22 * rate)
+                dur_s = int(0.18 * rate)
                 if start_idx + dur_s < len(sfx_track):
-                    t_arr = np.linspace(0, 0.22, dur_s, endpoint=False)
-                    env = np.sin(np.pi * (t_arr / 0.22)) ** 1.5
-                    whoosh = np.random.uniform(-1, 1, dur_s) * np.sin(2 * np.pi * 320 * t_arr) * env * 0.35
+                    t_arr = np.linspace(0, 0.18, dur_s, endpoint=False)
+                    env = np.sin(np.pi * (t_arr / 0.18)) ** 1.5
+                    whoosh = np.random.uniform(-1, 1, dur_s) * np.sin(2 * np.pi * 340 * t_arr) * env * 0.30
                     sfx_track[start_idx:start_idx + dur_s] += whoosh
 
         mixed = np.clip(samples + sfx_track, -0.96, 0.96)
@@ -125,77 +122,74 @@ def inject_combat_sfx(master_wav: str, impact_times: list, out_mixed_wav: str):
 
 
 # ===========================================================================
-# 2. PRE-CALIBRATED FORWARD KINEMATICS KEYFRAME POSE LIBRARY (ZERO GLITCHES!)
+# 2. LOCKED FORWARD KINEMATICS POSE LIBRARY (FACE-TO-FACE & PROPER HEADBAND!)
 # ===========================================================================
-# Angles in degrees relative to vertical downward (0 = straight down, + = forward in facing dir, - = backward)
 POSE_LIBRARY = {
     "stance": {
-        "hip_dy": 0.0, "spine": 8.0,
-        "l_thigh": -18.0, "l_knee": 24.0,
-        "r_thigh": 22.0,  "r_knee": 20.0,
+        "hip_dy": 0.0, "spine": 10.0,
+        "l_thigh": -20.0, "l_knee": 26.0,
+        "r_thigh": 24.0,  "r_knee": 22.0,
         "l_sh": -25.0,    "l_elb": -45.0,
-        "r_sh": 32.0,     "r_elb": -55.0,
-        "sword_ang": -115.0
+        "r_sh": 35.0,     "r_elb": -55.0,
+        "sword_ang": -120.0
     },
     "dash_forward": {
-        "hip_dy": 6.0, "spine": 32.0,
-        "l_thigh": -45.0, "l_knee": 55.0,
-        "r_thigh": 48.0,  "r_knee": 35.0,
-        "l_sh": -55.0,    "l_elb": -20.0,
-        "r_sh": -40.0,    "r_elb": -30.0,
-        "sword_ang": -145.0
+        "hip_dy": 7.0, "spine": 36.0,
+        "l_thigh": -48.0, "l_knee": 58.0,
+        "r_thigh": 52.0,  "r_knee": 36.0,
+        "l_sh": -58.0,    "l_elb": -20.0,
+        "r_sh": -45.0,    "r_elb": -30.0,
+        "sword_ang": -150.0
     },
     "windup": {
-        "hip_dy": 8.0, "spine": -16.0,
-        "l_thigh": -22.0, "l_knee": 30.0,
-        "r_thigh": 28.0,  "r_knee": 26.0,
-        "l_sh": 35.0,     "l_elb": -40.0,
-        "r_sh": -135.0,   "r_elb": -45.0,
-        "sword_ang": -165.0
+        "hip_dy": 8.0, "spine": -18.0,
+        "l_thigh": -24.0, "l_knee": 32.0,
+        "r_thigh": 30.0,  "r_knee": 28.0,
+        "l_sh": 38.0,     "l_elb": -40.0,
+        "r_sh": -142.0,   "r_elb": -42.0,
+        "sword_ang": -172.0
     },
     "slash_follow": {
-        "hip_dy": 10.0, "spine": 34.0,
-        "l_thigh": -34.0, "l_knee": 22.0,
-        "r_thigh": 44.0,  "r_knee": 36.0,
-        "l_sh": -48.0,    "l_elb": -25.0,
-        "r_sh": 82.0,     "r_elb": -12.0,
-        "sword_ang": 78.0
+        "hip_dy": 11.0, "spine": 38.0,
+        "l_thigh": -38.0, "l_knee": 20.0,
+        "r_thigh": 48.0,  "r_knee": 38.0,
+        "l_sh": -52.0,    "l_elb": -22.0,
+        "r_sh": 88.0,     "r_elb": -10.0,
+        "sword_ang": 82.0
     },
     "uppercut_air": {
-        "hip_dy": -65.0, "spine": 18.0,
-        "l_thigh": -28.0, "l_knee": 68.0,
-        "r_thigh": 38.0,  "r_knee": 52.0,
-        "l_sh": -40.0,    "l_elb": -30.0,
-        "r_sh": 125.0,    "r_elb": -15.0,
-        "sword_ang": 135.0
+        "hip_dy": -75.0, "spine": 22.0,
+        "l_thigh": -32.0, "l_knee": 72.0,
+        "r_thigh": 42.0,  "r_knee": 56.0,
+        "l_sh": -42.0,    "l_elb": -28.0,
+        "r_sh": 132.0,    "r_elb": -12.0,
+        "sword_ang": 140.0
     },
     "block_guard": {
-        "hip_dy": 7.0, "spine": -10.0,
-        "l_thigh": -24.0, "l_knee": 32.0,
-        "r_thigh": 24.0,  "r_knee": 28.0,
-        "l_sh": 45.0,     "l_elb": -70.0,
-        "r_sh": 58.0,     "r_elb": -82.0,
-        "sword_ang": -25.0
+        "hip_dy": 8.0, "spine": -12.0,
+        "l_thigh": -26.0, "l_knee": 34.0,
+        "r_thigh": 26.0,  "r_knee": 30.0,
+        "l_sh": 50.0,     "l_elb": -68.0,
+        "r_sh": 64.0,     "r_elb": -80.0,
+        "sword_ang": -22.0
     },
     "knockback_hit": {
-        "hip_dy": 14.0, "spine": -38.0,
-        "l_thigh": 18.0,  "l_knee": 42.0,
-        "r_thigh": 35.0,  "r_knee": 55.0,
-        "l_sh": 65.0,     "l_elb": -20.0,
-        "r_sh": 75.0,     "r_elb": -15.0,
-        "sword_ang": -65.0
+        "hip_dy": 14.0, "spine": -42.0,
+        "l_thigh": 20.0,  "l_knee": 45.0,
+        "r_thigh": 38.0,  "r_knee": 58.0,
+        "l_sh": 68.0,     "l_elb": -18.0,
+        "r_sh": 78.0,     "r_elb": -14.0,
+        "sword_ang": -60.0
     }
 }
 
 def lerp_pose(p_a: dict, p_b: dict, t: float) -> dict:
-    # Smooth cubic ease-in-out
     u = max(0.0, min(1.0, t))
     e = u * u * (3.0 - 2.0 * u)
     return {k: p_a[k] + (p_b[k] - p_a[k]) * e for k in p_a}
 
 def fk_limb_points(root: tuple, upper_len: float, lower_len: float,
                    ang1_deg: float, ang2_rel_deg: float, facing: int) -> tuple:
-    """Computes anatomically locked joint positions using Forward Kinematics (never bends backwards!)."""
     a1 = math.radians(ang1_deg)
     a2 = math.radians(ang1_deg + ang2_rel_deg)
     mid = (
@@ -208,8 +202,8 @@ def fk_limb_points(root: tuple, upper_len: float, lower_len: float,
     )
     return mid, end
 
-def draw_tapered_silhouette_limb(draw: ImageDraw.Draw, p0: tuple, p1: tuple, p2: tuple,
-                                 w0: float, w1: float, w2: float, color: tuple):
+def draw_tapered_limb(draw: ImageDraw.Draw, p0: tuple, p1: tuple, p2: tuple,
+                      w0: float, w1: float, w2: float, color: tuple):
     for (ax, ay, wa), (bx, by, wb) in [((p0[0], p0[1], w0), (p1[0], p1[1], w1)), ((p1[0], p1[1], w1), (p2[0], p2[1], w2))]:
         dx, dy = bx - ax, by - ay
         ln = max(1e-5, math.hypot(dx, dy))
@@ -225,12 +219,7 @@ def draw_tapered_silhouette_limb(draw: ImageDraw.Draw, p0: tuple, p1: tuple, p2:
 
 def draw_silhouette_fighter(draw: ImageDraw.Draw, cx: float, ground_y: float, scale: float,
                             pose: dict, facing: int, global_t: float,
-                            has_sword: bool = True, accent_col: tuple = (255, 255, 255),
-                            slash_arc_alpha: float = 0.0):
-    """
-    Renders a sleek, solid-black silhouette stickman fighter (44835.mp4 style)
-    with flowing headband/scarf, anatomical limb tapering, katana sword & slash smear!
-    """
+                            accent_col: tuple = (56, 189, 248), slash_arc_alpha: float = 0.0):
     ink = (10, 12, 16)
     thigh_l = 44.0 * scale
     shin_l = 44.0 * scale
@@ -247,9 +236,9 @@ def draw_silhouette_fighter(draw: ImageDraw.Draw, cx: float, ground_y: float, sc
 
     # 1. Back Leg
     l_knee, l_foot = fk_limb_points((hip_x, hip_y), thigh_l, shin_l, pose["l_thigh"], pose["l_knee"], facing)
-    draw_tapered_silhouette_limb(draw, (hip_x, hip_y), l_knee, l_foot, 6.2 * scale, 4.8 * scale, 3.4 * scale, ink)
+    draw_tapered_limb(draw, (hip_x, hip_y), l_knee, l_foot, 6.2 * scale, 4.8 * scale, 3.4 * scale, ink)
 
-    # 2. Sleek Tapered Torso
+    # 2. Tapered Torso
     px, py = math.cos(sp_rad), math.sin(sp_rad) * facing
     tw_top, tw_bot = 9.5 * scale, 6.8 * scale
     draw.polygon([
@@ -261,174 +250,238 @@ def draw_silhouette_fighter(draw: ImageDraw.Draw, cx: float, ground_y: float, sc
 
     # 3. Front Leg
     r_knee, r_foot = fk_limb_points((hip_x, hip_y), thigh_l, shin_l, pose["r_thigh"], pose["r_knee"], facing)
-    draw_tapered_silhouette_limb(draw, (hip_x, hip_y), r_knee, r_foot, 6.4 * scale, 5.0 * scale, 3.5 * scale, ink)
+    draw_tapered_limb(draw, (hip_x, hip_y), r_knee, r_foot, 6.4 * scale, 5.0 * scale, 3.5 * scale, ink)
 
     # 4. Back Arm
     l_elb, l_hnd = fk_limb_points((sh_x, sh_y + 4 * scale), u_arm, f_arm, pose["l_sh"], pose["l_elb"], facing)
-    draw_tapered_silhouette_limb(draw, (sh_x, sh_y + 4 * scale), l_elb, l_hnd, 4.8 * scale, 3.8 * scale, 2.8 * scale, ink)
+    draw_tapered_limb(draw, (sh_x, sh_y + 4 * scale), l_elb, l_hnd, 4.8 * scale, 3.8 * scale, 2.8 * scale, ink)
 
-    # 5. Head & Flowing Anime Combat Headband
+    # 5. Head + Forehead Headband + Back-Trailing Ribbon (FIXED: never sticks out like a nose!)
     head_x = sh_x + math.sin(sp_rad) * 24.0 * scale * facing
     head_y = sh_y - math.cos(sp_rad) * 24.0 * scale
     hr = 17.5 * scale
     draw.ellipse([head_x - hr, head_y - hr, head_x + hr, head_y + hr], fill=ink)
 
-    # Flowing headband tails trailing behind fighter
-    tail_x1 = head_x - hr * 0.8 * facing
-    tail_y1 = head_y - 3 * scale
-    wave1 = math.sin(global_t * 14.0) * 7.0 * scale
-    wave2 = math.cos(global_t * 12.0) * 9.0 * scale
+    # Forehead band wrapped across upper head
+    band_y = head_y - hr * 0.35
+    draw.line([(head_x - hr * 0.92, band_y), (head_x + hr * 0.92, band_y)], fill=accent_col, width=max(3, int(4.5 * scale)))
+
+    # Ribbon tails streaming BEHIND the head (-facing direction!)
+    knot_x = head_x - hr * 0.92 * facing
+    knot_y = band_y
+    w1 = math.sin(global_t * 16.0) * 6.0 * scale
+    w2 = math.cos(global_t * 13.0) * 8.0 * scale
     draw.line([
-        (tail_x1, tail_y1),
-        (tail_x1 - 24 * scale * facing, tail_y1 - 4 * scale + wave1),
-        (tail_x1 - 48 * scale * facing, tail_y1 + 5 * scale + wave2)
+        (knot_x, knot_y),
+        (knot_x - 22.0 * scale * facing, knot_y - 3.0 * scale + w1),
+        (knot_x - 42.0 * scale * facing, knot_y + 6.0 * scale + w2)
     ], fill=accent_col, width=max(2, int(3.5 * scale)))
 
-    # 6. Front Sword Arm & Katana Blade + Glowing White Slash Smear Arc!
+    # 6. Front Sword Arm & Katana Blade + Glowing Slash Crescent
     r_elb, r_hnd = fk_limb_points((sh_x, sh_y + 4 * scale), u_arm, f_arm, pose["r_sh"], pose["r_elb"], facing)
-    draw_tapered_silhouette_limb(draw, (sh_x, sh_y + 4 * scale), r_elb, r_hnd, 5.0 * scale, 4.0 * scale, 3.0 * scale, ink)
+    draw_tapered_limb(draw, (sh_x, sh_y + 4 * scale), r_elb, r_hnd, 5.0 * scale, 4.0 * scale, 3.0 * scale, ink)
 
-    if has_sword:
-        sw_rad = math.radians(pose["sword_ang"])
-        blade_len = 86.0 * scale
-        tip_x = r_hnd[0] + math.sin(sw_rad) * blade_len * facing
-        tip_y = r_hnd[1] + math.cos(sw_rad) * blade_len
+    sw_rad = math.radians(pose["sword_ang"])
+    blade_len = 90.0 * scale
+    tip_x = r_hnd[0] + math.sin(sw_rad) * blade_len * facing
+    tip_y = r_hnd[1] + math.cos(sw_rad) * blade_len
 
-        # Sword Hilt & Crossguard
-        hilt_x = r_hnd[0] - math.sin(sw_rad) * 14.0 * scale * facing
-        hilt_y = r_hnd[1] - math.cos(sw_rad) * 14.0 * scale
-        draw.line([(hilt_x, hilt_y), r_hnd], fill=ink, width=max(3, int(4.5 * scale)))
+    hilt_x = r_hnd[0] - math.sin(sw_rad) * 14.0 * scale * facing
+    hilt_y = r_hnd[1] - math.cos(sw_rad) * 14.0 * scale
+    draw.line([(hilt_x, hilt_y), r_hnd], fill=ink, width=max(3, int(4.5 * scale)))
 
-        # Crisp Katana Blade
-        draw.line([r_hnd, (tip_x, tip_y)], fill=(248, 250, 252), width=max(2, int(3.5 * scale)))
-        draw.line([r_hnd, (tip_x, tip_y)], fill=ink, width=max(1, int(1.5 * scale)))
+    # Glowing Katana Edge
+    draw.line([r_hnd, (tip_x, tip_y)], fill=(255, 255, 255), width=max(3, int(4.0 * scale)))
+    draw.line([r_hnd, (tip_x, tip_y)], fill=accent_col, width=max(1, int(1.8 * scale)))
 
-        # Dramatic White/Cyan Slash Smear Crescent (exact 44835.mp4 impact look!)
-        if slash_arc_alpha > 0.05:
-            arc_r = int(96 * scale)
-            bbox = [r_hnd[0] - arc_r, r_hnd[1] - arc_r, r_hnd[0] + arc_r, r_hnd[1] + arc_r]
-            if facing == 1:
-                draw.arc(bbox, start=-75, end=55, fill=(255, 255, 255), width=max(6, int(16 * scale * slash_arc_alpha)))
-                draw.arc(bbox, start=-65, end=45, fill=accent_col, width=max(3, int(7 * scale * slash_arc_alpha)))
-            else:
-                draw.arc(bbox, start=125, end=255, fill=(255, 255, 255), width=max(6, int(16 * scale * slash_arc_alpha)))
-                draw.arc(bbox, start=135, end=245, fill=accent_col, width=max(3, int(7 * scale * slash_arc_alpha)))
+    if slash_arc_alpha > 0.05:
+        arc_r = int(102 * scale)
+        bbox = [r_hnd[0] - arc_r, r_hnd[1] - arc_r, r_hnd[0] + arc_r, r_hnd[1] + arc_r]
+        if facing == 1:
+            draw.arc(bbox, start=-78, end=58, fill=(255, 255, 255), width=max(7, int(18 * scale * slash_arc_alpha)))
+            draw.arc(bbox, start=-68, end=48, fill=accent_col, width=max(3, int(8 * scale * slash_arc_alpha)))
+        else:
+            draw.arc(bbox, start=122, end=258, fill=(255, 255, 255), width=max(7, int(18 * scale * slash_arc_alpha)))
+            draw.arc(bbox, start=132, end=248, fill=accent_col, width=max(3, int(8 * scale * slash_arc_alpha)))
 
 
 # ===========================================================================
-# 3. CINEMATIC COMBAT STAGE, PARTICLES, HIT-FLASH & SCREEN SHAKE
+# 3. CINEMATIC ARENAS (DOJO / RAINY ROOFTOP / BLOOD MOON / CUSTOM USER BG)
 # ===========================================================================
-def build_monochrome_dojo_bg(w: int, h: int, scene_low: str) -> Image.Image:
-    """Creates the atmospheric grey-gradient + subtle dojo/moonlight combat stage (44835.mp4 vibe)."""
-    y_grad = np.linspace(195, 118, h, dtype=np.uint8)[:, None]
-    arr = np.repeat(y_grad, w, axis=1)
-    rgb = np.stack([arr, arr + 2, arr + 5], axis=2)
-    img = Image.fromarray(rgb, mode="RGB").convert("RGBA")
+def build_arena_bg(w: int, h: int, theme: str, custom_bg_path=None) -> Image.Image:
+    ground_y = int(h * 0.77)
+
+    if custom_bg_path and os.path.exists(custom_bg_path):
+        bg = Image.open(custom_bg_path).convert("RGB").resize((w, h), Image.Resampling.LANCZOS).convert("RGBA")
+        d = ImageDraw.Draw(bg)
+        d.rectangle([0, ground_y, w, h], fill=(10, 12, 16, 235))
+        return bg
+
+    if theme == "blood_moon":
+        top_c, bot_c = (45, 12, 22), (18, 8, 14)
+        moon_c = (244, 63, 94, 175)
+    elif theme == "rain_rooftop":
+        top_c, bot_c = (38, 52, 68), (18, 26, 36)
+        moon_c = (186, 230, 253, 130)
+    else:
+        top_c, bot_c = (185, 195, 206), (95, 105, 118)
+        moon_c = (248, 250, 252, 165)
+
+    # Smooth Vertical Gradient
+    grad = np.zeros((h, w, 3), dtype=np.uint8)
+    for ch in range(3):
+        col_line = np.linspace(top_c[ch], bot_c[ch], h, dtype=np.uint8)[:, None]
+        grad[:, :, ch] = np.repeat(col_line, w, axis=1)
+    img = Image.fromarray(grad, mode="RGB").convert("RGBA")
     d = ImageDraw.Draw(img)
 
-    # Subtle Giant Moon / Sun Disc in background
-    mx, my = int(w * 0.50), int(h * 0.36)
-    mr = int(min(w, h) * 0.24)
-    d.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=(226, 232, 240, 125))
+    # Giant Atmospheric Moon
+    mx, my = int(w * 0.50), int(h * 0.34)
+    mr = int(min(w, h) * 0.23)
+    d.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=moon_c)
 
-    # Distant Silhouette Mountains / Dojo Pillars
-    ground_y = int(h * 0.77)
-    d.polygon([(0, ground_y), (int(w * 0.25), int(h * 0.52)), (int(w * 0.55), ground_y)], fill=(100, 108, 118, 95))
-    d.polygon([(int(w * 0.42), ground_y), (int(w * 0.78), int(h * 0.48)), (w, ground_y)], fill=(90, 98, 108, 105))
+    # Japanese Torii Gate / Dojo Silhouette in Background
+    gx, gw = int(w * 0.50), int(w * 0.58)
+    gh = int(h * 0.34)
+    gy_top = ground_y - gh
+    pillar_col = (24, 28, 36, 135)
+    d.rectangle([gx - gw // 3, gy_top, gx - gw // 3 + 16, ground_y], fill=pillar_col)
+    d.rectangle([gx + gw // 3 - 16, gy_top, gx + gw // 3, ground_y], fill=pillar_col)
+    d.rectangle([gx - gw // 2, gy_top, gx + gw // 2, gy_top + 16], fill=pillar_col)
+    d.rectangle([gx - int(gw * 0.42), gy_top + 34, gx + int(gw * 0.42), gy_top + 46], fill=pillar_col)
 
-    # Solid Black Combat Ground Plane
-    d.rectangle([0, ground_y, w, h], fill=(12, 14, 18, 255))
-    d.line([(0, ground_y), (w, ground_y)], fill=(241, 245, 249, 140), width=2)
+    # Solid Black Combat Floor
+    d.rectangle([0, ground_y, w, h], fill=(10, 12, 16, 255))
+    d.line([(0, ground_y), (w, ground_y)], fill=(255, 255, 255, 120), width=2)
 
-    # Cinema Vignette
+    # Vignette
     vig = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     vd = ImageDraw.Draw(vig)
     for b in range(28):
         al = int((28 - b) * 3.2)
-        vd.rectangle([b * 3, b * 3, w - b * 3, h - b * 3], outline=(8, 10, 14, al), width=3)
+        vd.rectangle([b * 3, b * 3, w - b * 3, h - b * 3], outline=(6, 8, 12, al), width=3)
     return Image.alpha_composite(img, vig)
 
-def spawn_sparks(cx: float, cy: float, count: int = 24) -> list:
-    rng = random.Random(int(cx * 100 + cy))
+def spawn_sparks(count: int = 28) -> list:
+    rng = random.Random(42)
     sparks = []
     for _ in range(count):
         ang = rng.uniform(0, 2 * math.pi)
-        spd = rng.uniform(140.0, 480.0)
-        sz = rng.uniform(2.5, 6.5)
-        sparks.append((math.cos(ang) * spd, math.sin(ang) * spd - 90.0, sz))
+        spd = rng.uniform(160.0, 520.0)
+        sz = rng.uniform(2.5, 6.0)
+        sparks.append((math.cos(ang) * spd, math.sin(ang) * spd - 110.0, sz))
     return sparks
 
 def render_combat_frame(base_bg: Image.Image, out_w: int, out_h: int, beat: dict,
-                        prog: float, global_t: float, sparks: list) -> bytes:
+                        prog: float, global_t: float, sparks: list, theme: str) -> bytes:
     scale = out_w / 540.0
     ground_y = out_h * 0.77
     action = beat["action"]
 
-    # Determine Hero & Enemy Keyframe Interpolation + Impact Timing
+    # FAST 1.35-second combat cycle so fighters clash repeatedly instead of 7-second slow-mo!
+    cycle_len = 1.35
+    local_t = (global_t % cycle_len) / cycle_len
+
     hit_flash = 0.0
     shake_x, shake_y = 0, 0
-    slash_alpha = 0.0
-    impact_t = 0.52
+    hero_slash = 0.0
+    enemy_slash = 0.0
 
-    if action in {"slash", "heavy_slash", "fight"}:
-        if prog < 0.35:
-            hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["windup"], prog / 0.35)
-            enemy_pose = POSE_LIBRARY["stance"]
-            hero_x = out_w * (0.28 + (prog / 0.35) * 0.14)
-            enemy_x = out_w * 0.68
-        elif prog < 0.58:
-            sub = (prog - 0.35) / 0.23
-            hero_pose = lerp_pose(POSE_LIBRARY["windup"], POSE_LIBRARY["slash_follow"], sub)
+    if action == "combo_clash":
+        # Fast back-and-forth sword exchange!
+        if local_t < 0.28:
+            sub = local_t / 0.28
+            hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["windup"], sub)
             enemy_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["block_guard"], sub)
-            hero_x = out_w * (0.42 + sub * 0.12)
-            enemy_x = out_w * 0.68
-            slash_alpha = math.sin(sub * math.pi)
+            hero_x = out_w * (0.34 + sub * 0.08)
+            enemy_x = out_w * (0.66 - sub * 0.06)
+        elif local_t < 0.52:
+            sub = (local_t - 0.28) / 0.24
+            hero_pose = lerp_pose(POSE_LIBRARY["windup"], POSE_LIBRARY["slash_follow"], sub)
+            enemy_pose = POSE_LIBRARY["block_guard"]
+            hero_x = out_w * 0.42
+            enemy_x = out_w * 0.60
+            hero_slash = math.sin(sub * math.pi)
+            if sub > 0.65:
+                hit_flash = 0.75
+                shake_x = int(math.sin(global_t * 75.0) * 14 * scale)
+        elif local_t < 0.78:
+            # Enemy counter-attacks and Hero blocks!
+            sub = (local_t - 0.52) / 0.26
+            hero_pose = lerp_pose(POSE_LIBRARY["slash_follow"], POSE_LIBRARY["block_guard"], sub)
+            enemy_pose = lerp_pose(POSE_LIBRARY["windup"], POSE_LIBRARY["slash_follow"], sub)
+            hero_x = out_w * 0.40
+            enemy_x = out_w * 0.58
+            enemy_slash = math.sin(sub * math.pi)
+            if sub > 0.65:
+                hit_flash = 0.70
+                shake_x = int(math.cos(global_t * 75.0) * 14 * scale)
         else:
-            sub = (prog - 0.58) / 0.42
-            hero_pose = lerp_pose(POSE_LIBRARY["slash_follow"], POSE_LIBRARY["stance"], sub)
-            enemy_pose = lerp_pose(POSE_LIBRARY["knockback_hit"], POSE_LIBRARY["stance"], sub)
-            hero_x = out_w * 0.54
-            enemy_x = out_w * (0.68 + math.sin(sub * math.pi) * 0.14)
-            if sub < 0.25:
-                hit_flash = (1.0 - sub / 0.25) * 0.85
-                shake_x = int(math.sin(global_t * 65.0) * 14 * scale * (1.0 - sub / 0.25))
-                shake_y = int(math.cos(global_t * 55.0) * 10 * scale * (1.0 - sub / 0.25))
+            sub = (local_t - 0.78) / 0.22
+            hero_pose = lerp_pose(POSE_LIBRARY["block_guard"], POSE_LIBRARY["stance"], sub)
+            enemy_pose = lerp_pose(POSE_LIBRARY["slash_follow"], POSE_LIBRARY["stance"], sub)
+            hero_x = out_w * (0.40 - sub * 0.06)
+            enemy_x = out_w * (0.58 + sub * 0.08)
 
-    elif action in {"jump_attack", "jump"}:
-        if prog < 0.45:
-            sub = prog / 0.45
+    elif action in {"jump_attack", "finisher"}:
+        if local_t < 0.42:
+            sub = local_t / 0.42
             hero_pose = lerp_pose(POSE_LIBRARY["dash_forward"], POSE_LIBRARY["uppercut_air"], sub)
             enemy_pose = POSE_LIBRARY["stance"]
-            hero_x = out_w * (0.26 + sub * 0.26)
-            enemy_x = out_w * 0.68
-            slash_alpha = sub * 0.8
+            hero_x = out_w * (0.28 + sub * 0.20)
+            enemy_x = out_w * 0.64
+            hero_slash = sub * 0.85
+        elif local_t < 0.68:
+            sub = (local_t - 0.42) / 0.26
+            hero_pose = lerp_pose(POSE_LIBRARY["uppercut_air"], POSE_LIBRARY["slash_follow"], sub)
+            enemy_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["knockback_hit"], sub)
+            hero_x = out_w * 0.48
+            enemy_x = out_w * (0.64 + sub * 0.14)
+            hero_slash = 1.0 - sub * 0.5
+            hit_flash = (1.0 - sub) * 0.90
+            shake_x = int(math.sin(global_t * 80.0) * 16 * scale)
+            shake_y = int(math.cos(global_t * 70.0) * 12 * scale)
         else:
-            sub = (prog - 0.45) / 0.55
-            hero_pose = lerp_pose(POSE_LIBRARY["uppercut_air"], POSE_LIBRARY["slash_follow"], min(1.0, sub * 1.6))
+            sub = (local_t - 0.68) / 0.32
+            hero_pose = lerp_pose(POSE_LIBRARY["slash_follow"], POSE_LIBRARY["stance"], sub)
             enemy_pose = lerp_pose(POSE_LIBRARY["knockback_hit"], POSE_LIBRARY["stance"], sub)
-            hero_x = out_w * 0.52
-            enemy_x = out_w * (0.68 + math.sin(sub * math.pi) * 0.16)
-            if sub < 0.22:
-                hit_flash = (1.0 - sub / 0.22) * 0.90
-                shake_x = int(math.sin(global_t * 70.0) * 16 * scale)
+            hero_x = out_w * (0.48 - sub * 0.14)
+            enemy_x = out_w * (0.78 - sub * 0.12)
 
-    elif action in {"run", "walk"}:
-        # Smooth cyclic dash/walk using keyframe blend
-        cyc = 0.5 + 0.5 * math.sin(global_t * (12.0 if action == "run" else 7.0))
-        hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["dash_forward"], cyc)
+    elif action == "shadow_dash":
+        cyc = 0.5 + 0.5 * math.sin(global_t * 16.0)
+        hero_pose = lerp_pose(POSE_LIBRARY["dash_forward"], POSE_LIBRARY["windup"], cyc)
         enemy_pose = POSE_LIBRARY["stance"]
-        hero_x = out_w * (0.24 + prog * 0.36)
-        enemy_x = out_w * 0.74
-
-    else:
-        breathe = 0.5 + 0.5 * math.sin(global_t * 3.5)
-        hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["windup"], breathe * 0.22)
-        enemy_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["block_guard"], breathe * 0.20)
-        hero_x = out_w * 0.34
+        hero_x = out_w * (0.24 + (local_t * 0.26))
         enemy_x = out_w * 0.68
 
-    # Dynamic Camera Zoom on Combat Climax
-    zoom = 1.03 + math.sin(prog * math.pi) * 0.08
+    else:
+        # Rapid Slash Assault
+        if local_t < 0.35:
+            sub = local_t / 0.35
+            hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["windup"], sub)
+            enemy_pose = POSE_LIBRARY["stance"]
+            hero_x = out_w * (0.30 + sub * 0.14)
+            enemy_x = out_w * 0.64
+        elif local_t < 0.62:
+            sub = (local_t - 0.35) / 0.27
+            hero_pose = lerp_pose(POSE_LIBRARY["windup"], POSE_LIBRARY["slash_follow"], sub)
+            enemy_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["knockback_hit"], sub)
+            hero_x = out_w * 0.44
+            enemy_x = out_w * (0.64 + sub * 0.12)
+            hero_slash = math.sin(sub * math.pi)
+            if sub > 0.5:
+                hit_flash = 0.85
+                shake_x = int(math.sin(global_t * 75.0) * 15 * scale)
+        else:
+            sub = (local_t - 0.62) / 0.38
+            hero_pose = lerp_pose(POSE_LIBRARY["slash_follow"], POSE_LIBRARY["stance"], sub)
+            enemy_pose = lerp_pose(POSE_LIBRARY["knockback_hit"], POSE_LIBRARY["stance"], sub)
+            hero_x = out_w * (0.44 - sub * 0.14)
+            enemy_x = out_w * (0.76 - sub * 0.12)
+
+    # Dynamic Camera Zoom + Shake
+    zoom = 1.04 + math.sin(local_t * math.pi) * 0.06
     cw, ch = int(out_w / zoom), int(out_h / zoom)
     cx0 = max(0, min(out_w - cw, (out_w - cw) // 2 + shake_x))
     cy0 = max(0, min(out_h - ch, int((out_h - ch) * 0.55) + shake_y))
@@ -436,31 +489,37 @@ def render_combat_frame(base_bg: Image.Image, out_w: int, out_h: int, beat: dict
     frame = base_bg.crop((cx0, cy0, cx0 + cw, cy0 + ch)).resize((out_w, out_h), Image.Resampling.BILINEAR).convert("RGBA")
     draw = ImageDraw.Draw(frame)
 
-    # Ground Contact Shadows
+    # Rain particles if Rainy Rooftop arena selected
+    if theme == "rain_rooftop":
+        for i in range(40):
+            rx = int((i * 73 + global_t * 180) % (out_w + 60)) - 30
+            ry = int((i * 97 + global_t * 820) % (out_h + 40)) - 20
+            draw.line([(rx, ry), (rx - 8, ry + 22)], fill=(186, 230, 253, 140), width=2)
+
+    # Ground Shadows
     for fx in (hero_x, enemy_x):
-        draw.ellipse([fx - 30 * scale, ground_y - 6 * scale, fx + 30 * scale, ground_y + 6 * scale], fill=(0, 0, 0, 140))
+        draw.ellipse([fx - 30 * scale, ground_y - 6 * scale, fx + 30 * scale, ground_y + 6 * scale], fill=(0, 0, 0, 150))
 
-    # Draw Enemy Fighter (facing left = -1) & Hero Fighter (facing right = +1)
-    draw_silhouette_fighter(draw, enemy_x, ground_y, scale * 1.22, enemy_pose, facing=-1, global_t=global_t, has_sword=True, accent_col=(244, 63, 94), slash_arc_alpha=0.0)
-    draw_silhouette_fighter(draw, hero_x, ground_y, scale * 1.25, hero_pose, facing=1, global_t=global_t, has_sword=True, accent_col=(56, 189, 248), slash_arc_alpha=slash_alpha)
+    # Draw Enemy Fighter (facing LEFT = -1 toward Hero!) & Hero Fighter (facing RIGHT = +1 toward Enemy!)
+    draw_silhouette_fighter(draw, enemy_x, ground_y, scale * 1.24, enemy_pose, facing=-1, global_t=global_t, accent_col=(244, 63, 94), slash_arc_alpha=enemy_slash)
+    draw_silhouette_fighter(draw, hero_x, ground_y, scale * 1.26, hero_pose, facing=1, global_t=global_t, accent_col=(56, 189, 248), slash_arc_alpha=hero_slash)
 
-    # Impact Sparks & Ink Splatter after hit moment!
-    if prog > impact_t and action in {"slash", "heavy_slash", "fight", "jump_attack", "jump"}:
-        dt = (prog - impact_t) * 1.6
-        ix, iy = (hero_x + enemy_x) * 0.5, ground_y - 85 * scale
+    # Sparks burst on impact
+    if local_t > 0.45 and action != "shadow_dash":
+        dt = (local_t - 0.45) * 1.8
+        ix, iy = (hero_x + enemy_x) * 0.5, ground_y - 88 * scale
         for vx, vy, sz in sparks:
-            px = ix + vx * dt * scale * 0.45
-            py = iy + (vy * dt + 280.0 * (dt ** 2)) * scale * 0.45
+            px = ix + vx * dt * scale * 0.42
+            py = iy + (vy * dt + 260.0 * (dt ** 2)) * scale * 0.42
             if py < ground_y:
-                r = max(1.5, sz * scale * (1.0 - dt * 0.6))
-                draw.ellipse([px - r, py - r, px + r, py + r], fill=(12, 14, 18, 230))
+                r = max(1.5, sz * scale * (1.0 - dt * 0.65))
+                draw.ellipse([px - r, py - r, px + r, py + r], fill=(255, 255, 255, 220))
 
-    # Dramatic White Impact Flash Overlay (44835.mp4 signature frame!)
     if hit_flash > 0.05:
-        flash_layer = Image.new("RGBA", (out_w, out_h), (255, 255, 255, int(190 * hit_flash)))
+        flash_layer = Image.new("RGBA", (out_w, out_h), (255, 255, 255, int(175 * hit_flash)))
         frame = Image.alpha_composite(frame, flash_layer)
 
-    # Clean Cinematic Action Captions
+    # Clean Studio Captions
     draw_f = ImageDraw.Draw(frame)
     words = beat.get("words", [])
     if words:
@@ -522,13 +581,9 @@ def get_font(size: int):
 def parse_combat_beats(raw_script: str):
     lines = [ln.strip() for ln in str(raw_script or "").splitlines() if ln.strip()]
     beats = []
-    current_scene = "MOONLIT DOJO ARENA"
 
     for ln in lines:
         if re.match(r"^SCENE\s*\d*", ln, re.I):
-            loc = re.sub(r"^SCENE\s*\d*\s*[:\-]?\s*", "", ln, flags=re.I).strip()
-            if loc:
-                current_scene = loc.upper()
             continue
 
         tags = []
@@ -541,27 +596,26 @@ def parse_combat_beats(raw_script: str):
 
         for tg in tags:
             u = tg.upper()
-            if u in {"SLASH", "HEAVY_SLASH", "JUMP_ATTACK", "FIGHT", "RUN", "WALK", "JUMP", "BLOCK", "STANCE"}:
+            if u in {"COMBO_CLASH", "SHADOW_DASH", "SLASH", "JUMP_ATTACK", "FINISHER"}:
                 action = u.lower()
-            elif u not in {"HAPPY", "SAD", "SHOCK", "ROMANTIC", "CONFUSED", "FEAR", "CHILL", "ANGRY", "HEROIC", "FULL", "HALF", "WIDE", "CLOSEUP"}:
+            elif u not in {"HAPPY", "SAD", "SHOCK", "FEAR", "HEROIC", "FULL", "CLOSEUP"}:
                 speaker = tg
 
-        low = (current_scene + " " + caption).lower()
+        low = caption.lower()
         if action == "auto":
-            if any(k in low for k in ["jump", "uchhal", "air", "upar", "kood"]):
+            if any(k in low for k in ["jump", "chhalang", "air", "upar", "finisher", "aakhiri"]):
                 action = "jump_attack"
-            elif any(k in low for k in ["slash", "sword", "talwar", "attack", "vaar", "fight", "ladai"]):
-                action = "slash"
-            elif any(k in low for k in ["run", "dash", "bhag", "daud", "tez"]):
-                action = "run"
+            elif any(k in low for k in ["clash", "takkar", "block", "ladai", "fight"]):
+                action = "combo_clash"
+            elif any(k in low for k in ["dash", "run", "raftar", "bhag", "aage"]):
+                action = "shadow_dash"
             else:
-                action = "slash" if (len(beats) % 2 == 1) else "run"
+                action = "slash"
 
         is_female = bool(re.search(r"(girl|meera|ananya|priya|aditi|neha|sara|riya|sakchunni)", speaker.lower()))
 
         beats.append({
             "index": len(beats) + 1,
-            "scene": current_scene,
             "speaker": speaker,
             "is_female": is_female,
             "action": action,
@@ -570,7 +624,8 @@ def parse_combat_beats(raw_script: str):
         })
     return beats
 
-def run_combat_job(job_id: str, script_text: str, ratio: str, voice_mode: str, lang_mode: str, custom_wav_path):
+def run_combat_job(job_id: str, script_text: str, ratio: str, arena_theme: str,
+                   voice_mode: str, lang_mode: str, custom_wav_path, custom_bg_path):
     job = JOBS[job_id]
     try:
         beats = parse_combat_beats(script_text)
@@ -583,7 +638,7 @@ def run_combat_job(job_id: str, script_text: str, ratio: str, voice_mode: str, l
         fps = 24
         total = len(beats)
 
-        job["message"] = "Preparing Voiceover & Sword Clash Sound FX..."
+        job["message"] = "Generating Voiceover & Sword Clash SFX..."
         job["progress"] = 10
 
         raw_wav = os.path.join(AUDIO_DIR, f"{job_id}_raw.wav")
@@ -595,7 +650,7 @@ def run_combat_job(job_id: str, script_text: str, ratio: str, voice_mode: str, l
             total_words = sum(max(1, len(b["words"])) for b in beats)
             for b in beats:
                 share = max(1, len(b["words"])) / float(total_words)
-                beat_durations.append(max(1.6, total_audio_dur * share))
+                beat_durations.append(max(1.5, total_audio_dur * share))
         else:
             seg_wavs = []
             for idx, b in enumerate(beats):
@@ -614,22 +669,21 @@ def run_combat_job(job_id: str, script_text: str, ratio: str, voice_mode: str, l
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
             )
 
-        # Calculate exact sword clash & whoosh timestamps for SFX injection
+        # Inject fast sword clash & whoosh SFX on every 1.35s combo cycle!
+        total_vid_dur = sum(beat_durations)
         impact_times = []
-        t_acc = 0.0
-        for i, b in enumerate(beats):
-            dur = beat_durations[i]
-            if b["action"] in {"slash", "heavy_slash", "fight", "jump_attack", "jump"}:
-                impact_times.append((t_acc + dur * 0.36, "whoosh"))
-                impact_times.append((t_acc + dur * 0.54, "clash"))
-            t_acc += dur
+        t_mark = 0.45
+        while t_mark < total_vid_dur - 0.3:
+            impact_times.append((t_mark, "whoosh"))
+            impact_times.append((t_mark + 0.18, "clash"))
+            t_mark += 1.35
 
         inject_combat_sfx(raw_wav, impact_times, final_wav)
 
-        base_bg = build_monochrome_dojo_bg(out_w, out_h, beats[0]["scene"])
-        sparks = spawn_sparks(out_w * 0.56, out_h * 0.62, count=28)
+        base_bg = build_arena_bg(out_w, out_h, arena_theme, custom_bg_path)
+        sparks = spawn_sparks(28)
 
-        out_name = f"NEXORA_COMBAT_STICKMAN_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        out_name = f"NEXORA_PRO_COMBAT_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         ffmpeg_cmd = [
@@ -650,12 +704,12 @@ def run_combat_job(job_id: str, script_text: str, ratio: str, voice_mode: str, l
             n_frames = max(1, int(dur * fps))
             for f in range(n_frames):
                 prog = f / max(1, n_frames - 1)
-                raw_bytes = render_combat_frame(base_bg, out_w, out_h, b, prog, global_t, sparks)
+                raw_bytes = render_combat_frame(base_bg, out_w, out_h, b, prog, global_t, sparks, arena_theme)
                 proc.stdin.write(raw_bytes)
                 global_t += 1.0 / fps
 
             job["progress"] = 30 + int(((i + 1) / total) * 68)
-            job["message"] = f"Animating Combat Scene {i + 1}/{total} (24 FPS Keyframe Rig)..."
+            job["message"] = f"Rendering Fast Combat Combo {i + 1}/{total}..."
 
         proc.stdin.close()
         proc.wait()
@@ -685,27 +739,34 @@ def api_start():
 
     job_id = uuid.uuid4().hex[:10]
     custom_wav_path = None
+    custom_bg_path = None
 
     if request.content_type and "multipart/form-data" in request.content_type:
         script_text = request.form.get("script", "")
         ratio = request.form.get("ratio", "9:16")
+        arena_theme = request.form.get("arena", "dojo_moon")
         voice_mode = request.form.get("voice_mode", "auto")
         lang_mode = request.form.get("lang_mode", "HINDI")
         if "voice_file" in request.files and request.files["voice_file"].filename:
             vf = request.files["voice_file"]
-            custom_wav_path = os.path.join(AUDIO_DIR, f"{job_id}_upload_{vf.filename}")
+            custom_wav_path = os.path.join(AUDIO_DIR, f"{job_id}_voice_{vf.filename}")
             vf.save(custom_wav_path)
+        if "bg_file" in request.files and request.files["bg_file"].filename:
+            bf = request.files["bg_file"]
+            custom_bg_path = os.path.join(AUDIO_DIR, f"{job_id}_bg_{bf.filename}")
+            bf.save(custom_bg_path)
     else:
         data = request.get_json(force=True)
         script_text = data.get("script", "")
         ratio = data.get("ratio", "9:16")
+        arena_theme = data.get("arena", "dojo_moon")
         voice_mode = data.get("voice_mode", "auto")
         lang_mode = data.get("lang_mode", "HINDI")
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing Silhouette Stickman Combat Engine..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing Face-to-Face Combat Studio..."}
     threading.Thread(
         target=run_combat_job,
-        args=(job_id, script_text, ratio, voice_mode, lang_mode, custom_wav_path),
+        args=(job_id, script_text, ratio, arena_theme, voice_mode, lang_mode, custom_wav_path, custom_bg_path),
         daemon=True
     ).start()
     return jsonify({"job_id": job_id})
