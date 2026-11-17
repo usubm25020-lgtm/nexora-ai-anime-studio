@@ -1,16 +1,13 @@
 import os
-import re
 import time
 import math
 import uuid
 import wave
 import random
-import asyncio
 import subprocess
 import threading
 import numpy as np
 
-import edge_tts
 import imageio_ffmpeg
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, request, jsonify, send_file
@@ -34,156 +31,96 @@ FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. BUILT-IN QUESTION BANK (SHUFFLES EVERY TIME SO QUESTIONS NEVER REPEAT)
+# 1. FACTIONS & COUNTRIES ROSTER
 # ===========================================================================
-QUESTION_BANK = [
-    {"q": "Which planet in our solar system has the most moons?", "opts": ["Jupiter", "Saturn", "Uranus", "Neptune"], "ans": 1},
-    {"q": "What is the hardest natural substance on Earth?", "opts": ["Gold", "Iron", "Diamond", "Platinum"], "ans": 2},
-    {"q": "Which country is known as the Land of the Rising Sun?", "opts": ["China", "South Korea", "Thailand", "Japan"], "ans": 3},
-    {"q": "How many bones are there in an adult human body?", "opts": ["196", "206", "216", "226"], "ans": 1},
-    {"q": "Which gas do plants absorb from the atmosphere?", "opts": ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], "ans": 2},
-    {"q": "What is the largest ocean on Earth?", "opts": ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"], "ans": 3},
-    {"q": "Who painted the world-famous Mona Lisa?", "opts": ["Vincent van Gogh", "Leonardo da Vinci", "Pablo Picasso", "Michelangelo"], "ans": 1},
-    {"q": "Which metal is liquid at room temperature?", "opts": ["Mercury", "Silver", "Copper", "Aluminum"], "ans": 0},
-    {"q": "What is the smallest country in the world by area?", "opts": ["Monaco", "Maldives", "Vatican City", "San Marino"], "ans": 2},
-    {"q": "Which organ in the human body pumps blood?", "opts": ["Brain", "Lungs", "Liver", "Heart"], "ans": 3},
-    {"q": "What has keys that open no locks, space but no room?", "opts": ["A Map", "A Keyboard", "A Clock", "A Piano"], "ans": 1},
-    {"q": "Which animal can sleep for up to three years?", "opts": ["Koala", "Sloth", "Snail", "Bat"], "ans": 2},
-    {"q": "What is the speed of light approximately?", "opts": ["300,000 km/s", "150,000 km/s", "30,000 km/s", "3,000 km/s"], "ans": 0},
-    {"q": "Which continent has the highest number of countries?", "opts": ["Asia", "Europe", "Africa", "South America"], "ans": 2},
-    {"q": "What gets wetter the more it dries?", "opts": ["A Sponge", "A Towel", "Ice", "Clouds"], "ans": 1}
-]
-
-def parse_quiz_input(raw_text: str, count: int, shuffle_mode: bool):
-    """
-    Parses custom questions in format:
-    Q: Question text? | OptA | OptB | OptC | OptD | CorrectIndex(1-4)
-    Falls back to shuffled built-in bank if empty.
-    """
-    items = []
-    for ln in str(raw_text or "").splitlines():
-        ln = ln.strip()
-        if not ln or "|" not in ln:
-            continue
-        parts = [p.strip() for p in ln.split("|")]
-        if len(parts) >= 6:
-            q_txt = re.sub(r"^Q\d*\s*[:.\-]\s*", "", parts[0], flags=re.I).strip()
-            opts = parts[1:5]
-            try:
-                ans_idx = max(0, min(3, int(re.sub(r"[^0-9]", "", parts[5])) - 1))
-            except Exception:
-                ans_idx = 0
-            items.append({"q": q_txt, "opts": opts, "ans": ans_idx})
-
-    if not items:
-        items = [dict(x) for x in QUESTION_BANK]
-
-    if shuffle_mode:
-        random.shuffle(items)
-
-    return items[:max(1, min(30, count))]
-
-
-# ===========================================================================
-# 2. VOICEOVER + CLOCK TICK-TOCK & DING REVEAL AUDIO ENGINE
-# ===========================================================================
-VOICE_MAP = {
-    "MALE_ENGLISH": "en-US-AndrewNeural",
-    "FEMALE_ENGLISH": "en-US-AvaNeural",
-    "MALE_HINDI": "hi-IN-MadhurNeural",
-    "FEMALE_HINDI": "hi-IN-SwaraNeural"
+FACTIONS_DATA = {
+    "countries": [
+        ("INDIA",   (255, 153, 51)),
+        ("USA",     (59, 130, 246)),
+        ("RUSSIA",  (239, 68, 68)),
+        ("CHINA",   (250, 204, 21)),
+        ("JAPAN",   (244, 114, 182)),
+        ("GERMANY", (168, 85, 247)),
+        ("BRAZIL",  (16, 185, 129)),
+        ("UK",      (34, 211, 238)),
+        ("FRANCE",  (99, 102, 241)),
+        ("TURKEY",  (248, 113, 113)),
+        ("EGYPT",   (217, 119, 6)),
+        ("CANADA",  (225, 29, 72))
+    ],
+    "empires": [
+        ("CRIMSON", (244, 63, 94)),
+        ("CYAN",    (34, 211, 238)),
+        ("GOLD",    (250, 204, 21)),
+        ("EMERALD", (16, 185, 129)),
+        ("VIOLET",  (168, 85, 247)),
+        ("ORANGE",  (249, 115, 22)),
+        ("COBALT",  (59, 130, 246)),
+        ("MAGENTA", (232, 121, 249))
+    ]
 }
 
-async def _tts_save(text: str, voice_id: str, mp3_path: str):
-    comm = edge_tts.Communicate(text, voice_id, rate="+5%")
-    await comm.save(mp3_path)
-
-def generate_tts_wav(text: str, lang_mode: str, is_female: bool, out_wav: str) -> float:
-    clean_txt = re.sub(r"[^a-zA-Z0-9\s,?!.'\-]", "", text).strip() or "Next question"
-    if lang_mode == "HINDI":
-        vid = VOICE_MAP["FEMALE_HINDI"] if is_female else VOICE_MAP["MALE_HINDI"]
-    else:
-        vid = VOICE_MAP["FEMALE_ENGLISH"] if is_female else VOICE_MAP["MALE_ENGLISH"]
-
-    tmp_mp3 = out_wav + ".mp3"
-    try:
-        asyncio.run(_tts_save(clean_txt, vid, tmp_mp3))
-        subprocess.run(
-            [FFMPEG_BIN, "-y", "-i", tmp_mp3, "-ar", "22050", "-ac", "1", out_wav],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-        )
-        if os.path.exists(tmp_mp3):
-            os.remove(tmp_mp3)
-    except Exception:
-        dur = max(1.8, len(clean_txt.split()) * 0.36)
-        subprocess.run(
-            [FFMPEG_BIN, "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", str(dur), out_wav],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-
-    with wave.open(out_wav, "rb") as wf:
-        return max(1.5, wf.getnframes() / float(wf.getframerate()))
-
-def build_timer_and_ding_wav(think_dur: float, out_wav: str):
-    """Synthesizes a 5-second suspenseful clock tick-tock followed by a bright 'DING!' chime."""
+# ===========================================================================
+# 2. WAR DRUMS, CONQUEST BOOM & ELIMINATION AUDIO SYNTHESIZER
+# ===========================================================================
+def generate_battle_audio_wav(duration_sec: float, elim_events: list, out_wav: str):
+    """Synthesizes rhythmic epic war drums, ambient tension, and elimination horns/booms."""
     rate = 22050
-    n = int(think_dur * rate)
-    audio = np.zeros(n, dtype=np.float32)
+    n = int(duration_sec * rate)
+    t = np.linspace(0, duration_sec, n, endpoint=False, dtype=np.float32)
 
-    # Tick-tock every 0.5 seconds
-    sec_step = 0.5
-    t_mark = 0.25
-    tick_idx = 0
-    while t_mark < think_dur - 0.15:
-        s_idx = int(t_mark * rate)
-        dur_s = int(0.06 * rate)
-        if s_idx + dur_s < n:
-            tt = np.linspace(0, 0.06, dur_s, endpoint=False, dtype=np.float32)
-            freq = 1150.0 if (tick_idx % 2 == 0) else 880.0
-            tick = np.sin(2.0 * np.pi * freq * tt) * np.exp(-tt * 75.0) * 0.45
-            audio[s_idx:s_idx + dur_s] += tick
-        t_mark += sec_step
-        tick_idx += 1
+    bpm = 122.0
+    beat_dur = 60.0 / bpm
+    beat_pos = (t % beat_dur) / beat_dur
+    beat_num = (t / beat_dur).astype(np.int32)
 
-    # Soft tension hum
-    t_full = np.linspace(0, think_dur, n, endpoint=False, dtype=np.float32)
-    audio += 0.05 * np.sin(2.0 * np.pi * 110.0 * t_full)
+    # Epic War Taiko Drum pattern (BOOM - boom - boom-boom)
+    is_accent = ((beat_num % 4) == 0).astype(np.float32)
+    drum_freq = (54.0 + 42.0 * np.exp(-beat_pos * 18.0)) * (1.0 + 0.12 * is_accent)
+    drums = np.sin(2.0 * np.pi * drum_freq * (t % beat_dur)) * np.exp(-beat_pos * (6.5 - 1.5 * is_accent)) * (0.34 + 0.14 * is_accent)
 
-    pcm = (np.clip(audio, -0.95, 0.95) * 32767.0).astype(np.int16)
+    # Subtle metallic war percussion
+    rng = np.random.default_rng(404)
+    noise = rng.uniform(-1.0, 1.0, n).astype(np.float32)
+    perc_env = np.exp(-((t + beat_dur * 0.5) % beat_dur) * 38.0)
+    perc = noise * perc_env * 0.10
+
+    # Deep war tension drone
+    drone = (0.05 * np.sin(2.0 * np.pi * 65.41 * t) + 0.03 * np.sin(2.0 * np.pi * 98.00 * t))
+
+    audio = drums + perc + drone
+
+    # Dramatic Sub-Bass Impact + Brass Horn whenever a country/empire is eliminated!
+    for ev_t, is_final in elim_events:
+        s_idx = int(ev_t * rate)
+        dur = 1.1 if is_final else 0.55
+        e_idx = min(n, s_idx + int(dur * rate))
+        if s_idx < e_idx:
+            seg_len = e_idx - s_idx
+            te = np.linspace(0, seg_len / float(rate), seg_len, endpoint=False, dtype=np.float32)
+            boom = np.sin(2.0 * np.pi * (95.0 * np.exp(-te * 6.0) + 38.0) * te) * np.exp(-te * 4.5) * 0.65
+            horn = (
+                0.35 * np.sin(2.0 * np.pi * 196.00 * te) +
+                0.25 * np.sin(2.0 * np.pi * 293.66 * te)
+            ) * np.exp(-te * 3.5) * 0.35
+            audio[s_idx:e_idx] += (boom + horn)
+
+    fade_s = min(int(0.8 * rate), n // 4)
+    if fade_s > 0:
+        audio[:fade_s] *= np.linspace(0, 1, fade_s)
+        audio[-fade_s:] *= np.linspace(1, 0, fade_s)
+
+    audio = np.clip(audio, -0.95, 0.95)
+    pcm = (audio * 32767.0).astype(np.int16)
     with wave.open(out_wav, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(rate)
         wf.writeframes(pcm.tobytes())
 
-def prepend_ding_to_wav(ans_wav: str, out_wav: str):
-    """Adds a celebratory bell 'DING!' at the exact start of the answer reveal."""
-    with wave.open(ans_wav, "rb") as wf:
-        rate = wf.getframerate()
-        ans = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
-
-    dur_d = int(0.65 * rate)
-    td = np.linspace(0, 0.65, dur_d, endpoint=False, dtype=np.float32)
-    ding = (
-        0.55 * np.sin(2.0 * np.pi * 1046.50 * td) +
-        0.35 * np.sin(2.0 * np.pi * 1318.51 * td) +
-        0.25 * np.sin(2.0 * np.pi * 1567.98 * td)
-    ) * np.exp(-td * 6.5) * 0.55
-
-    if len(ans) < dur_d:
-        ans = np.pad(ans, (0, dur_d - len(ans)))
-    ans[:dur_d] = np.clip(ans[:dur_d] + ding, -0.95, 0.95)
-
-    pcm = (ans * 32767.0).astype(np.int16)
-    with wave.open(out_wav, "wb") as wf_out:
-        wf_out.setnchannels(1)
-        wf_out.setsampwidth(2)
-        wf_out.setframerate(rate)
-        wf_out.writeframes(pcm.tobytes())
-
 
 # ===========================================================================
-# 3. STUDIO QUIZ GRAPHICS & COUNTDOWN BAR RENDERER
+# 3. PROCEDURAL CONTINENT & CELLULAR CONQUEST SIMULATION ENGINE
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
@@ -202,255 +139,317 @@ def get_font(size: int):
                 pass
     return ImageFont.load_default()
 
-def wrap_text_lines(draw: ImageDraw.Draw, text: str, font, max_w: int) -> list:
-    words = text.split()
-    lines, cur = [], ""
-    for wd in words:
-        test = (cur + " " + wd).strip()
-        bbox = draw.textbbox((0, 0), test, font=font)
-        if bbox[2] - bbox[0] <= max_w or not cur:
-            cur = test
-        else:
-            lines.append(cur)
-            cur = wd
-    if cur:
-        lines.append(cur)
-    return lines
-
-class QuizStudioRenderer:
-    def __init__(self, w: int, h: int, total_q: int):
+class TerritoryConquestEngine:
+    """
+    Generates realistic procedural continents & islands, spawns warring nations/empires,
+    simulates dynamic frontline invasions, power surges, and live leaderboard rankings!
+    """
+    def __init__(self, w: int, h: int, roster_type: str, num_factions: int):
         self.w = w
         self.h = h
-        self.total_q = total_q
         self.is_vertical = (h > w)
+        self.rng = random.Random(int(time.time()) % 100000)
+        self.np_rng = np.random.default_rng(int(time.time()) % 100000)
 
-        # Rich Royal Indigo & Deep Slate Quiz Show Backdrop
-        grad = np.zeros((h, w, 3), dtype=np.uint8)
-        top_c, bot_c = (18, 24, 54), (7, 10, 24)
-        for ch in range(3):
-            col_line = np.linspace(top_c[ch], bot_c[ch], h, dtype=np.uint8)[:, None]
-            grad[:, :, ch] = np.repeat(col_line, w, axis=1)
-        self.base_bg = Image.fromarray(grad, mode="RGB")
+        # Simulation Grid Size (Fast & Detailed)
+        if self.is_vertical:
+            self.gw, self.gh = 120, 150
+            self.map_box = (int(w * 0.04), int(h * 0.08), int(w * 0.96), int(h * 0.68))
+        else:
+            self.gw, self.gh = 165, 125
+            self.map_box = (int(w * 0.03), int(h * 0.11), int(w * 0.68), int(h * 0.92))
 
-    def render_frame(self, q_idx: int, q_obj: dict, phase: str, phase_prog: float, global_t: float) -> bytes:
-        frame = self.base_bg.copy()
+        self.mw = self.map_box[2] - self.map_box[0]
+        self.mh = self.map_box[3] - self.map_box[1]
+
+        # Build Procedural Continents + Islands Land Mask (0 = Ocean, 1 = Land)
+        self.land_mask = self._generate_world_map()
+        self.total_land = max(1, int(np.sum(self.land_mask)))
+
+        # Setup Factions (1..N)
+        pool = list(FACTIONS_DATA.get(roster_type, FACTIONS_DATA["countries"]))
+        self.rng.shuffle(pool)
+        chosen = pool[:max(4, min(len(pool), num_factions))]
+
+        self.num_factions = len(chosen)
+        self.names = [""] + [c[0] for c in chosen]
+        self.colors = np.zeros((self.num_factions + 1, 3), dtype=np.uint8)
+        self.colors[0] = (10, 22, 40)  # Deep Ocean Blue
+        for idx, (_, col) in enumerate(chosen, start=1):
+            self.colors[idx] = col
+
+        # Grid stores faction ID (0 = ocean, -1 = neutral land, 1..N = faction)
+        self.grid = np.where(self.land_mask, -1, 0).astype(np.int16)
+        self.power = np.ones(self.num_factions + 1, dtype=np.float32)
+        self.alive = [False] + [True] * self.num_factions
+        self.capitals = {}
+        self.elim_events = []
+        self.banner_text = ""
+        self.banner_timer = 0.0
+
+        self._spawn_capitals()
+
+    def _generate_world_map(self) -> np.ndarray:
+        """Creates multi-continent + archipelago terrain using layered radial blobs & waves."""
+        yy, xx = np.ogrid[0:self.gh, 0:self.gw]
+        nx = (xx / float(self.gw)) * 2.0 - 1.0
+        ny = (yy / float(self.gh)) * 2.0 - 1.0
+
+        heightmap = np.zeros((self.gh, self.gw), dtype=np.float32)
+        # 5 major continental tectonic plates + 6 smaller islands
+        for i in range(11):
+            cx = self.np_rng.uniform(-0.68, 0.68)
+            cy = self.np_rng.uniform(-0.68, 0.68)
+            rad = self.np_rng.uniform(0.32, 0.62) if i < 5 else self.np_rng.uniform(0.14, 0.25)
+            d2 = ((nx - cx) ** 2 + (ny - cy) ** 2) / (rad ** 2)
+            heightmap += np.exp(-d2 * 1.65)
+
+        # Add coastline irregularity
+        wave = (
+            0.22 * np.sin(nx * 7.5 + self.np_rng.uniform(0, 6)) * np.cos(ny * 7.5) +
+            0.14 * np.cos(nx * 14.0 - ny * 12.0)
+        )
+        heightmap += wave
+        # Keep ocean border around edges
+        edge_fade = (1.0 - np.power(np.abs(nx), 4.0)) * (1.0 - np.power(np.abs(ny), 4.0))
+        land = (heightmap * edge_fade) > 0.58
+        return land
+
+    def _spawn_capitals(self):
+        land_coords = np.argwhere(self.land_mask)
+        self.np_rng.shuffle(land_coords)
+        picked = []
+        min_dist_sq = ((self.gw + self.gh) * 0.07) ** 2
+
+        for y, x in land_coords:
+            if all((y - py) ** 2 + (x - px) ** 2 >= min_dist_sq for py, px in picked):
+                picked.append((int(y), int(x)))
+                if len(picked) == self.num_factions:
+                    break
+
+        while len(picked) < self.num_factions and len(land_coords) > len(picked):
+            y, x = land_coords[len(picked)]
+            picked.append((int(y), int(x)))
+
+        for fid, (cy, cx) in enumerate(picked, start=1):
+            self.capitals[fid] = (cx, cy)
+            # Claim initial 3x3 territory around capital
+            y0, y1 = max(0, cy - 2), min(self.gh, cy + 3)
+            x0, x1 = max(0, cx - 2), min(self.gw, cx + 3)
+            patch = self.grid[y0:y1, x0:x1]
+            self.grid[y0:y1, x0:x1] = np.where(patch != 0, fid, 0)
+
+    def step_war(self, global_t: float, dt: float, prog: float):
+        if self.banner_timer > 0:
+            self.banner_timer = max(0.0, self.banner_timer - dt)
+
+        # Periodically shift military momentum so underdogs can make dramatic comebacks!
+        if self.rng.random() < 0.08:
+            alive_ids = [i for i in range(1, self.num_factions + 1) if self.alive[i]]
+            if alive_ids:
+                boosted = self.rng.choice(alive_ids)
+                self.power[boosted] = min(2.4, self.power[boosted] + 0.45)
+        self.power = 1.0 + (self.power - 1.0) * 0.96
+
+        # Run multiple invasion waves per frame so frontlines move briskly
+        waves = 4 if prog < 0.7 else 6
+        for _ in range(waves):
+            # Pick random shift direction (including naval island-hopping across short straits!)
+            jump = 2 if self.rng.random() < 0.14 else 1
+            dy, dx = self.rng.choice([(-jump, 0), (jump, 0), (0, -jump), (0, jump), (-1, -1), (1, 1), (-1, 1), (1, -1)])
+
+            shifted = np.roll(self.grid, shift=(dy, dx), axis=(0, 1))
+            # Attacker must be an active faction (> 0), defender must be land (!= 0) and different
+            can_attack = (shifted > 0) & (self.grid != 0) & (shifted != self.grid)
+
+            # Neutral land (-1) is conquered quickly; enemy territory requires winning combat roll
+            rand_mat = self.np_rng.random((self.gh, self.gw), dtype=np.float32)
+            atk_power = self.power[np.maximum(0, shifted)]
+            def_power = np.where(self.grid == -1, 0.35, self.power[np.maximum(0, self.grid)])
+
+            win_prob = 0.28 * (atk_power / (atk_power + def_power))
+            conquered = can_attack & (rand_mat < win_prob)
+            self.grid = np.where(conquered, shifted, self.grid)
+
+        # Check eliminations & declare champion
+        counts = np.bincount(np.maximum(0, self.grid).ravel(), minlength=self.num_factions + 1)
+        alive_now = []
+        for fid in range(1, self.num_factions + 1):
+            if self.alive[fid]:
+                if counts[fid] == 0:
+                    self.alive[fid] = False
+                    self.elim_events.append((global_t, False))
+                    self.banner_text = f"{self.names[fid]} ELIMINATED!"
+                    self.banner_timer = 1.8
+                else:
+                    alive_now.append(fid)
+
+        if len(alive_now) == 1 and not getattr(self, "victory_announced", False):
+            self.victory_announced = True
+            win_id = alive_now[0]
+            self.elim_events.append((global_t, True))
+            self.banner_text = f"👑 {self.names[win_id]} CONQUERED THE WORLD!"
+            self.banner_timer = 5.0
+
+    def render_frame(self, global_t: float) -> bytes:
+        frame = Image.new("RGB", (self.w, self.h), (7, 11, 20))
         draw = ImageDraw.Draw(frame)
         sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
 
-        # Animated subtle diagonal background accent lines
-        offset = int((global_t * 35) % 80)
-        for x in range(-self.h, self.w + self.h, 80):
-            draw.line([(x + offset, 0), (x + offset - self.h // 2, self.h)], fill=(25, 34, 72), width=2)
+        # 1. Render Colored Territory Map with Crisp Black Borders
+        color_idx = np.where(self.grid == -1, 0, self.grid)
+        rgb_grid = self.colors[color_idx]
+        # Neutral uncolonized land gets dark slate-gray tone
+        neutral_mask = (self.grid == -1)
+        rgb_grid[neutral_mask] = (34, 42, 58)
 
-        # 1. Top Badge: QUESTION X / N
-        font_badge = get_font(max(15, int(18 * sc)))
-        badge_txt = f"QUESTION {q_idx + 1} / {self.total_q}"
-        bw_box = draw.textbbox((0, 0), badge_txt, font=font_badge)
-        bw = bw_box[2] - bw_box[0] + 36
-        bh = int(36 * sc)
-        bx0 = (self.w - bw) // 2
-        by0 = int(self.h * 0.05)
-        draw.rounded_rectangle([bx0, by0, bx0 + bw, by0 + bh], radius=bh // 2, fill=(34, 211, 238))
-        draw.text((bx0 + 18, by0 + int(7 * sc)), badge_txt, font=font_badge, fill=(6, 10, 24))
+        # Draw dark frontline borders where adjacent pixels belong to different factions
+        b_up = self.grid != np.roll(self.grid, 1, axis=0)
+        b_lt = self.grid != np.roll(self.grid, 1, axis=1)
+        border_mask = (b_up | b_lt) & (self.grid != 0)
+        rgb_grid[border_mask] = (12, 16, 26)
 
-        # 2. Question Card
-        card_margin = int(self.w * 0.06)
-        q_top = int(self.h * 0.14)
-        q_h = int(self.h * (0.24 if self.is_vertical else 0.25))
-        draw.rounded_rectangle(
-            [card_margin, q_top, self.w - card_margin, q_top + q_h],
-            radius=16, fill=(15, 23, 42), outline=(56, 189, 248), width=3
-        )
+        map_img = Image.fromarray(rgb_grid, mode="RGB").resize((self.mw, self.mh), Image.Resampling.NEAREST)
+        frame.paste(map_img, (self.map_box[0], self.map_box[1]))
+        draw.rectangle(self.map_box, outline=(56, 189, 248), width=2)
 
-        font_q = get_font(max(20, int(26 * sc)))
-        q_lines = wrap_text_lines(draw, q_obj["q"], font_q, self.w - card_margin * 2 - 40)
-        line_h = int(font_q.size * 1.32)
-        text_start_y = q_top + (q_h - len(q_lines) * line_h) // 2
-        for li, ln in enumerate(q_lines):
-            lb = draw.textbbox((0, 0), ln, font=font_q)
-            lw = lb[2] - lb[0]
-            draw.text(((self.w - lw) // 2, text_start_y + li * line_h), ln, font=font_q, fill=(248, 250, 252))
+        # Draw Capital Stars & Territory Names on Map
+        font_cap = get_font(max(11, int(13 * sc)))
+        counts = np.bincount(np.maximum(0, self.grid).ravel(), minlength=self.num_factions + 1)
+        for fid in range(1, self.num_factions + 1):
+            if not self.alive[fid]:
+                continue
+            ys, xs = np.where(self.grid == fid)
+            if len(xs) > 18:
+                mx = self.map_box[0] + int((float(np.mean(xs)) / self.gw) * self.mw)
+                my = self.map_box[1] + int((float(np.mean(ys)) / self.gh) * self.mh)
+                lbl = self.names[fid]
+                tb = draw.textbbox((0, 0), lbl, font=font_cap)
+                tw, th = tb[2] - tb[0], tb[3] - tb[1]
+                draw.text((mx - tw // 2, my - th // 2), lbl, font=font_cap, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0))
 
-        # 3. 5-Second Countdown Timer Bar (Active during 'think' phase)
-        timer_y = q_top + q_h + int(self.h * 0.03)
-        timer_h = max(14, int(18 * sc))
-        bar_w = self.w - card_margin * 2
-        draw.rounded_rectangle([card_margin, timer_y, card_margin + bar_w, timer_y + timer_h], radius=timer_h // 2, fill=(30, 41, 59))
+        # 2. Header Banner & Elimination Alerts
+        font_hdr = get_font(max(16, int(21 * sc)))
+        alive_cnt = sum(1 for i in range(1, self.num_factions + 1) if self.alive[i])
+        hdr_txt = f"WORLD CONQUEST BATTLE ROYALE  •  {alive_cnt}/{self.num_factions} ALIVE"
+        draw.text((int(self.w * 0.03), int(self.h * 0.025)), hdr_txt, font=font_hdr, fill=(248, 250, 252))
 
-        if phase == "read":
-            fill_frac = 1.0
-            t_col = (56, 189, 248)
-        elif phase == "think":
-            fill_frac = max(0.0, 1.0 - phase_prog)
-            t_col = (250, 204, 21) if fill_frac > 0.35 else (244, 63, 94)
-        else:
-            fill_frac = 1.0
-            t_col = (16, 185, 129)
+        if self.banner_timer > 0 and self.banner_text:
+            font_al = get_font(max(15, int(19 * sc)))
+            ab = draw.textbbox((0, 0), self.banner_text, font=font_al)
+            aw = ab[2] - ab[0] + 28
+            ax0 = (self.map_box[0] + self.map_box[2] - aw) // 2
+            ay0 = self.map_box[1] + 14
+            draw.rounded_rectangle([ax0, ay0, ax0 + aw, ay0 + int(34 * sc)], radius=8, fill=(15, 23, 42), outline=(250, 204, 21), width=2)
+            draw.text((ax0 + 14, ay0 + int(6 * sc)), self.banner_text, font=font_al, fill=(250, 204, 21))
 
-        cur_bw = int(bar_w * fill_frac)
-        if cur_bw > 8:
-            draw.rounded_rectangle([card_margin, timer_y, card_margin + cur_bw, timer_y + timer_h], radius=timer_h // 2, fill=t_col)
-
-        # 4. Four Option Cards (A, B, C, D)
-        opts = q_obj["opts"]
-        ans_idx = q_obj["ans"]
-        labels = ["A", "B", "C", "D"]
-        font_opt = get_font(max(18, int(22 * sc)))
-        font_lbl = get_font(max(17, int(20 * sc)))
-
-        opts_top = timer_y + timer_h + int(self.h * 0.04)
-        opts_area_h = int(self.h * 0.44)
+        # 3. Live Territory Control Leaderboard
+        ranking = []
+        for fid in range(1, self.num_factions + 1):
+            pct = (counts[fid] / float(self.total_land)) * 100.0
+            ranking.append((fid, pct))
+        ranking.sort(key=lambda x: x[1], reverse=True)
 
         if self.is_vertical:
-            # 1 column x 4 rows for 9:16 mobile screen
-            gap = int(14 * sc)
-            box_h = (opts_area_h - gap * 3) // 4
-            for i in range(4):
-                oy0 = opts_top + i * (box_h + gap)
-                oy1 = oy0 + box_h
-                ox0, ox1 = card_margin, self.w - card_margin
-                self._draw_option_box(draw, ox0, oy0, ox1, oy1, labels[i], opts[i], i == ans_idx, phase, font_lbl, font_opt, sc)
+            lb_x0, lb_y0 = int(self.w * 0.04), int(self.h * 0.70)
+            lb_w = int(self.w * 0.92)
+            row_h = int(26 * sc)
+            max_rows = min(8, len(ranking))
         else:
-            # 2 columns x 2 rows for 16:9 YouTube screen
-            gap_x = int(20 * sc)
-            gap_y = int(18 * sc)
-            box_w = (bar_w - gap_x) // 2
-            box_h = (opts_area_h - gap_y) // 2
-            for i in range(4):
-                col_i = i % 2
-                row_i = i // 2
-                ox0 = card_margin + col_i * (box_w + gap_x)
-                ox1 = ox0 + box_w
-                oy0 = opts_top + row_i * (box_h + gap_y)
-                oy1 = oy0 + box_h
-                self._draw_option_box(draw, ox0, oy0, ox1, oy1, labels[i], opts[i], i == ans_idx, phase, font_lbl, font_opt, sc)
+            lb_x0, lb_y0 = int(self.w * 0.70), int(self.h * 0.11)
+            lb_w = int(self.w * 0.27)
+            row_h = int(34 * sc)
+            max_rows = min(12, len(ranking))
+
+        font_lb = get_font(max(12, int(14 * sc)))
+        for idx in range(max_rows):
+            fid, pct = ranking[idx]
+            ry = lb_y0 + idx * row_h
+            col = tuple(int(c) for c in self.colors[fid])
+            is_dead = (pct <= 0.01)
+
+            draw.rounded_rectangle([lb_x0, ry, lb_x0 + lb_w, ry + row_h - 4], radius=6, fill=(15, 23, 42))
+            if not is_dead:
+                fill_w = max(6, int((pct / 100.0) * lb_w))
+                draw.rounded_rectangle([lb_x0, ry, lb_x0 + fill_w, ry + row_h - 4], radius=6, fill=col)
+
+            txt_col = (100, 116, 139) if is_dead else (255, 255, 255)
+            status_str = "OUT" if is_dead else f"{pct:.1f}%"
+            draw.text((lb_x0 + 8, ry + int(5 * sc)), f"#{idx + 1} {self.names[fid]}", font=font_lb, fill=txt_col, stroke_width=2 if not is_dead else 0, stroke_fill=(0, 0, 0))
+            sb = draw.textbbox((0, 0), status_str, font=font_lb)
+            draw.text((lb_x0 + lb_w - (sb[2] - sb[0]) - 8, ry + int(5 * sc)), status_str, font=font_lb, fill=txt_col, stroke_width=2 if not is_dead else 0, stroke_fill=(0, 0, 0))
 
         return frame.tobytes()
 
-    def _draw_option_box(self, draw, x0, y0, x1, y1, letter, text, is_correct, phase, font_lbl, font_opt, sc):
-        if phase == "reveal":
-            if is_correct:
-                bg_col = (6, 95, 70)
-                border_col = (52, 211, 153)
-                txt_col = (255, 255, 255)
-                pill_col = (16, 185, 129)
-            else:
-                bg_col = (15, 23, 42)
-                border_col = (51, 65, 85)
-                txt_col = (100, 116, 139)
-                pill_col = (51, 65, 85)
-        else:
-            bg_col = (15, 23, 42)
-            border_col = (99, 102, 241)
-            txt_col = (241, 245, 249)
-            pill_col = (99, 102, 241)
-
-        draw.rounded_rectangle([x0, y0, x1, y1], radius=14, fill=bg_col, outline=border_col, width=3)
-
-        # Option Letter Circle (A/B/C/D)
-        bh = y1 - y0
-        cr = int(min(bh * 0.34, 22 * sc))
-        cx = x0 + cr + int(16 * sc)
-        cy = y0 + bh // 2
-        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=pill_col)
-        lb = draw.textbbox((0, 0), letter, font=font_lbl)
-        draw.text((cx - (lb[2] - lb[0]) // 2, cy - (lb[3] - lb[1]) // 2 - 2), letter, font=font_lbl, fill=(255, 255, 255))
-
-        # Option Text
-        tb = draw.textbbox((0, 0), text, font=font_opt)
-        draw.text((cx + cr + int(16 * sc), cy - (tb[3] - tb[1]) // 2 - 2), text, font=font_opt, fill=txt_col)
-
 
 # ===========================================================================
-# 4. QUIZ RENDER PIPELINE & API ROUTES
+# 4. RENDER PIPELINE & API ROUTES
 # ===========================================================================
-def run_quiz_job(job_id: str, ratio: str, lang_mode: str, is_female: bool,
-                 q_count: int, shuffle_mode: bool, custom_raw: str):
+def run_territory_job(job_id: str, ratio: str, roster: str, factions_cnt: int, duration_sec: float):
     job = JOBS[job_id]
     try:
-        questions = parse_quiz_input(custom_raw, q_count, shuffle_mode)
         out_w, out_h = (960, 540) if ratio == "16:9" else (540, 960)
         fps = 24
+        total_frames = int(duration_sec * fps)
         dt = 1.0 / float(fps)
-        total_q = len(questions)
 
-        renderer = QuizStudioRenderer(out_w, out_h, total_q)
-        out_name = f"NEXORA_QUIZ_SHOW_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        sim = TerritoryConquestEngine(out_w, out_h, roster, factions_cnt)
+        out_name = f"NEXORA_CONQUEST_{roster.upper()}_{int(duration_sec)}s_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
         raw_vid_path = os.path.join(OUTPUT_DIR, f"{job_id}_silent.mp4")
+        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_war_drums.wav")
 
-        # 1. Pre-build audio segments for every question (Read -> 5s Tick-Tock -> Ding + Answer)
-        seg_wavs = []
-        timelines = []  # (q_idx, q_obj, read_dur, think_dur, ans_dur)
-
-        timer_wav = os.path.join(AUDIO_DIR, f"{job_id}_timer5s.wav")
-        think_dur = 5.0
-        build_timer_and_ding_wav(think_dur, timer_wav)
-
-        for idx, q_obj in enumerate(questions):
-            job["progress"] = 5 + int(((idx + 1) / total_q) * 25)
-            job["message"] = f"Recording Voiceover for Question {idx + 1}/{total_q}..."
-
-            q_wav = os.path.join(AUDIO_DIR, f"{job_id}_q_{idx}.wav")
-            read_dur = generate_tts_wav(q_obj["q"], lang_mode, is_female, q_wav)
-
-            ans_text = f"The correct answer is {q_obj['opts'][q_obj['ans']]}."
-            ans_raw_wav = os.path.join(AUDIO_DIR, f"{job_id}_araw_{idx}.wav")
-            ans_ding_wav = os.path.join(AUDIO_DIR, f"{job_id}_ading_{idx}.wav")
-            ans_dur = generate_tts_wav(ans_text, lang_mode, is_female, ans_raw_wav)
-            prepend_ding_to_wav(ans_raw_wav, ans_ding_wav)
-
-            seg_wavs.extend([q_wav, timer_wav, ans_ding_wav])
-            timelines.append((idx, q_obj, read_dur, think_dur, ans_dur))
-
-        master_wav = os.path.join(AUDIO_DIR, f"{job_id}_master.wav")
-        concat_txt = os.path.join(AUDIO_DIR, f"{job_id}_list.txt")
-        with open(concat_txt, "w") as cf:
-            for sw in seg_wavs:
-                cf.write(f"file '{sw}'\n")
-        subprocess.run(
-            [FFMPEG_BIN, "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", master_wav],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-        )
-
-        # 2. Render synchronized 24 FPS Quiz Video
         ffmpeg_vid_cmd = [
             FFMPEG_BIN, "-y",
             "-f", "rawvideo", "-vcodec", "rawvideo",
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
-            "-i", master_wav,
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
-            "-c:a", "aac", "-b:a", "128k",
-            "-shortest", "-pix_fmt", "yuv420p", out_path
+            "-pix_fmt", "yuv420p", raw_vid_path
         ]
         proc = subprocess.Popen(ffmpeg_vid_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         global_t = 0.0
-        for idx, q_obj, read_dur, think_dur, ans_dur in timelines:
-            for phase, p_dur in [("read", read_dur), ("think", think_dur), ("reveal", ans_dur)]:
-                n_frames = max(1, int(p_dur * fps))
-                for f in range(n_frames):
-                    prog = f / max(1, n_frames - 1)
-                    raw_bytes = renderer.render_frame(idx, q_obj, phase, prog, global_t)
-                    proc.stdin.write(raw_bytes)
-                    global_t += dt
+        for f in range(total_frames):
+            prog = f / max(1, total_frames - 1)
+            sim.step_war(global_t, dt, prog)
+            raw_bytes = sim.render_frame(global_t)
+            proc.stdin.write(raw_bytes)
+            global_t += dt
 
-            job["progress"] = 32 + int(((idx + 1) / total_q) * 65)
-            job["message"] = f"Rendering Quiz Animation {idx + 1}/{total_q}..."
+            if f % 48 == 0:
+                job["progress"] = 8 + int(prog * 78)
+                job["message"] = f"Simulating Territory Battle Royale ({int(prog * 100)}%)..."
 
         proc.stdin.close()
         proc.wait()
+
+        job["progress"] = 88
+        job["message"] = "Synthesizing Epic War Drums & Elimination Horns..."
+        generate_battle_audio_wav(duration_sec, sim.elim_events, wav_path)
+
+        job["progress"] = 95
+        job["message"] = "Mastering Final MP4..."
+        subprocess.run([
+            FFMPEG_BIN, "-y",
+            "-i", raw_vid_path,
+            "-i", wav_path,
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
+            "-shortest", out_path
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+        if os.path.exists(raw_vid_path):
+            os.remove(raw_vid_path)
 
         job["status"] = "done"
         job["progress"] = 100
         job["file_path"] = out_path
         job["file_name"] = out_name
-        job["message"] = f"Completed! {total_q}-Question Quiz Video Ready ({out_name})"
+        job["message"] = f"Completed! Territory Battle Royale Ready ({out_name})"
 
     except Exception as exc:
         job["status"] = "error"
-        job["message"] = f"Render Error: {exc}"
+        job["message"] = f"Simulation Error: {exc}"
 
 @app.route("/")
 def serve_home():
@@ -468,16 +467,14 @@ def api_start():
     job_id = uuid.uuid4().hex[:10]
     data = request.get_json(force=True) if request.is_json else request.form
     ratio = data.get("ratio", "16:9")
-    lang_mode = data.get("lang_mode", "ENGLISH")
-    is_female = (data.get("voice_gender", "FEMALE") == "FEMALE")
-    q_count = int(data.get("q_count", "5"))
-    shuffle_mode = bool(data.get("shuffle", True))
-    custom_raw = data.get("custom_raw", "")
+    roster = data.get("roster", "countries")
+    factions_cnt = int(data.get("factions", "10"))
+    duration_sec = max(15.0, min(600.0, float(data.get("duration", "90"))))
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing Interactive Quiz Studio..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Generating Procedural World Map & Capitals..."}
     threading.Thread(
-        target=run_quiz_job,
-        args=(job_id, ratio, lang_mode, is_female, q_count, shuffle_mode, custom_raw),
+        target=run_territory_job,
+        args=(job_id, ratio, roster, factions_cnt, duration_sec),
         daemon=True
     ).start()
     return jsonify({"job_id": job_id})
