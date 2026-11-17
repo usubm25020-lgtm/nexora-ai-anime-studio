@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA CYMATICS STUDIO — Acoustic Sacred Geometry &amp; Emotional Resonance</title>
+  <title>NEXORA INFINITE VORTEX — 3D Optical Illusion &amp; Fractal Zoom Studio</title>
   <style>
     :root {
       --bg-void: #04060c;
       --bg-card: #0f1626;
       --bg-input: #070b14;
       --border: rgba(148, 163, 184, 0.18);
-      --gold: #facc15;
       --cyan: #22d3ee;
+      --gold: #facc15;
       --magenta: #e879f9;
       --emerald: #10b981;
       --text: #f8fafc;
@@ -34,7 +34,7 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--gold), var(--cyan));
+      background: linear-gradient(135deg, var(--cyan), var(--magenta));
       display: grid; place-items: center; font-weight: 900; color: #030712;
     }
     .badge {
@@ -62,14 +62,14 @@
       padding: 12px 8px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
-    .pill.active { border-color: var(--gold); background: rgba(250, 204, 21, 0.14); color: var(--gold); }
+    .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--gold), var(--cyan));
+      background: linear-gradient(135deg, var(--cyan), var(--magenta));
       color: #030712; font-size: 14px; font-weight: 900; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--cyan), var(--magenta)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--gold)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
@@ -84,47 +84,47 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">◈</div>
+      <div class="logo">🌀</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA CYMATICS PHYSICS STUDIO</div>
-        <div style="font-size:11px; color:var(--gold);">2,400-Grain Wave Interference • Harmonic Piano &amp; Rain • Zero Speech</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA INFINITE VORTEX STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">3D Infinite Zoom Tunnel • Optical Hypnosis • Phonk Bass Sync</div>
       </div>
     </div>
-    <div class="badge">🟢 24 FPS Physics</div>
+    <div class="badge">🟢 24 FPS Shader</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Platform Format (Short &amp; Long Video)</div>
+        <div class="card-title">1. Platform Format</div>
         <div class="grid-2" style="margin-bottom:0;">
           <div class="pill active" data-group="ratio" data-val="9:16">9:16 Reels / Shorts / Moj</div>
-          <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube Long Video</div>
+          <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube Video</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">2. Acoustic Resonance &amp; Emotional Mood</div>
+        <div class="card-title">2. Optical Illusion &amp; Infinite Zoom Style</div>
         <div class="grid-3">
-          <div class="pill active" data-group="mode" data-val="golden_zen">✨ Golden Sand</div>
-          <div class="pill" data-group="mode" data-val="midnight_rain">🌧 Midnight Rain</div>
-          <div class="pill" data-group="mode" data-val="cosmic_trance">🔮 Cosmic 432Hz</div>
+          <div class="pill active" data-group="style" data-val="cyber_vortex">🌀 Neon Wormhole</div>
+          <div class="pill" data-group="style" data-val="golden_fractal">✨ Golden Fractal</div>
+          <div class="pill" data-group="style" data-val="illusion_bw">👁 Hypnosis B&amp;W</div>
         </div>
 
-        <span class="label">Video Duration</span>
+        <span class="label">Loop Duration</span>
         <div class="grid-3" style="margin-bottom:14px;">
           <div class="pill active" data-group="dur" data-val="12">⚡ 12s Viral Loop</div>
-          <div class="pill" data-group="dur" data-val="30">🔥 30s Deep Reel</div>
-          <div class="pill" data-group="dur" data-val="60">🎬 60s YouTube</div>
+          <div class="pill" data-group="dur" data-val="20">🔥 20s Reel</div>
+          <div class="pill" data-group="dur" data-val="45">🎬 45s YouTube</div>
         </div>
 
-        <button class="btn-primary" id="btn-generate">◈ Generate Ready-to-Upload Cymatics Video</button>
+        <button class="btn-primary" id="btn-generate">🌀 Generate 3D Infinite Zoom Video</button>
       </div>
 
       <div class="card">
         <div class="info-box">
-          <strong style="color:#facc15;">Why Nobody Can Copy This Manually:</strong><br/>
-          Real-time Chladni standing-wave equations simulate <strong>2,400 luminous sand particles</strong> organizing into Sacred Geometry mandalas in sync with synthesized harmonic piano chords, sub-bass resonance, and soothing rainfall.
+          <strong style="color:#22d3ee;">100% Impossible to Draw by Hand:</strong><br/>
+          Full-screen polar ray-warping math generates a continuous <strong>3D infinite zoom tunnel</strong> synced to synthesized 808 bass drops—triggering instant visual curiosity that stops viewers from scrolling.
         </div>
       </div>
     </div>
@@ -132,8 +132,8 @@
     <div>
       <div class="card">
         <div class="card-title">3. Ready-to-Upload Video Output</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#facc15; margin-top:4px;">
-          Ready — Choose your mood &amp; duration, then click Generate!
+        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
+          Ready — Choose a 3D Vortex style and click Generate!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -147,7 +147,7 @@
       : "http://127.0.0.1:5000";
 
     let ratio = "9:16";
-    let mode = "golden_zen";
+    let style = "cyber_vortex";
     let duration = "12";
 
     document.querySelectorAll(".pill").forEach(p => {
@@ -156,7 +156,7 @@
         document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "mode") mode = p.dataset.val;
+        if (grp === "style") style = p.dataset.val;
         if (grp === "dur") duration = p.dataset.val;
       };
     });
@@ -164,13 +164,13 @@
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "5%";
-      document.getElementById("status-txt").textContent = "Starting Cymatics Physics Engine...";
+      document.getElementById("status-txt").textContent = "Warping 3D Infinite Tunnel...";
 
       try {
         const res = await fetch(API_BASE + "/api/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ratio, mode, duration })
+          body: JSON.stringify({ ratio, style, duration })
         });
         const { job_id } = await res.json();
 
@@ -194,7 +194,7 @@
             }
           } catch (e) {
             clearInterval(poll);
-            document.getElementById("status-txt").textContent = "Connection interrupted — please click Generate again!";
+            document.getElementById("status-txt").textContent = "Connection lost — click Generate again!";
           }
         }, 900);
       } catch (err) {
