@@ -3,23 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA DATA RANKING STUDIO — High-RPM Bar Chart Race &amp; Timeline Engine</title>
+  <title>NEXORA DARK HORROR STUDIO — AI Scary Story &amp; Mystery Video Generator</title>
   <style>
     :root {
-      --bg-void: #04060c;
-      --bg-card: #0f1626;
-      --bg-input: #070b14;
-      --border: rgba(148, 163, 184, 0.18);
-      --cyan: #22d3ee;
-      --gold: #facc15;
-      --rose: #f43f5e;
+      --bg-void: #040508;
+      --bg-card: #0e121b;
+      --bg-input: #07090e;
+      --border: rgba(148, 163, 184, 0.16);
+      --crimson: #f43f5e;
+      --amber: #f59e0b;
       --emerald: #10b981;
       --text: #f8fafc;
       --dim: #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #16203c 0%, var(--bg-void) 65%);
+      background: radial-gradient(circle at top right, #1f0c14 0%, var(--bg-void) 65%);
       color: var(--text);
       font-family: system-ui, -apple-system, sans-serif;
       padding-bottom: 40px;
@@ -28,18 +27,18 @@
     .topbar {
       position: sticky; top: 0; z-index: 50;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; background: rgba(4, 6, 12, 0.92);
+      padding: 12px 16px; background: rgba(4, 5, 8, 0.92);
       backdrop-filter: blur(14px); border-bottom: 1px solid var(--border);
     }
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--gold));
-      display: grid; place-items: center; font-weight: 900; color: #030712;
+      background: linear-gradient(135deg, var(--crimson), #7f1d1d);
+      display: grid; place-items: center; font-weight: 900; color: #fff;
     }
     .badge {
       padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 800;
-      background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399;
+      background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.45); color: #fda4af;
     }
     .wrap {
       max-width: 1100px; margin: 0 auto; padding: 16px;
@@ -57,25 +56,29 @@
       text-transform: uppercase; color: var(--dim); margin-bottom: 6px;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
     .pill {
-      padding: 12px 6px; border-radius: 10px; border: 2px solid var(--border);
+      padding: 11px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
-    .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
-    input[type="text"], textarea {
+    .pill.active { border-color: var(--crimson); background: rgba(244, 63, 94, 0.15); color: #fda4af; }
+    select, textarea, input[type="file"] {
       width: 100%; background: var(--bg-input); border: 1px solid var(--border);
       border-radius: 10px; color: var(--text); padding: 10px; font-size: 13px;
-      font-family: monospace; outline: none; margin-bottom: 10px;
+      font-family: inherit; outline: none;
     }
-    textarea { min-height: 140px; line-height: 1.5; resize: vertical; }
+    textarea { min-height: 225px; line-height: 1.58; resize: vertical; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: #1e293b; color: #fff; font-size: 11px; font-weight: 800; cursor: pointer;
+    }
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--gold));
-      color: #030712; font-size: 14px; font-weight: 900; cursor: pointer;
+      background: linear-gradient(135deg, var(--crimson), #991b1b);
+      color: #fff; font-size: 14px; font-weight: 900; margin-top: 10px; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--gold), var(--emerald)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--crimson), var(--amber)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
@@ -86,66 +89,70 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">📊</div>
+      <div class="logo">🕯️</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA DATA RANKING STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">High-RPM Bar Chart Race • Smooth Overtake Physics • Unlimited Topics</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA DARK HORROR STUDIO</div>
+        <div style="font-size:11px; color:#fda4af;">AI Scary Scenes • Rain &amp; Thunder FX • Deep Narrator Voice</div>
       </div>
     </div>
-    <div class="badge">💰 High RPM Niche</div>
+    <div class="badge">👻 Horror Niche</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Platform Format</div>
+        <div class="card-title">1. Video Format (YouTube Long vs Shorts)</div>
         <div class="grid-2" style="margin-bottom:0;">
           <div class="pill active" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long</div>
-          <div class="pill" data-group="ratio" data-val="9:16">📱 9:16 Shorts / Reels</div>
+          <div class="pill" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">2. Select Viral Topic OR Enter Custom Data</div>
+        <div class="card-title">2. Narrator Voice &amp; Thunder Soundscape</div>
         <div class="grid-2">
-          <div class="pill active" data-group="preset" data-val="tech_giants">💻 Tech Giants (2000–2026)</div>
-          <div class="pill" data-group="preset" data-val="smartphones">📱 Smartphone Race (2008–2026)</div>
-          <div class="pill" data-group="preset" data-val="economies">🌍 World GDP Economies</div>
-          <div class="pill" data-group="preset" data-val="custom">✍️ Custom Topic &amp; Data</div>
+          <div class="pill active" data-group="voice" data-val="auto">🤖 Deep AI Narrator</div>
+          <div class="pill" data-group="voice" data-val="manual">🎙 My Own Voice (Upload / Mic)</div>
         </div>
 
-        <div id="custom-box" style="display:none;">
-          <span class="label">Custom Video Title &amp; Unit</span>
-          <div class="grid-2" style="margin-bottom:0;">
-            <input type="text" id="custom-title" value="MOST SUBSCRIBED YOUTUBERS (2015 - 2026)" />
-            <input type="text" id="custom-unit" value="M" />
+        <div id="auto-voice-box">
+          <span class="label">Narrator Language</span>
+          <select id="lang-mode">
+            <option value="HINDI" selected>Hindi / Hinglish Deep Horror Voice</option>
+            <option value="ENGLISH">English Suspense Narrator (Mr. Nightmare Style)</option>
+          </select>
+        </div>
+
+        <div id="manual-voice-box" style="display:none;">
+          <span class="label">Upload Audio (.mp3 / .wav / .m4a) OR Record Mic</span>
+          <input type="file" id="voice-file" accept="audio/*" />
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button type="button" class="btn" id="btn-rec" style="flex:1; background:#be123c;">🔴 Record Mic</button>
+            <button type="button" class="btn" id="btn-stop-rec" style="flex:1;" disabled>⏹ Stop</button>
           </div>
-          <span class="label">Timeline Data (YEARS + Item Values)</span>
-          <textarea id="custom-csv">YEARS: 2015, 2018, 2021, 2024, 2026
-PewDiePie: 40, 75, 110, 111, 112
-T-Series: 8, 72, 195, 275, 315
-MrBeast: 1, 12, 85, 320, 460
-Cocomelon: 2, 30, 120, 182, 205
-SET India: 3, 38, 118, 178, 198</textarea>
+          <div id="rec-status" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div class="card-title">3. Horror Story (1 Line = 1 AI Scene)</div>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn" id="btn-hindi">Hindi Ghost Story</button>
+            <button type="button" class="btn" id="btn-eng">English Horror</button>
+          </div>
         </div>
 
-        <span class="label">Video Duration</span>
-        <div class="grid-4">
-          <div class="pill" data-group="dur" data-val="30">⚡ 30s<br/><small>(Fast)</small></div>
-          <div class="pill active" data-group="dur" data-val="120">🔥 2 Mins<br/><small>(Long)</small></div>
-          <div class="pill" data-group="dur" data-val="300">💰 5 Mins<br/><small>(Mid-Roll)</small></div>
-          <div class="pill" data-group="dur" data-val="480">🎬 8 Mins<br/><small>(Max Ads)</small></div>
-        </div>
-
-        <button class="btn-primary" id="btn-generate">📊 Generate High-RPM Data Ranking Video</button>
+        <textarea id="story" placeholder="Write each scene of your horror story on a new line..."></textarea>
+        <button class="btn-primary" id="btn-generate">🕯️ Generate Cinematic Horror Video</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Studio Output (Ready for YouTube Monetization)</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Choose a dataset (or paste your own numbers) and click Generate!
+        <div class="card-title">4. Studio Output (Ready for YouTube)</div>
+        <div id="status-txt" style="font-size:13px; font-weight:800; color:#fda4af; margin-top:4px;">
+          Ready — Choose a sample horror story or paste your own, then click Generate!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -158,9 +165,21 @@ SET India: 3, 38, 118, 178, 198</textarea>
       ? window.location.origin
       : "http://127.0.0.1:5000";
 
+    const HINDI_HORROR = `Raat ke do baje jab main purani haveli ke bahar se guzar raha tha, tab achanak tez baarish shuru ho gayi.
+Upar wali khidki mein ek safed saaya khada tha, jo bina palkein jhapkaye sirf mujhe hi ghoor raha tha.
+Jaise hi maine apni torch us taraf ghumai, khidki ka sheesha apne aap toot gaya aur andar se kisi ke rone ki awaaz aayi.
+Main jaan bacha kar bhaaga, lekin jab maine peeche mud kar dekha, toh woh saaya mere bilkul peeche khada muskura raha tha.`;
+
+    const ENG_HORROR = `At three in the morning, my car broke down on an empty forest road surrounded by thick midnight fog.
+Through the trees, an abandoned wooden cabin stood with a single flickering red candle inside the upstairs window.
+When I stepped closer to ask for help, the heavy front door slowly creaked open all by itself.
+Inside the pitch-black hallway, two glowing eyes stared back at me, whispering my name in the dark.`;
+
     let ratio = "16:9";
-    let preset = "tech_giants";
-    let duration = "120";
+    let voiceMode = "auto";
+    let recordedBlob = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
 
     document.querySelectorAll(".pill").forEach(p => {
       p.onclick = () => {
@@ -168,32 +187,79 @@ SET India: 3, 38, 118, 178, 198</textarea>
         document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "preset") {
-          preset = p.dataset.val;
-          document.getElementById("custom-box").style.display = preset === "custom" ? "block" : "none";
+        if (grp === "voice") {
+          voiceMode = p.dataset.val;
+          document.getElementById("auto-voice-box").style.display = voiceMode === "auto" ? "block" : "none";
+          document.getElementById("manual-voice-box").style.display = voiceMode === "manual" ? "block" : "none";
         }
-        if (grp === "dur") duration = p.dataset.val;
       };
     });
 
+    const storyBox = document.getElementById("story");
+    storyBox.value = HINDI_HORROR;
+
+    document.getElementById("btn-hindi").onclick = () => {
+      storyBox.value = HINDI_HORROR;
+      document.getElementById("lang-mode").value = "HINDI";
+    };
+    document.getElementById("btn-eng").onclick = () => {
+      storyBox.value = ENG_HORROR;
+      document.getElementById("lang-mode").value = "ENGLISH";
+    };
+
+    document.getElementById("btn-rec").onclick = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(audioChunks, { type: "audio/webm" });
+          document.getElementById("rec-status").textContent = "✅ Voice Recorded!";
+        };
+        mediaRecorder.start();
+        document.getElementById("btn-rec").disabled = true;
+        document.getElementById("btn-stop-rec").disabled = false;
+        document.getElementById("rec-status").textContent = "🎙 Recording horror narration...";
+      } catch (err) {
+        alert("Mic permission denied. Please upload an audio file instead.");
+      }
+    };
+
+    document.getElementById("btn-stop-rec").onclick = () => {
+      if (mediaRecorder) mediaRecorder.stop();
+      document.getElementById("btn-rec").disabled = false;
+      document.getElementById("btn-stop-rec").disabled = true;
+    };
+
     document.getElementById("btn-generate").onclick = async () => {
+      const story = storyBox.value.trim();
+      if (!story) { alert("Please write or paste your horror story first!"); return; }
+
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Starting Data Ranking Engine...";
+      document.getElementById("status-txt").textContent = "Generating AI Horror Scenes & Thunder Audio...";
+
+      const fd = new FormData();
+      fd.append("story", story);
+      fd.append("ratio", ratio);
+      fd.append("voice_mode", voiceMode);
+      fd.append("lang_mode", document.getElementById("lang-mode").value);
+
+      if (voiceMode === "manual") {
+        const pickedFile = document.getElementById("voice-file").files?.[0];
+        if (pickedFile) {
+          fd.append("voice_file", pickedFile);
+        } else if (recordedBlob) {
+          fd.append("voice_file", recordedBlob, "mic_voice.webm");
+        } else {
+          alert("Please upload an audio file or record your voice first!");
+          return;
+        }
+      }
 
       try {
-        const res = await fetch(API_BASE + "/api/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ratio,
-            preset,
-            duration,
-            custom_csv: document.getElementById("custom-csv").value,
-            custom_title: document.getElementById("custom-title").value,
-            custom_unit: document.getElementById("custom-unit").value
-          })
-        });
+        const res = await fetch(API_BASE + "/api/start", { method: "POST", body: fd });
         const { job_id } = await res.json();
 
         const poll = setInterval(async () => {
@@ -209,14 +275,14 @@ SET India: 3, 38, 118, 178, 198</textarea>
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               document.getElementById("video-area").innerHTML = `
                 <video src="${streamUrl}" controls autoplay loop playsinline></video>
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download High-RPM MP4 (${st.file_name})</a>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Horror Video MP4 (${st.file_name})</a>
               `;
             } else if (st.status === "error") {
               clearInterval(poll);
             }
           } catch (e) {
             clearInterval(poll);
-            document.getElementById("status-txt").textContent = "Connection interrupted — try 2 Mins first on free server!";
+            document.getElementById("status-txt").textContent = "Connection lost — please click Generate again!";
           }
         }, 1200);
       } catch (err) {
