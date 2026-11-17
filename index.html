@@ -97,7 +97,7 @@
         <div style="font-size:11px; color:var(--gold);">3D Chaotic Particle Physics • 432Hz Heartbeat Synth • Kinetic Typography</div>
       </div>
     </div>
-    <div class="badge">🟢 24 FPS Physics</div>
+    <div class="badge">🟢 Fast Engine</div>
   </header>
 
   <main class="wrap">
@@ -181,7 +181,7 @@ Khamosh reh kar apni mehnat ko itna bada banao ki tumhari kamyabi khud shor mach
     const DEEP_STORY_SCRIPT = `Raat ke teen baje jab poori duniya so rahi hoti hai, tab insaan ka asli dimaag jaagta hai.
 Hum aksar un logon ke liye apni neend kharab karte hain jinhe hamari maujoodgi ka ehsaas tak nahi hota.
 Yaad rakhna, heere ki chamak tabhi dikhti hai jab woh andhere mein tarasha jaata hai.
-Aaj se apni keemat khud तय karo, kyunki bheed hamesha aasaan raasta chunti hai, aur itihas hamesha akele chalne wale likhte hain.`;
+Aaj se apni keemat khud tay karo, kyunki bheed hamesha aasaan raasta chunti hai, aur itihas hamesha akele chalne wale likhte hain.`;
 
     let ratio = "9:16";
     let universe = "golden_soul";
@@ -242,6 +242,7 @@ Aaj se apni keemat khud तय karo, kyunki bheed hamesha aasaan raasta chunti h
 
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "5%";
+      document.getElementById("status-txt").textContent = "Starting fast render...";
 
       const fd = new FormData();
       fd.append("script", script);
@@ -262,27 +263,36 @@ Aaj se apni keemat khud तय karo, kyunki bheed hamesha aasaan raasta chunti h
         }
       }
 
-      const res = await fetch(API_BASE + "/api/start", { method: "POST", body: fd });
-      const { job_id } = await res.json();
+      try {
+        const res = await fetch(API_BASE + "/api/start", { method: "POST", body: fd });
+        const { job_id } = await res.json();
 
-      const poll = setInterval(async () => {
-        const r = await fetch(API_BASE + "/api/status/" + job_id);
-        const st = await r.json();
-        document.getElementById("status-txt").textContent = st.message;
-        document.getElementById("prog-bar").style.width = st.progress + "%";
+        const poll = setInterval(async () => {
+          try {
+            const r = await fetch(API_BASE + "/api/status/" + job_id);
+            const st = await r.json();
+            document.getElementById("status-txt").textContent = st.message;
+            document.getElementById("prog-bar").style.width = st.progress + "%";
 
-        if (st.status === "done") {
-          clearInterval(poll);
-          const streamUrl = `${API_BASE}/api/video/${job_id}`;
-          const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
-          document.getElementById("video-area").innerHTML = `
-            <video src="${streamUrl}" controls autoplay loop playsinline></video>
-            <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Ready-to-Upload MP4 (${st.file_name})</a>
-          `;
-        } else if (st.status === "error") {
-          clearInterval(poll);
-        }
-      }, 1000);
+            if (st.status === "done") {
+              clearInterval(poll);
+              const streamUrl = `${API_BASE}/api/video/${job_id}`;
+              const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
+              document.getElementById("video-area").innerHTML = `
+                <video src="${streamUrl}" controls autoplay loop playsinline></video>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Ready-to-Upload MP4 (${st.file_name})</a>
+              `;
+            } else if (st.status === "error") {
+              clearInterval(poll);
+            }
+          } catch (e) {
+            clearInterval(poll);
+            document.getElementById("status-txt").textContent = "Connection lost — please click Render again!";
+          }
+        }, 1000);
+      } catch (err) {
+        document.getElementById("status-txt").textContent = "Server waking up — click Render again in 5 seconds!";
+      }
     };
   </script>
 </body>
