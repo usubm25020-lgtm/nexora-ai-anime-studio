@@ -5,8 +5,6 @@ import math
 import uuid
 import wave
 import random
-import urllib.parse
-import urllib.request
 import asyncio
 import subprocess
 import threading
@@ -14,7 +12,7 @@ import numpy as np
 
 import edge_tts
 import imageio_ffmpeg
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, request, jsonify, send_file
 
 app = Flask(__name__)
@@ -29,35 +27,83 @@ def add_cors(resp):
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "rendered_videos")
 AUDIO_DIR = os.path.join(BASE_DIR, "audio_assets")
-IMG_DIR = os.path.join(BASE_DIR, "scene_images")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(AUDIO_DIR, exist_ok=True)
-os.makedirs(IMG_DIR, exist_ok=True)
 
 FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. DEEP HORROR NARRATOR VOICE + THUNDER, RAIN & DARK DRONE MIXER
+# 1. BUILT-IN QUESTION BANK (SHUFFLES EVERY TIME SO QUESTIONS NEVER REPEAT)
+# ===========================================================================
+QUESTION_BANK = [
+    {"q": "Which planet in our solar system has the most moons?", "opts": ["Jupiter", "Saturn", "Uranus", "Neptune"], "ans": 1},
+    {"q": "What is the hardest natural substance on Earth?", "opts": ["Gold", "Iron", "Diamond", "Platinum"], "ans": 2},
+    {"q": "Which country is known as the Land of the Rising Sun?", "opts": ["China", "South Korea", "Thailand", "Japan"], "ans": 3},
+    {"q": "How many bones are there in an adult human body?", "opts": ["196", "206", "216", "226"], "ans": 1},
+    {"q": "Which gas do plants absorb from the atmosphere?", "opts": ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], "ans": 2},
+    {"q": "What is the largest ocean on Earth?", "opts": ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"], "ans": 3},
+    {"q": "Who painted the world-famous Mona Lisa?", "opts": ["Vincent van Gogh", "Leonardo da Vinci", "Pablo Picasso", "Michelangelo"], "ans": 1},
+    {"q": "Which metal is liquid at room temperature?", "opts": ["Mercury", "Silver", "Copper", "Aluminum"], "ans": 0},
+    {"q": "What is the smallest country in the world by area?", "opts": ["Monaco", "Maldives", "Vatican City", "San Marino"], "ans": 2},
+    {"q": "Which organ in the human body pumps blood?", "opts": ["Brain", "Lungs", "Liver", "Heart"], "ans": 3},
+    {"q": "What has keys that open no locks, space but no room?", "opts": ["A Map", "A Keyboard", "A Clock", "A Piano"], "ans": 1},
+    {"q": "Which animal can sleep for up to three years?", "opts": ["Koala", "Sloth", "Snail", "Bat"], "ans": 2},
+    {"q": "What is the speed of light approximately?", "opts": ["300,000 km/s", "150,000 km/s", "30,000 km/s", "3,000 km/s"], "ans": 0},
+    {"q": "Which continent has the highest number of countries?", "opts": ["Asia", "Europe", "Africa", "South America"], "ans": 2},
+    {"q": "What gets wetter the more it dries?", "opts": ["A Sponge", "A Towel", "Ice", "Clouds"], "ans": 1}
+]
+
+def parse_quiz_input(raw_text: str, count: int, shuffle_mode: bool):
+    """
+    Parses custom questions in format:
+    Q: Question text? | OptA | OptB | OptC | OptD | CorrectIndex(1-4)
+    Falls back to shuffled built-in bank if empty.
+    """
+    items = []
+    for ln in str(raw_text or "").splitlines():
+        ln = ln.strip()
+        if not ln or "|" not in ln:
+            continue
+        parts = [p.strip() for p in ln.split("|")]
+        if len(parts) >= 6:
+            q_txt = re.sub(r"^Q\d*\s*[:.\-]\s*", "", parts[0], flags=re.I).strip()
+            opts = parts[1:5]
+            try:
+                ans_idx = max(0, min(3, int(re.sub(r"[^0-9]", "", parts[5])) - 1))
+            except Exception:
+                ans_idx = 0
+            items.append({"q": q_txt, "opts": opts, "ans": ans_idx})
+
+    if not items:
+        items = [dict(x) for x in QUESTION_BANK]
+
+    if shuffle_mode:
+        random.shuffle(items)
+
+    return items[:max(1, min(30, count))]
+
+
+# ===========================================================================
+# 2. VOICEOVER + CLOCK TICK-TOCK & DING REVEAL AUDIO ENGINE
 # ===========================================================================
 VOICE_MAP = {
+    "MALE_ENGLISH": "en-US-AndrewNeural",
+    "FEMALE_ENGLISH": "en-US-AvaNeural",
     "MALE_HINDI": "hi-IN-MadhurNeural",
-    "FEMALE_HINDI": "hi-IN-SwaraNeural",
-    "MALE_ENGLISH": "en-US-ChristopherNeural",
-    "FEMALE_ENGLISH": "en-US-AriaNeural"
+    "FEMALE_HINDI": "hi-IN-SwaraNeural"
 }
 
 async def _tts_save(text: str, voice_id: str, mp3_path: str):
-    # Deeper pitch & slightly slower suspenseful pacing for horror narration
-    comm = edge_tts.Communicate(text, voice_id, rate="-8%", pitch="-6Hz")
+    comm = edge_tts.Communicate(text, voice_id, rate="+5%")
     await comm.save(mp3_path)
 
-def generate_horror_tts(text: str, lang_mode: str, is_female: bool, out_wav: str) -> float:
-    clean_txt = re.sub(r"[^a-zA-Z0-9\s,?!.'\-]", "", text).strip() or "Something is watching in the dark."
-    if lang_mode == "ENGLISH":
-        vid = VOICE_MAP["FEMALE_ENGLISH"] if is_female else VOICE_MAP["MALE_ENGLISH"]
-    else:
+def generate_tts_wav(text: str, lang_mode: str, is_female: bool, out_wav: str) -> float:
+    clean_txt = re.sub(r"[^a-zA-Z0-9\s,?!.'\-]", "", text).strip() or "Next question"
+    if lang_mode == "HINDI":
         vid = VOICE_MAP["FEMALE_HINDI"] if is_female else VOICE_MAP["MALE_HINDI"]
+    else:
+        vid = VOICE_MAP["FEMALE_ENGLISH"] if is_female else VOICE_MAP["MALE_ENGLISH"]
 
     tmp_mp3 = out_wav + ".mp3"
     try:
@@ -69,61 +115,67 @@ def generate_horror_tts(text: str, lang_mode: str, is_female: bool, out_wav: str
         if os.path.exists(tmp_mp3):
             os.remove(tmp_mp3)
     except Exception:
-        dur = max(3.0, len(clean_txt.split()) * 0.45)
+        dur = max(1.8, len(clean_txt.split()) * 0.36)
         subprocess.run(
             [FFMPEG_BIN, "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", str(dur), out_wav],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
 
     with wave.open(out_wav, "rb") as wf:
-        return max(2.5, wf.getnframes() / float(wf.getframerate()))
+        return max(1.5, wf.getnframes() / float(wf.getframerate()))
 
-def convert_custom_audio_to_wav(src_path: str, out_wav: str) -> float:
-    subprocess.run(
-        [FFMPEG_BIN, "-y", "-i", src_path, "-ar", "22050", "-ac", "1", out_wav],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-    )
-    with wave.open(out_wav, "rb") as wf:
-        return max(2.5, wf.getnframes() / float(wf.getframerate()))
+def build_timer_and_ding_wav(think_dur: float, out_wav: str):
+    """Synthesizes a 5-second suspenseful clock tick-tock followed by a bright 'DING!' chime."""
+    rate = 22050
+    n = int(think_dur * rate)
+    audio = np.zeros(n, dtype=np.float32)
 
-def mix_horror_atmosphere(voice_wav: str, thunder_times: list, out_mixed_wav: str):
-    """Synthesizes eerie dark tension drone, steady midnight rain, and thunder rumbles."""
-    with wave.open(voice_wav, "rb") as wf:
-        rate = wf.getframerate()
-        voice = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
-
-    n = len(voice)
-    t = np.linspace(0, n / float(rate), n, endpoint=False, dtype=np.float32)
-
-    # Eerie dissonant horror drone (tritone + low sub-bass)
-    lfo = 0.70 + 0.30 * np.sin(2.0 * np.pi * 0.14 * t)
-    drone = (
-        0.45 * np.sin(2.0 * np.pi * 55.0 * t) +
-        0.30 * np.sin(2.0 * np.pi * 77.78 * t + 0.6) +  # Eerie tritone tension
-        0.25 * np.sin(2.0 * np.pi * 110.0 * t + 1.2)
-    ) * lfo * 0.14
-
-    # Soft midnight rain texture
-    rng = np.random.default_rng(666)
-    noise = rng.normal(0, 1, n).astype(np.float32)
-    kernel = np.ones(14, dtype=np.float32) / 14.0
-    rain = np.convolve(noise, kernel, mode="same") * 0.065
-
-    # Thunder rumbles synced with lightning flashes
-    thunder_track = np.zeros(n, dtype=np.float32)
-    for tt in thunder_times:
-        s_idx = int(tt * rate)
-        dur_s = int(2.2 * rate)
+    # Tick-tock every 0.5 seconds
+    sec_step = 0.5
+    t_mark = 0.25
+    tick_idx = 0
+    while t_mark < think_dur - 0.15:
+        s_idx = int(t_mark * rate)
+        dur_s = int(0.06 * rate)
         if s_idx + dur_s < n:
-            t_th = np.linspace(0, 2.2, dur_s, endpoint=False, dtype=np.float32)
-            env = np.exp(-t_th * 1.9) * (1.0 - np.exp(-t_th * 18.0))
-            rumble = np.convolve(rng.normal(0, 1, dur_s).astype(np.float32), np.ones(28, dtype=np.float32) / 28.0, mode="same")
-            sub_boom = np.sin(2.0 * np.pi * 42.0 * t_th) * 0.45
-            thunder_track[s_idx:s_idx + dur_s] += (rumble * 1.4 + sub_boom) * env * 0.45
+            tt = np.linspace(0, 0.06, dur_s, endpoint=False, dtype=np.float32)
+            freq = 1150.0 if (tick_idx % 2 == 0) else 880.0
+            tick = np.sin(2.0 * np.pi * freq * tt) * np.exp(-tt * 75.0) * 0.45
+            audio[s_idx:s_idx + dur_s] += tick
+        t_mark += sec_step
+        tick_idx += 1
 
-    mixed = np.clip(voice * 1.08 + drone + rain + thunder_track, -0.96, 0.96)
-    pcm = (mixed * 32767.0).astype(np.int16)
-    with wave.open(out_mixed_wav, "wb") as wf_out:
+    # Soft tension hum
+    t_full = np.linspace(0, think_dur, n, endpoint=False, dtype=np.float32)
+    audio += 0.05 * np.sin(2.0 * np.pi * 110.0 * t_full)
+
+    pcm = (np.clip(audio, -0.95, 0.95) * 32767.0).astype(np.int16)
+    with wave.open(out_wav, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(rate)
+        wf.writeframes(pcm.tobytes())
+
+def prepend_ding_to_wav(ans_wav: str, out_wav: str):
+    """Adds a celebratory bell 'DING!' at the exact start of the answer reveal."""
+    with wave.open(ans_wav, "rb") as wf:
+        rate = wf.getframerate()
+        ans = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+
+    dur_d = int(0.65 * rate)
+    td = np.linspace(0, 0.65, dur_d, endpoint=False, dtype=np.float32)
+    ding = (
+        0.55 * np.sin(2.0 * np.pi * 1046.50 * td) +
+        0.35 * np.sin(2.0 * np.pi * 1318.51 * td) +
+        0.25 * np.sin(2.0 * np.pi * 1567.98 * td)
+    ) * np.exp(-td * 6.5) * 0.55
+
+    if len(ans) < dur_d:
+        ans = np.pad(ans, (0, dur_d - len(ans)))
+    ans[:dur_d] = np.clip(ans[:dur_d] + ding, -0.95, 0.95)
+
+    pcm = (ans * 32767.0).astype(np.int16)
+    with wave.open(out_wav, "wb") as wf_out:
         wf_out.setnchannels(1)
         wf_out.setsampwidth(2)
         wf_out.setframerate(rate)
@@ -131,66 +183,7 @@ def mix_horror_atmosphere(voice_wav: str, thunder_times: list, out_mixed_wav: st
 
 
 # ===========================================================================
-# 2. CINEMATIC HORROR SCENE IMAGE GENERATOR (AI FETCH + PROCEDURAL FALLBACK)
-# ===========================================================================
-def build_procedural_horror_fallback(w: int, h: int, seed: int) -> Image.Image:
-    """Creates an atmospheric dark foggy forest / haunted silhouette scene if AI image endpoint times out."""
-    rng = random.Random(seed)
-    grad = np.zeros((h, w, 3), dtype=np.uint8)
-    top_c, bot_c = (14, 20, 32), (4, 6, 10)
-    for ch in range(3):
-        col_line = np.linspace(top_c[ch], bot_c[ch], h, dtype=np.uint8)[:, None]
-        grad[:, :, ch] = np.repeat(col_line, w, axis=1)
-    img = Image.fromarray(grad, mode="RGB").convert("RGBA")
-    d = ImageDraw.Draw(img)
-
-    # Eerie pale full moon behind fog
-    mx, my = int(w * rng.uniform(0.3, 0.7)), int(h * 0.28)
-    mr = int(min(w, h) * 0.14)
-    d.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=(203, 213, 225, 95))
-
-    # Twisted dead trees & haunted cabin silhouette
-    ground_y = int(h * 0.78)
-    for _ in range(9):
-        tx = rng.randint(0, w)
-        tw = rng.randint(8, 22)
-        th = rng.randint(int(h * 0.35), int(h * 0.65))
-        d.polygon([(tx - tw, ground_y), (tx - tw // 3, ground_y - th), (tx + tw // 3, ground_y - th), (tx + tw, ground_y)], fill=(6, 8, 12, 240))
-
-    # Distant glowing eerie eyes in the dark
-    ex, ey = int(w * 0.50), int(h * 0.64)
-    d.ellipse([ex - 14, ey - 3, ex - 8, ey + 3], fill=(244, 63, 94, 210))
-    d.ellipse([ex + 8, ey - 3, ex + 14, ey + 3], fill=(244, 63, 94, 210))
-
-    d.rectangle([0, ground_y, w, h], fill=(5, 7, 10, 255))
-    return img.convert("RGB")
-
-def fetch_horror_scene_image(prompt_text: str, w: int, h: int, seed: int, out_path: str) -> Image.Image:
-    """Fetches a dark cinematic horror illustration with a strict 10-second timeout + instant fallback."""
-    full_prompt = (
-        f"dark cinematic horror movie still, eerie midnight atmosphere, fog, moonlight, "
-        f"photorealistic, moody shadows, {prompt_text[:120]}, 8k, no text, no watermark"
-    )
-    encoded = urllib.parse.quote(full_prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded}?width={w}&height={h}&seed={seed}&nologo=true"
-
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = resp.read()
-            with open(out_path, "wb") as f:
-                f.write(data)
-        img = Image.open(out_path).convert("RGB").resize((w, h), Image.Resampling.LANCZOS)
-        # Enhance dark contrast for moody horror look
-        img = ImageEnhance.Contrast(img).enhance(1.18)
-        img = ImageEnhance.Brightness(img).enhance(0.85)
-        return img
-    except Exception:
-        return build_procedural_horror_fallback(w, h, seed)
-
-
-# ===========================================================================
-# 3. 3D KEN BURNS PARALLAX, RAIN, LIGHTNING & SUBTITLE RENDERER
+# 3. STUDIO QUIZ GRAPHICS & COUNTDOWN BAR RENDERER
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
@@ -209,197 +202,242 @@ def get_font(size: int):
                 pass
     return ImageFont.load_default()
 
-def render_horror_frame(scene_img: Image.Image, out_w: int, out_h: int, prog: float,
-                        global_t: float, words: list, zoom_in: bool, lightning_alpha: float) -> bytes:
-    # Smooth Ken Burns Camera Zoom & Pan (creates depth from 2D cinematic art)
-    z = (1.0 + 0.14 * prog) if zoom_in else (1.14 - 0.14 * prog)
-    cw = int(out_w / z)
-    ch = int(out_h / z)
-    pan_x = int((out_w - cw) * (0.35 + 0.30 * prog))
-    pan_y = int((out_h - ch) * (0.45 + 0.10 * math.sin(prog * math.pi)))
+def wrap_text_lines(draw: ImageDraw.Draw, text: str, font, max_w: int) -> list:
+    words = text.split()
+    lines, cur = [], ""
+    for wd in words:
+        test = (cur + " " + wd).strip()
+        bbox = draw.textbbox((0, 0), test, font=font)
+        if bbox[2] - bbox[0] <= max_w or not cur:
+            cur = test
+        else:
+            lines.append(cur)
+            cur = wd
+    if cur:
+        lines.append(cur)
+    return lines
 
-    cropped = scene_img.crop((pan_x, pan_y, pan_x + cw, pan_y + ch)).resize((out_w, out_h), Image.Resampling.BILINEAR).convert("RGBA")
-    draw = ImageDraw.Draw(cropped)
+class QuizStudioRenderer:
+    def __init__(self, w: int, h: int, total_q: int):
+        self.w = w
+        self.h = h
+        self.total_q = total_q
+        self.is_vertical = (h > w)
 
-    # Midnight falling rain streaks
-    for i in range(45):
-        rx = int((i * 89 + global_t * 160) % (out_w + 60)) - 30
-        ry = int((i * 113 + global_t * 780) % (out_h + 40)) - 20
-        draw.line([(rx, ry), (rx - 7, ry + 20)], fill=(186, 230, 253, 95), width=1)
+        # Rich Royal Indigo & Deep Slate Quiz Show Backdrop
+        grad = np.zeros((h, w, 3), dtype=np.uint8)
+        top_c, bot_c = (18, 24, 54), (7, 10, 24)
+        for ch in range(3):
+            col_line = np.linspace(top_c[ch], bot_c[ch], h, dtype=np.uint8)[:, None]
+            grad[:, :, ch] = np.repeat(col_line, w, axis=1)
+        self.base_bg = Image.fromarray(grad, mode="RGB")
 
-    # Lightning flash overlay
-    if lightning_alpha > 0.04:
-        flash = Image.new("RGBA", (out_w, out_h), (226, 232, 240, int(165 * lightning_alpha)))
-        cropped = Image.alpha_composite(cropped, flash)
-        draw = ImageDraw.Draw(cropped)
+    def render_frame(self, q_idx: int, q_obj: dict, phase: str, phase_prog: float, global_t: float) -> bytes:
+        frame = self.base_bg.copy()
+        draw = ImageDraw.Draw(frame)
+        sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
 
-    # Bottom dark gradient scrim for crisp readable horror captions
-    scrim_h = int(out_h * 0.28)
-    scrim = Image.new("RGBA", (out_w, scrim_h), (0, 0, 0, 0))
-    sdraw = ImageDraw.Draw(scrim)
-    for row in range(scrim_h):
-        al = int((row / float(scrim_h)) * 215)
-        sdraw.line([(0, row), (out_w, row)], fill=(4, 6, 10, al))
-    cropped.alpha_composite(scrim, (0, out_h - scrim_h))
+        # Animated subtle diagonal background accent lines
+        offset = int((global_t * 35) % 80)
+        for x in range(-self.h, self.w + self.h, 80):
+            draw.line([(x + offset, 0), (x + offset - self.h // 2, self.h)], fill=(25, 34, 72), width=2)
 
-    # Word-by-word highlighted suspense captions
-    if words:
-        draw_t = ImageDraw.Draw(cropped)
-        active_idx = min(len(words) - 1, int(prog * len(words)))
-        font_size = max(21, int(out_w * 0.044)) if out_h > out_w else max(23, int(out_w * 0.025))
-        font = get_font(font_size)
-        space_w = int(font_size * 0.35)
-        max_line_w = int(out_w * 0.86)
+        # 1. Top Badge: QUESTION X / N
+        font_badge = get_font(max(15, int(18 * sc)))
+        badge_txt = f"QUESTION {q_idx + 1} / {self.total_q}"
+        bw_box = draw.textbbox((0, 0), badge_txt, font=font_badge)
+        bw = bw_box[2] - bw_box[0] + 36
+        bh = int(36 * sc)
+        bx0 = (self.w - bw) // 2
+        by0 = int(self.h * 0.05)
+        draw.rounded_rectangle([bx0, by0, bx0 + bw, by0 + bh], radius=bh // 2, fill=(34, 211, 238))
+        draw.text((bx0 + 18, by0 + int(7 * sc)), badge_txt, font=font_badge, fill=(6, 10, 24))
 
-        lines, curr_line, curr_w = [], [], 0
-        for idx, wd in enumerate(words):
-            bbox = draw_t.textbbox((0, 0), wd, font=font)
-            ww = bbox[2] - bbox[0]
-            if curr_line and curr_w + space_w + ww > max_line_w:
-                lines.append(curr_line)
-                curr_line = [(wd, idx, ww)]
-                curr_w = ww
+        # 2. Question Card
+        card_margin = int(self.w * 0.06)
+        q_top = int(self.h * 0.14)
+        q_h = int(self.h * (0.24 if self.is_vertical else 0.25))
+        draw.rounded_rectangle(
+            [card_margin, q_top, self.w - card_margin, q_top + q_h],
+            radius=16, fill=(15, 23, 42), outline=(56, 189, 248), width=3
+        )
+
+        font_q = get_font(max(20, int(26 * sc)))
+        q_lines = wrap_text_lines(draw, q_obj["q"], font_q, self.w - card_margin * 2 - 40)
+        line_h = int(font_q.size * 1.32)
+        text_start_y = q_top + (q_h - len(q_lines) * line_h) // 2
+        for li, ln in enumerate(q_lines):
+            lb = draw.textbbox((0, 0), ln, font=font_q)
+            lw = lb[2] - lb[0]
+            draw.text(((self.w - lw) // 2, text_start_y + li * line_h), ln, font=font_q, fill=(248, 250, 252))
+
+        # 3. 5-Second Countdown Timer Bar (Active during 'think' phase)
+        timer_y = q_top + q_h + int(self.h * 0.03)
+        timer_h = max(14, int(18 * sc))
+        bar_w = self.w - card_margin * 2
+        draw.rounded_rectangle([card_margin, timer_y, card_margin + bar_w, timer_y + timer_h], radius=timer_h // 2, fill=(30, 41, 59))
+
+        if phase == "read":
+            fill_frac = 1.0
+            t_col = (56, 189, 248)
+        elif phase == "think":
+            fill_frac = max(0.0, 1.0 - phase_prog)
+            t_col = (250, 204, 21) if fill_frac > 0.35 else (244, 63, 94)
+        else:
+            fill_frac = 1.0
+            t_col = (16, 185, 129)
+
+        cur_bw = int(bar_w * fill_frac)
+        if cur_bw > 8:
+            draw.rounded_rectangle([card_margin, timer_y, card_margin + cur_bw, timer_y + timer_h], radius=timer_h // 2, fill=t_col)
+
+        # 4. Four Option Cards (A, B, C, D)
+        opts = q_obj["opts"]
+        ans_idx = q_obj["ans"]
+        labels = ["A", "B", "C", "D"]
+        font_opt = get_font(max(18, int(22 * sc)))
+        font_lbl = get_font(max(17, int(20 * sc)))
+
+        opts_top = timer_y + timer_h + int(self.h * 0.04)
+        opts_area_h = int(self.h * 0.44)
+
+        if self.is_vertical:
+            # 1 column x 4 rows for 9:16 mobile screen
+            gap = int(14 * sc)
+            box_h = (opts_area_h - gap * 3) // 4
+            for i in range(4):
+                oy0 = opts_top + i * (box_h + gap)
+                oy1 = oy0 + box_h
+                ox0, ox1 = card_margin, self.w - card_margin
+                self._draw_option_box(draw, ox0, oy0, ox1, oy1, labels[i], opts[i], i == ans_idx, phase, font_lbl, font_opt, sc)
+        else:
+            # 2 columns x 2 rows for 16:9 YouTube screen
+            gap_x = int(20 * sc)
+            gap_y = int(18 * sc)
+            box_w = (bar_w - gap_x) // 2
+            box_h = (opts_area_h - gap_y) // 2
+            for i in range(4):
+                col_i = i % 2
+                row_i = i // 2
+                ox0 = card_margin + col_i * (box_w + gap_x)
+                ox1 = ox0 + box_w
+                oy0 = opts_top + row_i * (box_h + gap_y)
+                oy1 = oy0 + box_h
+                self._draw_option_box(draw, ox0, oy0, ox1, oy1, labels[i], opts[i], i == ans_idx, phase, font_lbl, font_opt, sc)
+
+        return frame.tobytes()
+
+    def _draw_option_box(self, draw, x0, y0, x1, y1, letter, text, is_correct, phase, font_lbl, font_opt, sc):
+        if phase == "reveal":
+            if is_correct:
+                bg_col = (6, 95, 70)
+                border_col = (52, 211, 153)
+                txt_col = (255, 255, 255)
+                pill_col = (16, 185, 129)
             else:
-                curr_line.append((wd, idx, ww))
-                curr_w += (space_w if len(curr_line) > 1 else 0) + ww
-        if curr_line:
-            lines.append(curr_line)
+                bg_col = (15, 23, 42)
+                border_col = (51, 65, 85)
+                txt_col = (100, 116, 139)
+                pill_col = (51, 65, 85)
+        else:
+            bg_col = (15, 23, 42)
+            border_col = (99, 102, 241)
+            txt_col = (241, 245, 249)
+            pill_col = (99, 102, 241)
 
-        line_h = int(font_size * 1.35)
-        top_y = int(out_h * 0.86) - (len(lines) * line_h) // 2
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=14, fill=bg_col, outline=border_col, width=3)
 
-        for l_idx, tokens in enumerate(lines):
-            row_w = sum(tk[2] for tk in tokens) + space_w * (len(tokens) - 1)
-            cx_t = (out_w - row_w) // 2
-            cy_t = top_y + l_idx * line_h
-            for wd, idx, ww in tokens:
-                col = (244, 63, 94) if (idx == active_idx) else (241, 245, 249)
-                draw_t.text((cx_t, cy_t), wd, font=font, fill=(*col, 255), stroke_width=3, stroke_fill=(0, 0, 0, 255))
-                cx_t += ww + space_w
+        # Option Letter Circle (A/B/C/D)
+        bh = y1 - y0
+        cr = int(min(bh * 0.34, 22 * sc))
+        cx = x0 + cr + int(16 * sc)
+        cy = y0 + bh // 2
+        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=pill_col)
+        lb = draw.textbbox((0, 0), letter, font=font_lbl)
+        draw.text((cx - (lb[2] - lb[0]) // 2, cy - (lb[3] - lb[1]) // 2 - 2), letter, font=font_lbl, fill=(255, 255, 255))
 
-    return cropped.convert("RGB").tobytes()
+        # Option Text
+        tb = draw.textbbox((0, 0), text, font=font_opt)
+        draw.text((cx + cr + int(16 * sc), cy - (tb[3] - tb[1]) // 2 - 2), text, font=font_opt, fill=txt_col)
 
 
 # ===========================================================================
-# 4. HORROR STORY PARSER & PIPELINE
+# 4. QUIZ RENDER PIPELINE & API ROUTES
 # ===========================================================================
-def parse_horror_scenes(raw_story: str):
-    lines = [ln.strip() for ln in str(raw_story or "").splitlines() if ln.strip()]
-    scenes = []
-    for ln in lines:
-        tags = []
-        caption = re.sub(r"\[([^\]]+)\]", lambda m: (tags.append(m.group(1).strip()), "")[1], ln).strip()
-        caption = re.sub(r"[^\w\s,?!.'\-]", "", caption).strip()
-        if not caption:
-            continue
-        is_female = any("female" in t.lower() or "girl" in t.lower() for t in tags)
-        scenes.append({
-            "caption": caption,
-            "words": caption.split(),
-            "is_female": is_female
-        })
-    return scenes
-
-def run_horror_job(job_id: str, story_text: str, ratio: str, voice_mode: str, lang_mode: str, custom_wav_path):
+def run_quiz_job(job_id: str, ratio: str, lang_mode: str, is_female: bool,
+                 q_count: int, shuffle_mode: bool, custom_raw: str):
     job = JOBS[job_id]
     try:
-        scenes = parse_horror_scenes(story_text)
-        if not scenes:
-            job["status"] = "error"
-            job["message"] = "Please write or paste your horror/mystery story paragraphs first!"
-            return
-
+        questions = parse_quiz_input(custom_raw, q_count, shuffle_mode)
         out_w, out_h = (960, 540) if ratio == "16:9" else (540, 960)
         fps = 24
-        total = len(scenes)
+        dt = 1.0 / float(fps)
+        total_q = len(questions)
 
-        job["message"] = "Recording Deep Horror Narration & Thunder Audio..."
-        job["progress"] = 8
-
-        raw_wav = os.path.join(AUDIO_DIR, f"{job_id}_voice.wav")
-        final_wav = os.path.join(AUDIO_DIR, f"{job_id}_horror_mix.wav")
-        scene_durations = []
-
-        if voice_mode == "manual" and custom_wav_path and os.path.exists(custom_wav_path):
-            total_audio_dur = convert_custom_audio_to_wav(custom_wav_path, raw_wav)
-            total_words = sum(max(1, len(s["words"])) for s in scenes)
-            for s in scenes:
-                share = max(1, len(s["words"])) / float(total_words)
-                scene_durations.append(max(2.5, total_audio_dur * share))
-        else:
-            seg_wavs = []
-            for idx, s in enumerate(scenes):
-                seg_path = os.path.join(AUDIO_DIR, f"{job_id}_seg_{idx}.wav")
-                dur = generate_horror_tts(s["caption"], lang_mode, s["is_female"], seg_path)
-                scene_durations.append(dur)
-                seg_wavs.append(seg_path)
-                job["progress"] = 8 + int(((idx + 1) / total) * 18)
-
-            concat_txt = os.path.join(AUDIO_DIR, f"{job_id}_list.txt")
-            with open(concat_txt, "w") as cf:
-                for sw in seg_wavs:
-                    cf.write(f"file '{sw}'\n")
-            subprocess.run(
-                [FFMPEG_BIN, "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", raw_wav],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-            )
-
-        # Schedule dramatic lightning & thunder strikes at key scene transitions
-        thunder_times = []
-        t_acc = 0.0
-        for i, d in enumerate(scene_durations):
-            if i % 2 == 1:
-                thunder_times.append(t_acc + 0.35)
-            t_acc += d
-
-        mix_horror_atmosphere(raw_wav, thunder_times, final_wav)
-
-        # Generate / fetch dark cinematic artwork for each scene
-        scene_images = []
-        for idx, s in enumerate(scenes):
-            job["message"] = f"Generating Dark Horror Artwork ({idx + 1}/{total})..."
-            job["progress"] = 28 + int(((idx + 1) / total) * 28)
-            img_path = os.path.join(IMG_DIR, f"{job_id}_sc_{idx}.jpg")
-            img = fetch_horror_scene_image(s["caption"], out_w, out_h, seed=1000 + idx * 37, out_path=img_path)
-            scene_images.append(img)
-
-        out_name = f"NEXORA_HORROR_STORY_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        renderer = QuizStudioRenderer(out_w, out_h, total_q)
+        out_name = f"NEXORA_QUIZ_SHOW_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
+        raw_vid_path = os.path.join(OUTPUT_DIR, f"{job_id}_silent.mp4")
 
-        ffmpeg_cmd = [
+        # 1. Pre-build audio segments for every question (Read -> 5s Tick-Tock -> Ding + Answer)
+        seg_wavs = []
+        timelines = []  # (q_idx, q_obj, read_dur, think_dur, ans_dur)
+
+        timer_wav = os.path.join(AUDIO_DIR, f"{job_id}_timer5s.wav")
+        think_dur = 5.0
+        build_timer_and_ding_wav(think_dur, timer_wav)
+
+        for idx, q_obj in enumerate(questions):
+            job["progress"] = 5 + int(((idx + 1) / total_q) * 25)
+            job["message"] = f"Recording Voiceover for Question {idx + 1}/{total_q}..."
+
+            q_wav = os.path.join(AUDIO_DIR, f"{job_id}_q_{idx}.wav")
+            read_dur = generate_tts_wav(q_obj["q"], lang_mode, is_female, q_wav)
+
+            ans_text = f"The correct answer is {q_obj['opts'][q_obj['ans']]}."
+            ans_raw_wav = os.path.join(AUDIO_DIR, f"{job_id}_araw_{idx}.wav")
+            ans_ding_wav = os.path.join(AUDIO_DIR, f"{job_id}_ading_{idx}.wav")
+            ans_dur = generate_tts_wav(ans_text, lang_mode, is_female, ans_raw_wav)
+            prepend_ding_to_wav(ans_raw_wav, ans_ding_wav)
+
+            seg_wavs.extend([q_wav, timer_wav, ans_ding_wav])
+            timelines.append((idx, q_obj, read_dur, think_dur, ans_dur))
+
+        master_wav = os.path.join(AUDIO_DIR, f"{job_id}_master.wav")
+        concat_txt = os.path.join(AUDIO_DIR, f"{job_id}_list.txt")
+        with open(concat_txt, "w") as cf:
+            for sw in seg_wavs:
+                cf.write(f"file '{sw}'\n")
+        subprocess.run(
+            [FFMPEG_BIN, "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", master_wav],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+        )
+
+        # 2. Render synchronized 24 FPS Quiz Video
+        ffmpeg_vid_cmd = [
             FFMPEG_BIN, "-y",
             "-f", "rawvideo", "-vcodec", "rawvideo",
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
-            "-i", final_wav,
+            "-i", master_wav,
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
             "-c:a", "aac", "-b:a", "128k",
             "-shortest", "-pix_fmt", "yuv420p", out_path
         ]
-        proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(ffmpeg_vid_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         global_t = 0.0
-        for i, s in enumerate(scenes):
-            dur = scene_durations[i]
-            n_frames = max(1, int(dur * fps))
-            img = scene_images[i]
-            zoom_in = (i % 2 == 0)
+        for idx, q_obj, read_dur, think_dur, ans_dur in timelines:
+            for phase, p_dur in [("read", read_dur), ("think", think_dur), ("reveal", ans_dur)]:
+                n_frames = max(1, int(p_dur * fps))
+                for f in range(n_frames):
+                    prog = f / max(1, n_frames - 1)
+                    raw_bytes = renderer.render_frame(idx, q_obj, phase, prog, global_t)
+                    proc.stdin.write(raw_bytes)
+                    global_t += dt
 
-            for f in range(n_frames):
-                prog = f / max(1, n_frames - 1)
-                # Check if lightning flash is active right now
-                l_alpha = 0.0
-                for tt in thunder_times:
-                    dt_l = global_t - tt
-                    if 0.0 <= dt_l <= 0.32:
-                        l_alpha = max(l_alpha, 1.0 - (dt_l / 0.32))
-
-                raw_bytes = render_horror_frame(img, out_w, out_h, prog, global_t, s["words"], zoom_in, l_alpha)
-                proc.stdin.write(raw_bytes)
-                global_t += 1.0 / fps
-
-            job["progress"] = 58 + int(((i + 1) / total) * 40)
-            job["message"] = f"Rendering Horror Scene {i + 1}/{total}..."
+            job["progress"] = 32 + int(((idx + 1) / total_q) * 65)
+            job["message"] = f"Rendering Quiz Animation {idx + 1}/{total_q}..."
 
         proc.stdin.close()
         proc.wait()
@@ -408,7 +446,7 @@ def run_horror_job(job_id: str, story_text: str, ratio: str, voice_mode: str, la
         job["progress"] = 100
         job["file_path"] = out_path
         job["file_name"] = out_name
-        job["message"] = f"Completed! Horror Video Ready ({out_name})"
+        job["message"] = f"Completed! {total_q}-Question Quiz Video Ready ({out_name})"
 
     except Exception as exc:
         job["status"] = "error"
@@ -428,28 +466,18 @@ def api_start():
         return jsonify({"ok": True})
 
     job_id = uuid.uuid4().hex[:10]
-    custom_wav_path = None
+    data = request.get_json(force=True) if request.is_json else request.form
+    ratio = data.get("ratio", "16:9")
+    lang_mode = data.get("lang_mode", "ENGLISH")
+    is_female = (data.get("voice_gender", "FEMALE") == "FEMALE")
+    q_count = int(data.get("q_count", "5"))
+    shuffle_mode = bool(data.get("shuffle", True))
+    custom_raw = data.get("custom_raw", "")
 
-    if request.content_type and "multipart/form-data" in request.content_type:
-        story_text = request.form.get("story", "")
-        ratio = request.form.get("ratio", "16:9")
-        voice_mode = request.form.get("voice_mode", "auto")
-        lang_mode = request.form.get("lang_mode", "HINDI")
-        if "voice_file" in request.files and request.files["voice_file"].filename:
-            vf = request.files["voice_file"]
-            custom_wav_path = os.path.join(AUDIO_DIR, f"{job_id}_voice_{vf.filename}")
-            vf.save(custom_wav_path)
-    else:
-        data = request.get_json(force=True)
-        story_text = data.get("story", "")
-        ratio = data.get("ratio", "16:9")
-        voice_mode = data.get("voice_mode", "auto")
-        lang_mode = data.get("lang_mode", "HINDI")
-
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing Dark Horror Story Studio..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing Interactive Quiz Studio..."}
     threading.Thread(
-        target=run_horror_job,
-        args=(job_id, story_text, ratio, voice_mode, lang_mode, custom_wav_path),
+        target=run_quiz_job,
+        args=(job_id, ratio, lang_mode, is_female, q_count, shuffle_mode, custom_raw),
         daemon=True
     ).start()
     return jsonify({"job_id": job_id})
