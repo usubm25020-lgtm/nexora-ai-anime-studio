@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA PHYSICS STUDIO — Viral Musical Escape &amp; Marble Arcade</title>
+  <title>NEXORA DATA RANKING STUDIO — High-RPM Bar Chart Race &amp; Timeline Engine</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -34,7 +34,7 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--rose));
+      background: linear-gradient(135deg, var(--cyan), var(--gold));
       display: grid; place-items: center; font-weight: 900; color: #030712;
     }
     .badge {
@@ -42,8 +42,8 @@
       background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399;
     }
     .wrap {
-      max-width: 1080px; margin: 0 auto; padding: 16px;
-      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      max-width: 1100px; margin: 0 auto; padding: 16px;
+      display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
       gap: 16px; align-items: start;
     }
     @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
@@ -57,83 +57,95 @@
       text-transform: uppercase; color: var(--dim); margin-bottom: 6px;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
     .pill {
-      padding: 12px 8px; border-radius: 10px; border: 2px solid var(--border);
+      padding: 12px 6px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
     .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
+    input[type="text"], textarea {
+      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); padding: 10px; font-size: 13px;
+      font-family: monospace; outline: none; margin-bottom: 10px;
+    }
+    textarea { min-height: 140px; line-height: 1.5; resize: vertical; }
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--rose));
+      background: linear-gradient(135deg, var(--cyan), var(--gold));
       color: #030712; font-size: 14px; font-weight: 900; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--gold), var(--rose)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--gold), var(--emerald)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
       background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
-    }
-    .info-box {
-      font-size: 12px; line-height: 1.55; color: var(--dim);
-      background: rgba(7, 11, 20, 0.7); padding: 12px; border-radius: 10px; border: 1px solid var(--border);
     }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">⚡</div>
+      <div class="logo">📊</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA MUSICAL PHYSICS STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">No-Voice Global Viral Niche • Musical Collision Notes • 30 FPS</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA DATA RANKING STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">High-RPM Bar Chart Race • Smooth Overtake Physics • Unlimited Topics</div>
       </div>
     </div>
-    <div class="badge">🟢 30 FPS Physics</div>
+    <div class="badge">💰 High RPM Niche</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Platform Format (Short &amp; Long Monetization)</div>
+        <div class="card-title">1. Platform Format</div>
         <div class="grid-2" style="margin-bottom:0;">
-          <div class="pill active" data-group="ratio" data-val="9:16">9:16 Shorts / Reels / Moj</div>
-          <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube Video</div>
+          <div class="pill active" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long</div>
+          <div class="pill" data-group="ratio" data-val="9:16">📱 9:16 Shorts / Reels</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">2. Viral Physics Game Mode</div>
-        <div class="grid-3">
-          <div class="pill active" data-group="mode" data-val="ring_escape">🔄 Ring Escape</div>
-          <div class="pill" data-group="mode" data-val="growing_chaos">⚽ Growing Ball</div>
-          <div class="pill" data-group="mode" data-val="marble_duel">⚔️ Cyan vs Red</div>
+        <div class="card-title">2. Select Viral Topic OR Enter Custom Data</div>
+        <div class="grid-2">
+          <div class="pill active" data-group="preset" data-val="tech_giants">💻 Tech Giants (2000–2026)</div>
+          <div class="pill" data-group="preset" data-val="smartphones">📱 Smartphone Race (2008–2026)</div>
+          <div class="pill" data-group="preset" data-val="economies">🌍 World GDP Economies</div>
+          <div class="pill" data-group="preset" data-val="custom">✍️ Custom Topic &amp; Data</div>
         </div>
 
-        <span class="label">Simulation Duration</span>
-        <div class="grid-3" style="margin-bottom:14px;">
-          <div class="pill active" data-group="dur" data-val="15">⚡ 15s Shorts</div>
-          <div class="pill" data-group="dur" data-val="30">🔥 30s Reel</div>
-          <div class="pill" data-group="dur" data-val="60">🎬 60s Long</div>
+        <div id="custom-box" style="display:none;">
+          <span class="label">Custom Video Title &amp; Unit</span>
+          <div class="grid-2" style="margin-bottom:0;">
+            <input type="text" id="custom-title" value="MOST SUBSCRIBED YOUTUBERS (2015 - 2026)" />
+            <input type="text" id="custom-unit" value="M" />
+          </div>
+          <span class="label">Timeline Data (YEARS + Item Values)</span>
+          <textarea id="custom-csv">YEARS: 2015, 2018, 2021, 2024, 2026
+PewDiePie: 40, 75, 110, 111, 112
+T-Series: 8, 72, 195, 275, 315
+MrBeast: 1, 12, 85, 320, 460
+Cocomelon: 2, 30, 120, 182, 205
+SET India: 3, 38, 118, 178, 198</textarea>
         </div>
 
-        <button class="btn-primary" id="btn-generate">⚡ Generate Ready-to-Monetize Physics Video</button>
-      </div>
-
-      <div class="card">
-        <div class="info-box">
-          <strong style="color:#22d3ee;">Why Viewers Watch Till The End (Zero Speech Needed):</strong><br/>
-          Every wall bounce plays a synced piano note while sparks erupt and rotating rings shatter one by one—creating instant curiosity (<em>"Will the ball escape?"</em>) that drives 95%+ retention worldwide.
+        <span class="label">Video Duration</span>
+        <div class="grid-4">
+          <div class="pill" data-group="dur" data-val="30">⚡ 30s<br/><small>(Fast)</small></div>
+          <div class="pill active" data-group="dur" data-val="120">🔥 2 Mins<br/><small>(Long)</small></div>
+          <div class="pill" data-group="dur" data-val="300">💰 5 Mins<br/><small>(Mid-Roll)</small></div>
+          <div class="pill" data-group="dur" data-val="480">🎬 8 Mins<br/><small>(Max Ads)</small></div>
         </div>
+
+        <button class="btn-primary" id="btn-generate">📊 Generate High-RPM Data Ranking Video</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Ready-to-Upload Video Output</div>
+        <div class="card-title">3. Studio Output (Ready for YouTube Monetization)</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Choose a Physics Mode &amp; click Generate!
+          Ready — Choose a dataset (or paste your own numbers) and click Generate!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -146,9 +158,9 @@
       ? window.location.origin
       : "http://127.0.0.1:5000";
 
-    let ratio = "9:16";
-    let mode = "ring_escape";
-    let duration = "15";
+    let ratio = "16:9";
+    let preset = "tech_giants";
+    let duration = "120";
 
     document.querySelectorAll(".pill").forEach(p => {
       p.onclick = () => {
@@ -156,21 +168,31 @@
         document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "mode") mode = p.dataset.val;
+        if (grp === "preset") {
+          preset = p.dataset.val;
+          document.getElementById("custom-box").style.display = preset === "custom" ? "block" : "none";
+        }
         if (grp === "dur") duration = p.dataset.val;
       };
     });
 
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
-      document.getElementById("prog-bar").style.width = "5%";
-      document.getElementById("status-txt").textContent = "Starting 30 FPS Physics Simulation...";
+      document.getElementById("prog-bar").style.width = "4%";
+      document.getElementById("status-txt").textContent = "Starting Data Ranking Engine...";
 
       try {
         const res = await fetch(API_BASE + "/api/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ratio, mode, duration })
+          body: JSON.stringify({
+            ratio,
+            preset,
+            duration,
+            custom_csv: document.getElementById("custom-csv").value,
+            custom_title: document.getElementById("custom-title").value,
+            custom_unit: document.getElementById("custom-unit").value
+          })
         });
         const { job_id } = await res.json();
 
@@ -187,16 +209,16 @@
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               document.getElementById("video-area").innerHTML = `
                 <video src="${streamUrl}" controls autoplay loop playsinline></video>
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Ready-to-Upload MP4 (${st.file_name})</a>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download High-RPM MP4 (${st.file_name})</a>
               `;
             } else if (st.status === "error") {
               clearInterval(poll);
             }
           } catch (e) {
             clearInterval(poll);
-            document.getElementById("status-txt").textContent = "Connection interrupted — click Generate again!";
+            document.getElementById("status-txt").textContent = "Connection interrupted — try 2 Mins first on free server!";
           }
-        }, 900);
+        }, 1200);
       } catch (err) {
         document.getElementById("status-txt").textContent = "Server waking up — click Generate again in 5 seconds!";
       }
