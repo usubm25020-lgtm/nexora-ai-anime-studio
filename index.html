@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA TERRITORY CONQUEST STUDIO — Country Battle Royale Simulator</title>
+  <title>NEXORA AI MAZE STUDIO — Impossible Maze &amp; AI Escape Learning</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -11,15 +11,14 @@
       --bg-input: #070b14;
       --border: rgba(148, 163, 184, 0.18);
       --cyan: #22d3ee;
-      --gold: #facc15;
-      --rose: #f43f5e;
       --emerald: #10b981;
+      --gold: #facc15;
       --text: #f8fafc;
       --dim: #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #16203c 0%, var(--bg-void) 65%);
+      background: radial-gradient(circle at top right, #102a38 0%, var(--bg-void) 65%);
       color: var(--text);
       font-family: system-ui, -apple-system, sans-serif;
       padding-bottom: 40px;
@@ -34,7 +33,7 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--rose), var(--gold));
+      background: linear-gradient(135deg, var(--cyan), var(--emerald));
       display: grid; place-items: center; font-weight: 900; color: #030712;
     }
     .badge {
@@ -63,14 +62,14 @@
       padding: 12px 6px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
-    .pill.active { border-color: var(--gold); background: rgba(250, 204, 21, 0.14); color: var(--gold); }
+    .pill.active { border-color: var(--emerald); background: rgba(16, 185, 129, 0.15); color: #34d399; }
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--rose), var(--gold));
+      background: linear-gradient(135deg, var(--cyan), var(--emerald));
       color: #030712; font-size: 14px; font-weight: 900; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--rose), var(--gold), var(--cyan)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--emerald), var(--gold)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
@@ -85,13 +84,13 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">⚔️</div>
+      <div class="logo">🧩</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA TERRITORY CONQUEST STUDIO</div>
-        <div style="font-size:11px; color:var(--gold);">No-Voice Battle Royale Map • Live Leaderboard • War Drums Audio</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA AI MAZE ESCAPE STUDIO</div>
+        <div style="font-size:11px; color:#34d399;">Generational AI Learning • Pheromone Heatmap • Zero-Voice Suspense</div>
       </div>
     </div>
-    <div class="badge">🗺️ Procedural Map</div>
+    <div class="badge">🧠 AI Swarm</div>
   </header>
 
   <main class="wrap">
@@ -105,43 +104,44 @@
       </div>
 
       <div class="card">
-        <div class="card-title">2. Warring Factions &amp; Battle Length</div>
-        <div class="grid-2">
-          <div class="pill active" data-group="roster" data-val="countries">🌍 World Countries</div>
-          <div class="pill" data-group="roster" data-val="empires">🛡️ Color Empires</div>
-        </div>
-
-        <span class="label">Number of Countries / Empires</span>
+        <div class="card-title">2. Maze Complexity &amp; AI Swarm Size</div>
         <div class="grid-3">
-          <div class="pill" data-group="factions" data-val="6">6 Teams</div>
-          <div class="pill active" data-group="factions" data-val="10">10 Teams</div>
-          <div class="pill" data-group="factions" data-val="12">12 Teams</div>
+          <div class="pill" data-group="diff" data-val="medium">Medium Maze</div>
+          <div class="pill active" data-group="diff" data-val="hard">Hard Labyrinth</div>
+          <div class="pill" data-group="diff" data-val="insane">Insane Maze</div>
         </div>
 
-        <span class="label">Simulation Duration</span>
+        <span class="label">Number of Learning AI Agents</span>
+        <div class="grid-3">
+          <div class="pill" data-group="agents" data-val="35">35 AI Bots</div>
+          <div class="pill active" data-group="agents" data-val="60">60 AI Bots</div>
+          <div class="pill" data-group="agents" data-val="100">100 AI Bots</div>
+        </div>
+
+        <span class="label">Evolution Video Length</span>
         <div class="grid-4">
-          <div class="pill" data-group="dur" data-val="30">⚡ 30s<br/><small>(Short)</small></div>
-          <div class="pill active" data-group="dur" data-val="90">🔥 1.5 Min<br/><small>(Fast)</small></div>
-          <div class="pill" data-group="dur" data-val="240">💰 4 Mins<br/><small>(Long)</small></div>
-          <div class="pill" data-group="dur" data-val="480">🎬 8 Mins<br/><small>(Mid-Roll)</small></div>
+          <div class="pill" data-group="dur" data-val="30">⚡ 30s<br/><small>(4 Gens)</small></div>
+          <div class="pill active" data-group="dur" data-val="90">🔥 1.5 Min<br/><small>(12 Gens)</small></div>
+          <div class="pill" data-group="dur" data-val="240">💰 4 Mins<br/><small>(32 Gens)</small></div>
+          <div class="pill" data-group="dur" data-val="480">🎬 8 Mins<br/><small>(64 Gens)</small></div>
         </div>
 
-        <button class="btn-primary" id="btn-generate">⚔️ Simulate New Territory Battle Royale</button>
+        <button class="btn-primary" id="btn-generate">🧩 Train &amp; Render AI Maze Escape Video</button>
       </div>
 
       <div class="card">
         <div class="info-box">
-          <strong style="color:#facc15;">100% Unique Every Single Time:</strong><br/>
-          Every click generates a brand-new procedural continent &amp; island map where nations invade across land and sea, eliminate rivals, and battle for 100% world domination—zero voiceover needed!
+          <strong style="color:#34d399;">Why Viewers Watch Every Generation:</strong><br/>
+          Generation 1 AI bots get trapped in dead ends, leaving behind glowing memory trails. Every 7.5 seconds, a smarter generation spawns and uses those trails to crack the impossible maze!
         </div>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Ready-to-Upload Battle Video</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#facc15; margin-top:4px;">
-          Ready — Every click generates a brand-new world map war!
+        <div class="card-title">3. Ready-to-Upload AI Simulation Video</div>
+        <div id="status-txt" style="font-size:13px; font-weight:800; color:#34d399; margin-top:4px;">
+          Ready — Choose maze difficulty &amp; click Generate!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -155,8 +155,8 @@
       : "http://127.0.0.1:5000";
 
     let ratio = "16:9";
-    let roster = "countries";
-    let factions = "10";
+    let diff = "hard";
+    let agents = "60";
     let duration = "90";
 
     document.querySelectorAll(".pill").forEach(p => {
@@ -165,8 +165,8 @@
         document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "roster") roster = p.dataset.val;
-        if (grp === "factions") factions = p.dataset.val;
+        if (grp === "diff") diff = p.dataset.val;
+        if (grp === "agents") agents = p.dataset.val;
         if (grp === "dur") duration = p.dataset.val;
       };
     });
@@ -174,13 +174,13 @@
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Generating Procedural Continents & Spawning Capitals...";
+      document.getElementById("status-txt").textContent = "Carving Random Maze & Spawning AI Swarm...";
 
       try {
         const res = await fetch(API_BASE + "/api/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ratio, roster, factions, duration })
+          body: JSON.stringify({ ratio, difficulty: diff, agents, duration })
         });
         const { job_id } = await res.json();
 
@@ -197,7 +197,7 @@
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               document.getElementById("video-area").innerHTML = `
                 <video src="${streamUrl}" controls autoplay loop playsinline></video>
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Battle Royale MP4 (${st.file_name})</a>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download AI Maze Video MP4 (${st.file_name})</a>
               `;
             } else if (st.status === "error") {
               clearInterval(poll);
