@@ -4,6 +4,7 @@ import time
 import math
 import uuid
 import wave
+import random
 import asyncio
 import subprocess
 import threading
@@ -33,7 +34,7 @@ FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. VOICE & WAVEFORM LIP-SYNC ENGINE
+# 1. VOICE & PROCEDURAL SWORD SFX AUDIO MIXER
 # ===========================================================================
 VOICE_MAP = {
     "MALE_HINDI": "hi-IN-MadhurNeural",
@@ -43,11 +44,11 @@ VOICE_MAP = {
 }
 
 async def _tts_save(text: str, voice_id: str, mp3_path: str):
-    comm = edge_tts.Communicate(text, voice_id, rate="+7%")
+    comm = edge_tts.Communicate(text, voice_id, rate="+8%")
     await comm.save(mp3_path)
 
 def generate_tts_wav(text: str, is_female: bool, lang_mode: str, out_wav: str) -> float:
-    clean_txt = re.sub(r"[^\w\s,?!.'\-]", "", text).strip() or "Hello"
+    clean_txt = re.sub(r"[^\w\s,?!.'\-]", "", text).strip() or "Attack"
     if lang_mode == "ENGLISH":
         vid = VOICE_MAP["FEMALE_ENGLISH"] if is_female else VOICE_MAP["MALE_ENGLISH"]
     else:
@@ -63,7 +64,7 @@ def generate_tts_wav(text: str, is_female: bool, lang_mode: str, out_wav: str) -
         if os.path.exists(tmp_mp3):
             os.remove(tmp_mp3)
     except Exception:
-        dur = max(2.2, len(clean_txt.split()) * 0.40)
+        dur = max(2.2, len(clean_txt.split()) * 0.38)
         subprocess.run(
             [FFMPEG_BIN, "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono", "-t", str(dur), out_wav],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
@@ -80,611 +81,387 @@ def convert_custom_audio_to_wav(src_path: str, out_wav: str) -> float:
     with wave.open(out_wav, "rb") as wf:
         return max(1.8, wf.getnframes() / float(wf.getframerate()))
 
-def extract_lip_envelope(wav_path: str, fps: int) -> list:
+def inject_combat_sfx(master_wav: str, impact_times: list, out_mixed_wav: str):
+    """Synthesizes crisp sword whoosh & metallic clash SFX at exact impact timestamps!"""
     try:
-        with wave.open(wav_path, "rb") as wf:
+        with wave.open(master_wav, "rb") as wf:
             rate = wf.getframerate()
             samples = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+
+        sfx_track = np.zeros_like(samples)
+        for t_hit, kind in impact_times:
+            start_idx = int(t_hit * rate)
+            if kind == "clash":
+                dur_s = int(0.28 * rate)
+                if start_idx + dur_s < len(sfx_track):
+                    t_arr = np.linspace(0, 0.28, dur_s, endpoint=False)
+                    env = np.exp(-t_arr * 16.0)
+                    # Metallic clang + low sub punch
+                    ring = (
+                        0.45 * np.sin(2 * np.pi * 1450 * t_arr) +
+                        0.35 * np.sin(2 * np.pi * 2380 * t_arr) +
+                        0.65 * np.sin(2 * np.pi * 95 * np.exp(-t_arr * 12) * t_arr) +
+                        0.25 * np.random.uniform(-1, 1, dur_s)
+                    ) * env * 0.55
+                    sfx_track[start_idx:start_idx + dur_s] += ring
+            else:
+                dur_s = int(0.22 * rate)
+                if start_idx + dur_s < len(sfx_track):
+                    t_arr = np.linspace(0, 0.22, dur_s, endpoint=False)
+                    env = np.sin(np.pi * (t_arr / 0.22)) ** 1.5
+                    whoosh = np.random.uniform(-1, 1, dur_s) * np.sin(2 * np.pi * 320 * t_arr) * env * 0.35
+                    sfx_track[start_idx:start_idx + dur_s] += whoosh
+
+        mixed = np.clip(samples + sfx_track, -0.96, 0.96)
+        pcm = (mixed * 32767.0).astype(np.int16)
+        with wave.open(out_mixed_wav, "wb") as wf_out:
+            wf_out.setnchannels(1)
+            wf_out.setsampwidth(2)
+            wf_out.setframerate(rate)
+            wf_out.writeframes(pcm.tobytes())
     except Exception:
-        return [0.0]
-
-    step = max(1, int(rate / fps))
-    raw_env = []
-    for i in range(0, len(samples), step):
-        chunk = samples[i:i + step]
-        rms = float(np.sqrt(np.mean(chunk ** 2))) if len(chunk) else 0.0
-        raw_env.append(min(1.0, max(0.0, (rms - 0.015) * 10.5)))
-
-    smooth_env, prev = [], 0.0
-    for v in raw_env:
-        cur = prev * 0.30 + v * 0.70
-        smooth_env.append(cur)
-        prev = cur
-    return smooth_env if smooth_env else [0.0]
+        import shutil
+        shutil.copy(master_wav, out_mixed_wav)
 
 
 # ===========================================================================
-# 2. RICH HAND-DRAWN SKETCH BACKGROUNDS (BEDROOM, CITY STREET, SCHOOL, DARK)
+# 2. PRE-CALIBRATED FORWARD KINEMATICS KEYFRAME POSE LIBRARY (ZERO GLITCHES!)
 # ===========================================================================
-def add_cinema_vignette_and_glow(img: Image.Image, glows: list) -> Image.Image:
-    w, h = img.size
-    if glows:
-        gl = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        gd = ImageDraw.Draw(gl)
-        for gx, gy, gr, gcol in glows:
-            gd.ellipse([gx - gr, gy - gr, gx + gr, gy + gr], fill=gcol)
-        gl = gl.filter(ImageFilter.GaussianBlur(radius=34))
-        img = Image.alpha_composite(img.convert("RGBA"), gl)
+# Angles in degrees relative to vertical downward (0 = straight down, + = forward in facing dir, - = backward)
+POSE_LIBRARY = {
+    "stance": {
+        "hip_dy": 0.0, "spine": 8.0,
+        "l_thigh": -18.0, "l_knee": 24.0,
+        "r_thigh": 22.0,  "r_knee": 20.0,
+        "l_sh": -25.0,    "l_elb": -45.0,
+        "r_sh": 32.0,     "r_elb": -55.0,
+        "sword_ang": -115.0
+    },
+    "dash_forward": {
+        "hip_dy": 6.0, "spine": 32.0,
+        "l_thigh": -45.0, "l_knee": 55.0,
+        "r_thigh": 48.0,  "r_knee": 35.0,
+        "l_sh": -55.0,    "l_elb": -20.0,
+        "r_sh": -40.0,    "r_elb": -30.0,
+        "sword_ang": -145.0
+    },
+    "windup": {
+        "hip_dy": 8.0, "spine": -16.0,
+        "l_thigh": -22.0, "l_knee": 30.0,
+        "r_thigh": 28.0,  "r_knee": 26.0,
+        "l_sh": 35.0,     "l_elb": -40.0,
+        "r_sh": -135.0,   "r_elb": -45.0,
+        "sword_ang": -165.0
+    },
+    "slash_follow": {
+        "hip_dy": 10.0, "spine": 34.0,
+        "l_thigh": -34.0, "l_knee": 22.0,
+        "r_thigh": 44.0,  "r_knee": 36.0,
+        "l_sh": -48.0,    "l_elb": -25.0,
+        "r_sh": 82.0,     "r_elb": -12.0,
+        "sword_ang": 78.0
+    },
+    "uppercut_air": {
+        "hip_dy": -65.0, "spine": 18.0,
+        "l_thigh": -28.0, "l_knee": 68.0,
+        "r_thigh": 38.0,  "r_knee": 52.0,
+        "l_sh": -40.0,    "l_elb": -30.0,
+        "r_sh": 125.0,    "r_elb": -15.0,
+        "sword_ang": 135.0
+    },
+    "block_guard": {
+        "hip_dy": 7.0, "spine": -10.0,
+        "l_thigh": -24.0, "l_knee": 32.0,
+        "r_thigh": 24.0,  "r_knee": 28.0,
+        "l_sh": 45.0,     "l_elb": -70.0,
+        "r_sh": 58.0,     "r_elb": -82.0,
+        "sword_ang": -25.0
+    },
+    "knockback_hit": {
+        "hip_dy": 14.0, "spine": -38.0,
+        "l_thigh": 18.0,  "l_knee": 42.0,
+        "r_thigh": 35.0,  "r_knee": 55.0,
+        "l_sh": 65.0,     "l_elb": -20.0,
+        "r_sh": 75.0,     "r_elb": -15.0,
+        "sword_ang": -65.0
+    }
+}
 
-    vig = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    vd = ImageDraw.Draw(vig)
-    for b in range(28):
-        alpha = int((28 - b) * 3.0)
-        vd.rectangle([b * 3, b * 3, w - b * 3, h - b * 3], outline=(12, 16, 20, alpha), width=3)
-    return Image.alpha_composite(img.convert("RGBA"), vig)
+def lerp_pose(p_a: dict, p_b: dict, t: float) -> dict:
+    # Smooth cubic ease-in-out
+    u = max(0.0, min(1.0, t))
+    e = u * u * (3.0 - 2.0 * u)
+    return {k: p_a[k] + (p_b[k] - p_a[k]) * e for k in p_a}
 
-def draw_studio_environment(w: int, h: int, scene_text: str, global_t: float, prog: float) -> tuple:
-    """
-    Draws rich hand-drawn 2D studio environments with warm lighting, depth props,
-    and returns (canvas_image, ground_y, glow_list).
-    """
-    low = scene_text.lower()
-    sc = w / 580.0
+def fk_limb_points(root: tuple, upper_len: float, lower_len: float,
+                   ang1_deg: float, ang2_rel_deg: float, facing: int) -> tuple:
+    """Computes anatomically locked joint positions using Forward Kinematics (never bends backwards!)."""
+    a1 = math.radians(ang1_deg)
+    a2 = math.radians(ang1_deg + ang2_rel_deg)
+    mid = (
+        root[0] + math.sin(a1) * upper_len * facing,
+        root[1] + math.cos(a1) * upper_len
+    )
+    end = (
+        mid[0] + math.sin(a2) * lower_len * facing,
+        mid[1] + math.cos(a2) * lower_len
+    )
+    return mid, end
 
-    # --- 1. PITCH-DARK HORROR / MONSTER EYES SCENE ---
-    if any(k in low for k in ["darkness", "andhera", "monster", "bhoot", "ghost", "light off"]):
-        img = Image.new("RGBA", (w, h), (22, 25, 28, 255))
-        d = ImageDraw.Draw(img)
-        ex_b, ey_b = int(w * 0.66), int(h * 0.54)
-        blink = (int(global_t * 10) % 28 == 0)
-        for dx_e in (-22, 22):
-            ex = ex_b + int(dx_e * sc)
-            if not blink:
-                d.ellipse([ex - 15, ey_b - 17, ex + 15, ey_b + 17], fill=(230, 236, 240))
-                lx = -5 if prog > 0.35 else 0
-                d.ellipse([ex - 5 + lx, ey_b - 5, ex + 5 + lx, ey_b + 5], fill=(15, 23, 42))
-
-        if prog > 0.28:
-            fade = min(1.0, (prog - 0.28) * 2.5)
-            al = int(240 * fade)
-            mx, my = int(w * 0.42), int(h * 0.54)
-            d.pieslice([mx - 40, my - 16, mx - 4, my + 14], start=10, end=195, fill=(230, 236, 240, al))
-            d.pieslice([mx + 4, my - 16, mx + 40, my + 14], start=345, end=170, fill=(230, 236, 240, al))
-            d.arc([mx - 34, my + 16, mx + 34, my + 46], start=10, end=170, fill=(230, 236, 240, al), width=5)
-
-        return img, int(h * 0.78), [], True
-
-    # --- 2. COZY BEDROOM / STUDY ROOM INTERIOR (WARM LAMP & DESK) ---
-    if any(k in low for k in ["bedroom", "room", "kamra", "desk", "study", "home", "ghar", "exam"]):
-        # Warm hand-drawn sage-cream studio room (matching reference aesthetic)
-        img = Image.new("RGBA", (w, h), (196, 202, 192, 255))
-        d = ImageDraw.Draw(img)
-        ink = (38, 42, 46)
-
-        floor_y = int(h * 0.72)
-        back_y = int(h * 0.63)
-        # Floor & Back Wall
-        d.rectangle([0, back_y, w, h], fill=(164, 170, 160))
-        d.line([(0, floor_y), (int(w * 0.16), back_y), (int(w * 0.86), back_y), (w, floor_y)], fill=ink, width=3)
-        d.line([(int(w * 0.16), 0), (int(w * 0.16), back_y)], fill=ink, width=3)
-        d.line([(int(w * 0.86), 0), (int(w * 0.86), back_y)], fill=ink, width=3)
-
-        # Window on left with morning sky & curtains
-        wx, wy, ww, wh = int(w * 0.21), int(h * 0.22), int(125 * sc), int(145 * sc)
-        d.rectangle([wx, wy, wx + ww, wy + wh], fill=(186, 224, 245), outline=ink, width=3)
-        d.line([(wx + ww // 2, wy), (wx + ww // 2, wy + wh)], fill=ink, width=3)
-        d.line([(wx, wy + wh // 2), (wx + ww, wy + wh // 2)], fill=ink, width=3)
-
-        # Wall Poster / Framed Sketch
-        px, py = int(w * 0.52), int(h * 0.24)
-        d.rectangle([px, py, px + int(85 * sc), py + int(105 * sc)], fill=(224, 228, 220), outline=ink, width=3)
-        d.ellipse([px + int(22 * sc), py + int(25 * sc), px + int(62 * sc), py + int(65 * sc)], outline=ink, width=2)
-
-        # Study Desk + Books + Glowing Study Lamp on Right
-        dx, dy = int(w * 0.62), int(h * 0.52)
-        dw, dh = int(175 * sc), int(115 * sc)
-        d.rectangle([dx, dy, dx + dw, dy + dh], fill=(148, 124, 102), outline=ink, width=3)
-        d.rectangle([dx - 8, dy - 10, dx + dw + 8, dy + 6], fill=(168, 142, 118), outline=ink, width=3)
-        # Stack of books on desk
-        d.rectangle([dx + int(18 * sc), dy - int(24 * sc), dx + int(78 * sc), dy - 10], fill=(225, 75, 75), outline=ink, width=2)
-        d.rectangle([dx + int(22 * sc), dy - int(36 * sc), dx + int(74 * sc), dy - int(24 * sc)], fill=(59, 130, 246), outline=ink, width=2)
-        # Glowing Lamp
-        lx, ly = dx + int(122 * sc), dy - int(68 * sc)
-        d.line([(lx, dy - 10), (lx, ly + 28)], fill=ink, width=4)
-        d.polygon([(lx - 24, ly + 30), (lx - 13, ly), (lx + 13, ly), (lx + 24, ly + 30)], fill=(254, 249, 195), outline=ink, width=3)
-
-        return img, int(h * 0.77), [(lx, ly + 15, int(110 * sc), (253, 224, 71, 140))], False
-
-    # --- 3. SCHOOL GATE / CAMPUS AT SUNSET ---
-    if any(k in low for k in ["school", "college", "gate", "class", "sunset", "shaam"]):
-        img = Image.new("RGBA", (w, h), (253, 186, 116, 255))
-        d = ImageDraw.Draw(img)
-        ink = (38, 42, 46)
-
-        # Warm Sunset Gradient Band
-        d.rectangle([0, int(h * 0.35), w, int(h * 0.68)], fill=(254, 215, 170))
-        d.ellipse([int(w * 0.72), int(h * 0.16), int(w * 0.72) + 68, int(h * 0.16) + 68], fill=(254, 240, 138))
-
-        # School Building & Clock Tower
-        bx, by = int(w * 0.16), int(h * 0.34)
-        bw, bh = int(390 * sc), int(210 * sc)
-        d.rectangle([bx, by, bx + bw, by + bh], fill=(241, 232, 218), outline=ink, width=3)
-        d.polygon([(bx - 16, by), (bx + bw // 2, by - int(65 * sc)), (bx + bw + 16, by)], fill=(185, 65, 65), outline=ink)
-        # School Clock
-        cx_c, cy_c = bx + bw // 2, by - int(22 * sc)
-        d.ellipse([cx_c - 22, cy_c - 22, cx_c + 22, cy_c + 22], fill=(255, 255, 255), outline=ink, width=3)
-        d.line([(cx_c, cy_c), (cx_c, cy_c - 12)], fill=ink, width=2)
-        d.line([(cx_c, cy_c), (cx_c + 10, cy_c)], fill=ink, width=2)
-
-        # School Windows
-        for wx_i in range(3):
-            wx = bx + int((35 + wx_i * 120) * sc)
-            wy = by + int(35 * sc)
-            d.rectangle([wx, wy, wx + int(65 * sc), wy + int(75 * sc)], fill=(147, 197, 253), outline=ink, width=3)
-
-        # Sidewalk & Road
-        ground_y = int(h * 0.68)
-        d.rectangle([0, ground_y, w, h], fill=(71, 85, 105))
-        d.rectangle([0, ground_y, w, ground_y + int(28 * sc)], fill=(203, 213, 225), outline=ink, width=2)
-
-        return img, int(h * 0.79), [(cx_c + 140, int(h * 0.20), 90, (254, 240, 138, 100))], False
-
-    # --- 4. MODERN CITY STREET WITH HOUSES, TREES, CLOUDS & MOVING CAR ---
-    img = Image.new("RGBA", (w, h), (186, 226, 248, 255))
-    d = ImageDraw.Draw(img)
-    ink = (38, 42, 46)
-
-    # Drifting Clouds
-    for ci in range(3):
-        cx = int(((ci * 260 + global_t * 18) % (w + 160)) - 80)
-        cy = int(h * (0.12 + ci * 0.05))
-        d.ellipse([cx, cy, cx + 105, cy + 36], fill=(255, 255, 255, 220))
-        d.ellipse([cx + 22, cy - 14, cx + 82, cy + 24], fill=(255, 255, 255, 220))
-
-    # City Houses Silhouette & Midground
-    ground_y = int(h * 0.68)
-    for hx_r, hw_r, hh_r, hcol in [
-        (0.06, 155, 185, (245, 226, 184)),
-        (0.36, 140, 215, (218, 228, 238)),
-        (0.68, 165, 195, (242, 216, 204))
-    ]:
-        hx = int(w * hx_r)
-        hw, hh = int(hw_r * sc), int(hh_r * sc)
-        d.rectangle([hx, ground_y - hh, hx + hw, ground_y], fill=hcol, outline=ink, width=3)
-        d.polygon([(hx - 10, ground_y - hh), (hx + hw // 2, ground_y - hh - int(45 * sc)), (hx + hw + 10, ground_y - hh)], fill=(168, 72, 72), outline=ink)
-        # Windows
-        for wy_off in (0.28, 0.62):
-            d.rectangle([hx + int(hw * 0.22), ground_y - int(hh * wy_off), hx + int(hw * 0.44), ground_y - int(hh * (wy_off - 0.18))], fill=(147, 197, 253), outline=ink, width=2)
-            d.rectangle([hx + int(hw * 0.56), ground_y - int(hh * wy_off), hx + int(hw * 0.78), ground_y - int(hh * (wy_off - 0.18))], fill=(147, 197, 253), outline=ink, width=2)
-
-    # Swaying Trees
-    sway = math.sin(global_t * 2.4)
-    for tx_r, tsc in ((0.12, 0.9), (0.89, 1.05)):
-        tx = int(w * tx_r)
-        top_x = tx + int(sway * 9 * tsc)
-        d.rectangle([tx - 7, ground_y - int(95 * tsc), tx + 7, ground_y], fill=(102, 72, 54), outline=ink, width=2)
-        d.ellipse([top_x - int(44 * tsc), ground_y - int(142 * tsc), top_x + int(44 * tsc), ground_y - int(68 * tsc)], fill=(74, 192, 118), outline=ink, width=3)
-
-    # Sidewalk & Asphalt Road
-    d.rectangle([0, ground_y, w, h], fill=(55, 65, 81))
-    d.rectangle([0, ground_y, w, ground_y + int(24 * sc)], fill=(203, 213, 225), outline=ink, width=2)
-    lane_y = int(h * 0.79)
-    scroll = int((global_t * 120) % 85)
-    for lx in range(-85, w + 85, 85):
-        d.rectangle([lx - scroll, lane_y - 3, lx + 40 - scroll, lane_y + 3], fill=(241, 245, 249))
-
-    return img, int(h * 0.79), [], False
-
-
-# ===========================================================================
-# 3. EXPRESSIVE RUBBER-HOSE & 2-BONE IK CHARACTER RIG (NATURAL HUMAN MOTION)
-# ===========================================================================
-def solve_2bone_ik(root: tuple, target: tuple, len1: float, len2: float, bend_dir: int = 1) -> tuple:
-    rx, ry = root
-    tx, ty = target
-    dx, dy = tx - rx, ty - ry
-    dist = math.hypot(dx, dy)
-    max_reach = (len1 + len2) * 0.98
-    min_reach = abs(len1 - len2) + 2.0
-    dist = max(min_reach, min(max_reach, dist))
-
-    cos_a = max(-1.0, min(1.0, (len1 ** 2 + dist ** 2 - len2 ** 2) / (2.0 * len1 * dist)))
-    angle_a = math.acos(cos_a)
-    joint_angle = math.atan2(dy, dx) + bend_dir * angle_a
-    return (rx + len1 * math.cos(joint_angle), ry + len1 * math.sin(joint_angle))
-
-def draw_smooth_limb(draw: ImageDraw.Draw, p0: tuple, p1: tuple, p2: tuple,
-                     w0: float, w1: float, w2: float, fill_col: tuple, ink: tuple):
+def draw_tapered_silhouette_limb(draw: ImageDraw.Draw, p0: tuple, p1: tuple, p2: tuple,
+                                 w0: float, w1: float, w2: float, color: tuple):
     for (ax, ay, wa), (bx, by, wb) in [((p0[0], p0[1], w0), (p1[0], p1[1], w1)), ((p1[0], p1[1], w1), (p2[0], p2[1], w2))]:
         dx, dy = bx - ax, by - ay
         ln = max(1e-5, math.hypot(dx, dy))
         nx, ny = -dy / ln, dx / ln
-        poly = [
+        draw.polygon([
             (ax + nx * wa, ay + ny * wa),
             (bx + nx * wb, by + ny * wb),
             (bx - nx * wb, by - ny * wb),
             (ax - nx * wa, ay - ny * wa)
-        ]
-        draw.polygon(poly, fill=fill_col, outline=ink)
+        ], fill=color)
     rm = int(w1)
-    draw.ellipse([p1[0] - rm, p1[1] - rm, p1[0] + rm, p1[1] + rm], fill=fill_col, outline=ink, width=2)
+    draw.ellipse([p1[0] - rm, p1[1] - rm, p1[0] + rm, p1[1] + rm], fill=color)
 
-def draw_cartoon_hand(draw: ImageDraw.Draw, hx: float, hy: float, scale: float, skin: tuple, ink: tuple, pointing: bool = False):
-    r = 6.5 * scale
-    draw.ellipse([hx - r, hy - r, hx + r, hy + r], fill=skin, outline=ink, width=2)
-    if pointing:
-        draw.rounded_rectangle([hx + 2 * scale, hy - 3 * scale, hx + 16 * scale, hy + 2 * scale], radius=3, fill=skin, outline=ink, width=2)
-    else:
-        for f_off in (-3.5, 0.0, 3.5):
-            draw.ellipse([hx + 3 * scale, hy + (f_off - 2) * scale, hx + 9 * scale, hy + (f_off + 2) * scale], fill=skin, outline=ink, width=1)
+def draw_silhouette_fighter(draw: ImageDraw.Draw, cx: float, ground_y: float, scale: float,
+                            pose: dict, facing: int, global_t: float,
+                            has_sword: bool = True, accent_col: tuple = (255, 255, 255),
+                            slash_arc_alpha: float = 0.0):
+    """
+    Renders a sleek, solid-black silhouette stickman fighter (44835.mp4 style)
+    with flowing headband/scarf, anatomical limb tapering, katana sword & slash smear!
+    """
+    ink = (10, 12, 16)
+    thigh_l = 44.0 * scale
+    shin_l = 44.0 * scale
+    spine_l = 60.0 * scale
+    u_arm = 33.0 * scale
+    f_arm = 31.0 * scale
 
-def draw_expressive_character(draw: ImageDraw.Draw, base_x: float, ground_y: float, scale: float,
-                              style_mode: str, is_female: bool, action: str, emotion: str,
-                              mouth_open: float, t: float, facing: int = 1):
-    is_walk = action in {"walk", "window_exit"}
-    is_run = action in {"run", "stairs_up"}
-    is_jump = action == "jump"
+    hip_x = cx
+    hip_y = ground_y - (thigh_l + shin_l - 8.0 * scale) + pose["hip_dy"] * scale
 
-    if is_run:
-        cycle = t * 11.5
-        stride_len = 48.0 * scale
-        lift_h = 24.0 * scale
-        pelvis_drop = abs(math.cos(cycle)) * 9.0 * scale
-        spine_lean = 0.25 * facing
-    elif is_walk:
-        cycle = t * 6.5
-        stride_len = 32.0 * scale
-        lift_h = 13.0 * scale
-        pelvis_drop = abs(math.cos(cycle)) * 5.0 * scale
-        spine_lean = 0.07 * facing
-    elif is_jump:
-        jw = abs(math.sin(t * 4.5))
-        cycle = 0.0
-        stride_len = 0.0
-        lift_h = 0.0
-        pelvis_drop = -jw * 46.0 * scale + (1.0 - jw) * 8.0 * scale
-        spine_lean = 0.10 * facing
-    else:
-        cycle = 0.0
-        stride_len = 0.0
-        lift_h = 0.0
-        pelvis_drop = math.sin(t * 2.5) * 2.5 * scale
-        spine_lean = math.sin(t * 1.4) * 0.03 + (0.05 * facing if action in {"point", "paper"} else 0.0)
+    sp_rad = math.radians(pose["spine"])
+    sh_x = hip_x + math.sin(sp_rad) * spine_l * facing
+    sh_y = hip_y - math.cos(sp_rad) * spine_l
 
-    squash = 1.0 + (pelvis_drop / (125.0 * scale)) * 0.13
-    stretch = 1.0 / math.sqrt(max(0.75, squash))
+    # 1. Back Leg
+    l_knee, l_foot = fk_limb_points((hip_x, hip_y), thigh_l, shin_l, pose["l_thigh"], pose["l_knee"], facing)
+    draw_tapered_silhouette_limb(draw, (hip_x, hip_y), l_knee, l_foot, 6.2 * scale, 4.8 * scale, 3.4 * scale, ink)
 
-    thigh_len = 42.0 * scale
-    shin_len = 42.0 * scale
-    hip_x = base_x + math.sin(t * 2.0) * 2.0 * scale
-    hip_y = ground_y - (thigh_len + shin_len - 6.0 * scale) + pelvis_drop
-
-    spine_len = 64.0 * scale * stretch
-    shoulder_x = hip_x + math.sin(spine_lean) * spine_len
-    shoulder_y = hip_y - math.cos(spine_lean) * spine_len
-
-    ink = (22, 26, 34)
-    skin = (232, 236, 242) if style_mode == "stickman" else (255, 224, 198)
-    cloth_top = (225, 230, 236) if style_mode == "stickman" else ((225, 29, 72) if is_female else (37, 99, 235))
-    cloth_bot = (30, 41, 59) if style_mode == "cartoon" else (22, 26, 34)
-
-    # Motion Smear Arcs when running/jumping
-    if is_run or is_jump:
-        for mi in range(3):
-            my_arc = shoulder_y + mi * 22 * scale
-            mx_arc = hip_x - (42 + mi * 12) * scale * facing
-            draw.line([(mx_arc - 28 * scale * facing, my_arc), (mx_arc, my_arc)], fill=(255, 255, 255, 160), width=3)
-
-    # 1. LEGS (2-Bone IK)
-    if is_walk or is_run:
-        lx = base_x + math.sin(cycle) * stride_len * facing
-        ly = ground_y - max(0.0, math.cos(cycle)) * lift_h
-        rx = base_x + math.sin(cycle + math.pi) * stride_len * facing
-        ry = ground_y - max(0.0, math.cos(cycle + math.pi)) * lift_h
-    elif is_jump:
-        air = max(0.0, -pelvis_drop)
-        lx, ly = base_x - 14.0 * scale, ground_y - air * 0.85
-        rx, ry = base_x + 14.0 * scale, ground_y - air * 0.65
-    else:
-        lx, ly = base_x - 14.0 * scale, ground_y
-        rx, ry = base_x + 14.0 * scale, ground_y
-
-    l_hip = (hip_x - 7.0 * scale, hip_y)
-    r_hip = (hip_x + 7.0 * scale, hip_y)
-    l_knee = solve_2bone_ik(l_hip, (lx, ly), thigh_len, shin_len, bend_dir=facing)
-    r_knee = solve_2bone_ik(r_hip, (rx, ry), thigh_len, shin_len, bend_dir=facing)
-
-    wt = 8.0 * scale if style_mode == "cartoon" else 4.8 * scale
-    wk = 6.2 * scale if style_mode == "cartoon" else 4.0 * scale
-    wa = 4.8 * scale if style_mode == "cartoon" else 3.2 * scale
-
-    draw_smooth_limb(draw, l_hip, l_knee, (lx, ly), wt, wk, wa, cloth_bot, ink)
-    draw.pieslice([lx - 10 * scale, ly - 10 * scale, lx + 20 * scale, ly + 4 * scale], start=180, end=360, fill=(51, 65, 85), outline=ink, width=2)
-
-    # 2. TORSO
-    tw_top = (20.0 * scale * squash) if style_mode == "cartoon" else (6.0 * scale)
-    tw_bot = (15.0 * scale * squash) if style_mode == "cartoon" else (5.0 * scale)
-    px, py = math.cos(spine_lean), math.sin(spine_lean)
-    torso_poly = [
-        (shoulder_x - px * tw_top, shoulder_y - py * tw_top),
-        (shoulder_x + px * tw_top, shoulder_y + py * tw_top),
+    # 2. Sleek Tapered Torso
+    px, py = math.cos(sp_rad), math.sin(sp_rad) * facing
+    tw_top, tw_bot = 9.5 * scale, 6.8 * scale
+    draw.polygon([
+        (sh_x - px * tw_top, sh_y - py * tw_top),
+        (sh_x + px * tw_top, sh_y + py * tw_top),
         (hip_x + px * tw_bot, hip_y + py * tw_bot),
         (hip_x - px * tw_bot, hip_y - py * tw_bot)
-    ]
-    draw.polygon(torso_poly, fill=cloth_top, outline=ink)
-    draw.line(torso_poly + [torso_poly[0]], fill=ink, width=3)
+    ], fill=ink)
 
-    draw_smooth_limb(draw, r_hip, r_knee, (rx, ry), wt, wk, wa, cloth_bot, ink)
-    draw.pieslice([rx - 10 * scale, ry - 10 * scale, rx + 20 * scale, ry + 4 * scale], start=180, end=360, fill=(71, 85, 105), outline=ink, width=2)
+    # 3. Front Leg
+    r_knee, r_foot = fk_limb_points((hip_x, hip_y), thigh_l, shin_l, pose["r_thigh"], pose["r_knee"], facing)
+    draw_tapered_silhouette_limb(draw, (hip_x, hip_y), r_knee, r_foot, 6.4 * scale, 5.0 * scale, 3.5 * scale, ink)
 
-    # 3. NATURAL CONVERSATIONAL ARMS (FORWARD BEND FOR GESTURES, BACKWARD FOR RUNNING!)
-    upper_arm = 33.0 * scale
-    forearm = 31.0 * scale
-    l_sh = (shoulder_x - 10.0 * scale, shoulder_y + 4.0 * scale)
-    r_sh = (shoulder_x + 10.0 * scale, shoulder_y + 4.0 * scale)
-    arm_phase = cycle - 0.35
+    # 4. Back Arm
+    l_elb, l_hnd = fk_limb_points((sh_x, sh_y + 4 * scale), u_arm, f_arm, pose["l_sh"], pose["l_elb"], facing)
+    draw_tapered_silhouette_limb(draw, (sh_x, sh_y + 4 * scale), l_elb, l_hnd, 4.8 * scale, 3.8 * scale, 2.8 * scale, ink)
 
-    if is_walk or is_run:
-        swing = 34.0 * scale if is_run else 22.0 * scale
-        lh_t = (l_sh[0] - math.sin(arm_phase) * swing * facing, l_sh[1] + 46.0 * scale)
-        rh_t = (r_sh[0] + math.sin(arm_phase) * swing * facing, r_sh[1] + 46.0 * scale)
-        elbow_dir = -facing
-    elif action in {"point", "heroic"}:
-        lh_t = (l_sh[0] - 8.0 * scale, hip_y + 2.0 * scale)
-        rh_t = (r_sh[0] + 54.0 * scale * facing, shoulder_y - 10.0 * scale + math.sin(t * 6.0) * 5.0 * scale)
-        elbow_dir = facing
-    elif action == "wave":
-        lh_t = (l_sh[0] - 8.0 * scale, hip_y + 2.0 * scale)
-        rh_t = (r_sh[0] + (34.0 + math.sin(t * 11.0) * 16.0) * scale * facing, shoulder_y - 42.0 * scale)
-        elbow_dir = facing
-    elif action == "paper":
-        lh_t = (r_sh[0] + 24.0 * scale * facing, shoulder_y + 18.0 * scale)
-        rh_t = (r_sh[0] + 38.0 * scale * facing, shoulder_y + 14.0 * scale)
-        elbow_dir = facing
-    elif action in {"fear", "shock"}:
-        lh_t = (shoulder_x - 22.0 * scale, shoulder_y - 24.0 * scale + math.sin(t * 18.0) * 3.0 * scale)
-        rh_t = (shoulder_x + 28.0 * scale, shoulder_y - 22.0 * scale - math.sin(t * 18.0) * 3.0 * scale)
-        elbow_dir = facing
-    else:
-        # Expressive human hand-talking rhythm synced to voice!
-        gest = math.sin(t * 7.5) * 10.0 * scale * (0.3 + mouth_open)
-        lh_t = (l_sh[0] + 12.0 * scale * facing, shoulder_y + 26.0 * scale - gest * 0.6)
-        rh_t = (r_sh[0] + 34.0 * scale * facing, shoulder_y + 18.0 * scale + gest)
-        elbow_dir = facing
+    # 5. Head & Flowing Anime Combat Headband
+    head_x = sh_x + math.sin(sp_rad) * 24.0 * scale * facing
+    head_y = sh_y - math.cos(sp_rad) * 24.0 * scale
+    hr = 17.5 * scale
+    draw.ellipse([head_x - hr, head_y - hr, head_x + hr, head_y + hr], fill=ink)
 
-    l_elb = solve_2bone_ik(l_sh, lh_t, upper_arm, forearm, bend_dir=elbow_dir)
-    r_elb = solve_2bone_ik(r_sh, rh_t, upper_arm, forearm, bend_dir=elbow_dir)
+    # Flowing headband tails trailing behind fighter
+    tail_x1 = head_x - hr * 0.8 * facing
+    tail_y1 = head_y - 3 * scale
+    wave1 = math.sin(global_t * 14.0) * 7.0 * scale
+    wave2 = math.cos(global_t * 12.0) * 9.0 * scale
+    draw.line([
+        (tail_x1, tail_y1),
+        (tail_x1 - 24 * scale * facing, tail_y1 - 4 * scale + wave1),
+        (tail_x1 - 48 * scale * facing, tail_y1 + 5 * scale + wave2)
+    ], fill=accent_col, width=max(2, int(3.5 * scale)))
 
-    wa0 = 6.0 * scale if style_mode == "cartoon" else 4.0 * scale
-    wa1 = 5.0 * scale if style_mode == "cartoon" else 3.4 * scale
-    wa2 = 4.0 * scale if style_mode == "cartoon" else 2.8 * scale
+    # 6. Front Sword Arm & Katana Blade + Glowing White Slash Smear Arc!
+    r_elb, r_hnd = fk_limb_points((sh_x, sh_y + 4 * scale), u_arm, f_arm, pose["r_sh"], pose["r_elb"], facing)
+    draw_tapered_silhouette_limb(draw, (sh_x, sh_y + 4 * scale), r_elb, r_hnd, 5.0 * scale, 4.0 * scale, 3.0 * scale, ink)
 
-    draw_smooth_limb(draw, l_sh, l_elb, lh_t, wa0, wa1, wa2, skin, ink)
-    draw_smooth_limb(draw, r_sh, r_elb, rh_t, wa0, wa1, wa2, skin, ink)
+    if has_sword:
+        sw_rad = math.radians(pose["sword_ang"])
+        blade_len = 86.0 * scale
+        tip_x = r_hnd[0] + math.sin(sw_rad) * blade_len * facing
+        tip_y = r_hnd[1] + math.cos(sw_rad) * blade_len
 
-    draw_cartoon_hand(draw, lh_t[0], lh_t[1], scale, skin, ink, pointing=False)
-    draw_cartoon_hand(draw, rh_t[0], rh_t[1], scale, skin, ink, pointing=(action in {"point", "heroic"}))
+        # Sword Hilt & Crossguard
+        hilt_x = r_hnd[0] - math.sin(sw_rad) * 14.0 * scale * facing
+        hilt_y = r_hnd[1] - math.cos(sw_rad) * 14.0 * scale
+        draw.line([(hilt_x, hilt_y), r_hnd], fill=ink, width=max(3, int(4.5 * scale)))
 
-    if action == "paper":
-        px_p, py_p = rh_t
-        draw.polygon([
-            (px_p - 6 * scale, py_p - 26 * scale),
-            (px_p + 26 * scale, py_p - 30 * scale),
-            (px_p + 30 * scale, py_p + 12 * scale),
-            (px_p - 2 * scale, py_p + 16 * scale)
-        ], fill=(255, 255, 255), outline=ink, width=2)
-        # Sketch text lines on paper
-        for ln_i in range(3):
-            yy = py_p - (16 - ln_i * 8) * scale
-            draw.line([(px_p + 2 * scale, yy), (px_p + 20 * scale, yy)], fill=(100, 116, 139), width=2)
+        # Crisp Katana Blade
+        draw.line([r_hnd, (tip_x, tip_y)], fill=(248, 250, 252), width=max(2, int(3.5 * scale)))
+        draw.line([r_hnd, (tip_x, tip_y)], fill=ink, width=max(1, int(1.5 * scale)))
 
-    # 4. EXPRESSIVE HEAD WITH EAR, NOSE, PROPER HAIR & AUDIO LIP-SYNC
-    head_nod = math.sin(t * 8.5) * 3.5 * scale * mouth_open
-    head_x = shoulder_x + math.sin(spine_lean) * 14.0 * scale
-    head_y = shoulder_y - 42.0 * scale + head_nod
-
-    hr_x = 34.0 * scale * squash
-    hr_y = 38.0 * scale * stretch
-
-    # Back hair ponytail for female character (clean, NEVER covers eyes like a mask!)
-    if style_mode == "cartoon" and is_female:
-        ponytail = [
-            (head_x - hr_x * 0.7, head_y - hr_y * 0.3),
-            (head_x - hr_x * 1.45, head_y + hr_y * 0.6),
-            (head_x - hr_x * 0.85, head_y + hr_y * 0.9)
-        ]
-        draw.polygon(ponytail, fill=(30, 27, 75), outline=ink)
-
-    # Head oval
-    draw.ellipse([head_x - hr_x, head_y - hr_y, head_x + hr_x, head_y + hr_y], fill=skin, outline=ink, width=3)
-
-    # Ear on back side of head
-    ear_x = head_x - hr_x * 0.85 * facing
-    draw.ellipse([ear_x - 6 * scale, head_y - 6 * scale, ear_x + 6 * scale, head_y + 8 * scale], fill=skin, outline=ink, width=2)
-
-    # Clean Hair Top Cap (leaves forehead & eyes 100% visible!)
-    if style_mode == "cartoon":
-        hair_col = (88, 28, 135) if is_female else (24, 28, 36)
-        draw.pieslice(
-            [head_x - hr_x - 2, head_y - hr_y - 6, head_x + hr_x + 2, head_y - hr_y * 0.25],
-            start=180, end=360, fill=hair_col, outline=ink, width=2
-        )
-
-    # Big Overlapping Cartoon Eyes
-    blink = (int(t * 10) % 34 == 0)
-    eye_y = head_y - 5.0 * scale
-    eye_rx = 11.0 * scale
-    eye_ry = 13.5 * scale
-    look_shift = 5.0 * scale * facing
-
-    for ex in (head_x - 5.0 * scale + look_shift, head_x + 11.0 * scale + look_shift):
-        if blink:
-            draw.line([(ex - eye_rx, eye_y), (ex + eye_rx, eye_y)], fill=ink, width=3)
-        else:
-            draw.ellipse([ex - eye_rx, eye_y - eye_ry, ex + eye_rx, eye_y + eye_ry], fill=(255, 255, 255), outline=ink, width=2)
-            pr = 3.8 * scale
-            draw.ellipse([ex - pr + 3 * facing, eye_y - pr, ex + pr + 3 * facing, eye_y + pr], fill=ink)
-
-    # Expressive Cartoon Nose (matches reference video!)
-    nx_pos = head_x + 18.0 * scale * facing
-    ny_pos = head_y + 5.0 * scale
-    draw.arc([nx_pos - 6 * scale, ny_pos - 6 * scale, nx_pos + 10 * scale, ny_pos + 7 * scale], start=250, end=110, fill=ink, width=3)
-
-    # Eyebrows
-    brow_y = eye_y - eye_ry - 4.0 * scale
-    tilt = 4.0 * scale if emotion in {"ANGRY", "HEROIC"} else (-4.0 * scale if emotion in {"SAD", "FEAR", "SHOCK"} else 0.0)
-    draw.line([(head_x - 15 * scale + look_shift, brow_y - tilt), (head_x - 1 * scale + look_shift, brow_y + tilt)], fill=ink, width=3)
-    draw.line([(head_x + 4 * scale + look_shift, brow_y + tilt), (head_x + 18 * scale + look_shift, brow_y - tilt)], fill=ink, width=3)
-
-    # Audio-Synced Lip-Sync Mouth
-    my = head_y + 18.0 * scale
-    mx = head_x + look_shift
-    if mouth_open > 0.10 or emotion in {"FEAR", "SHOCK"}:
-        open_v = max(mouth_open, 0.55 if emotion in {"FEAR", "SHOCK"} else 0.0)
-        mw = (9.0 + open_v * 4.5) * scale
-        mh = (4.5 + open_v * 13.0) * scale
-        draw.ellipse([mx - mw, my - mh / 2, mx + mw, my + mh / 2], fill=(185, 28, 28), outline=ink, width=2)
-        draw.ellipse([mx - mw * 0.55, my, mx + mw * 0.55, my + mh * 0.45], fill=(244, 63, 94))
-    else:
-        if emotion in {"HAPPY", "ROMANTIC"}:
-            draw.arc([mx - 10 * scale, my - 5 * scale, mx + 10 * scale, my + 7 * scale], start=10, end=170, fill=ink, width=3)
-        else:
-            draw.line([(mx - 8 * scale, my), (mx + 8 * scale, my)], fill=ink, width=3)
-
-
-# ===========================================================================
-# 4. CINEMATIC CAMERA DIRECTOR & FRAME COMPOSITOR
-# ===========================================================================
-_FONT_CACHE = {}
-def get_font(size: int):
-    if size in _FONT_CACHE:
-        return _FONT_CACHE[size]
-    for p in [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
-    ]:
-        if os.path.exists(p):
-            try:
-                f = ImageFont.truetype(p, size)
-                _FONT_CACHE[size] = f
-                return f
-            except Exception:
-                pass
-    return ImageFont.load_default()
-
-def ease_in_out(t: float) -> float:
-    t = max(0.0, min(1.0, t))
-    return t * t * (3.0 - 2.0 * t)
-
-def parse_script_beats(raw_script: str):
-    lines = [ln.strip() for ln in str(raw_script or "").splitlines() if ln.strip()]
-    beats = []
-    current_scene = "modern city street with houses and trees"
-
-    for ln in lines:
-        if re.match(r"^SCENE\s*\d*", ln, re.I):
-            loc = re.sub(r"^SCENE\s*\d*\s*[:\-]?\s*", "", ln, flags=re.I).strip()
-            if loc:
-                current_scene = loc
-            continue
-
-        tags = []
-        caption = re.sub(r"\[([^\]]+)\]", lambda m: (tags.append(m.group(1).strip()), "")[1], ln).strip()
-        if not caption:
-            continue
-
-        speaker = "Narrator"
-        emotion = "HAPPY"
-        action = "auto"
-
-        for tg in tags:
-            u = tg.upper()
-            if u in {"HAPPY", "SAD", "SHOCK", "ROMANTIC", "CONFUSED", "FEAR", "CHILL", "ANGRY", "HEROIC"}:
-                emotion = u
-            elif u in {"WALK", "RUN", "JUMP", "WAVE", "POINT", "PAPER", "FIGHT", "WINDOW_EXIT", "STAIRS_UP"}:
-                action = u.lower()
-            elif u not in {"FULL", "HALF", "WIDE", "MEDIUM", "CLOSEUP", "OTS", "ORBIT"}:
-                speaker = tg
-
-        low = (current_scene + " " + caption).lower()
-        if action == "auto":
-            if any(k in low for k in ["window", "khidki", "janala", "kood"]):
-                action = "window_exit"
-            elif any(k in low for k in ["run", "bhag", "daud"]):
-                action = "run"
-            elif any(k in low for k in ["walk", "road", "sadak", "chal"]):
-                action = "walk"
-            elif any(k in low for k in ["jump", "uchhal"]):
-                action = "jump"
-            elif any(k in low for k in ["paper", "script", "plan", "book"]):
-                action = "paper"
-            elif any(k in low for k in ["point", "dekho", "bata"]):
-                action = "point"
-            elif any(k in low for k in ["wave", "haath hila"]):
-                action = "wave"
+        # Dramatic White/Cyan Slash Smear Crescent (exact 44835.mp4 impact look!)
+        if slash_arc_alpha > 0.05:
+            arc_r = int(96 * scale)
+            bbox = [r_hnd[0] - arc_r, r_hnd[1] - arc_r, r_hnd[0] + arc_r, r_hnd[1] + arc_r]
+            if facing == 1:
+                draw.arc(bbox, start=-75, end=55, fill=(255, 255, 255), width=max(6, int(16 * scale * slash_arc_alpha)))
+                draw.arc(bbox, start=-65, end=45, fill=accent_col, width=max(3, int(7 * scale * slash_arc_alpha)))
             else:
-                action = "talk"
+                draw.arc(bbox, start=125, end=255, fill=(255, 255, 255), width=max(6, int(16 * scale * slash_arc_alpha)))
+                draw.arc(bbox, start=135, end=245, fill=accent_col, width=max(3, int(7 * scale * slash_arc_alpha)))
 
-        is_female = bool(re.search(r"(girl|meera|ananya|priya|aditi|neha|sara|riya|sakchunni|maa|mom)", speaker.lower()))
 
-        beats.append({
-            "index": len(beats) + 1,
-            "scene": current_scene,
-            "speaker": "" if speaker.upper() == "NARRATOR" else speaker,
-            "is_female": is_female,
-            "emotion": emotion,
-            "action": action,
-            "caption": caption,
-            "words": caption.split()
-        })
-    return beats
+# ===========================================================================
+# 3. CINEMATIC COMBAT STAGE, PARTICLES, HIT-FLASH & SCREEN SHAKE
+# ===========================================================================
+def build_monochrome_dojo_bg(w: int, h: int, scene_low: str) -> Image.Image:
+    """Creates the atmospheric grey-gradient + subtle dojo/moonlight combat stage (44835.mp4 vibe)."""
+    y_grad = np.linspace(195, 118, h, dtype=np.uint8)[:, None]
+    arr = np.repeat(y_grad, w, axis=1)
+    rgb = np.stack([arr, arr + 2, arr + 5], axis=2)
+    img = Image.fromarray(rgb, mode="RGB").convert("RGBA")
+    d = ImageDraw.Draw(img)
 
-def render_studio_frame(out_w: int, out_h: int, beat: dict, prog: float, global_t: float,
-                        mouth_open: float, style_mode: str) -> bytes:
-    eased = ease_in_out(prog)
-    canvas, ground_y, glows, is_dark_only = draw_studio_environment(out_w, out_h, beat["scene"] + " " + beat["caption"], global_t, prog)
-    draw = ImageDraw.Draw(canvas)
+    # Subtle Giant Moon / Sun Disc in background
+    mx, my = int(w * 0.50), int(h * 0.36)
+    mr = int(min(w, h) * 0.24)
+    d.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=(226, 232, 240, 125))
 
-    scale_base = out_w / 540.0
+    # Distant Silhouette Mountains / Dojo Pillars
+    ground_y = int(h * 0.77)
+    d.polygon([(0, ground_y), (int(w * 0.25), int(h * 0.52)), (int(w * 0.55), ground_y)], fill=(100, 108, 118, 95))
+    d.polygon([(int(w * 0.42), ground_y), (int(w * 0.78), int(h * 0.48)), (w, ground_y)], fill=(90, 98, 108, 105))
+
+    # Solid Black Combat Ground Plane
+    d.rectangle([0, ground_y, w, h], fill=(12, 14, 18, 255))
+    d.line([(0, ground_y), (w, ground_y)], fill=(241, 245, 249, 140), width=2)
+
+    # Cinema Vignette
+    vig = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    vd = ImageDraw.Draw(vig)
+    for b in range(28):
+        al = int((28 - b) * 3.2)
+        vd.rectangle([b * 3, b * 3, w - b * 3, h - b * 3], outline=(8, 10, 14, al), width=3)
+    return Image.alpha_composite(img, vig)
+
+def spawn_sparks(cx: float, cy: float, count: int = 24) -> list:
+    rng = random.Random(int(cx * 100 + cy))
+    sparks = []
+    for _ in range(count):
+        ang = rng.uniform(0, 2 * math.pi)
+        spd = rng.uniform(140.0, 480.0)
+        sz = rng.uniform(2.5, 6.5)
+        sparks.append((math.cos(ang) * spd, math.sin(ang) * spd - 90.0, sz))
+    return sparks
+
+def render_combat_frame(base_bg: Image.Image, out_w: int, out_h: int, beat: dict,
+                        prog: float, global_t: float, sparks: list) -> bytes:
+    scale = out_w / 540.0
+    ground_y = out_h * 0.77
     action = beat["action"]
 
-    if not is_dark_only:
-        if action in {"walk", "run", "window_exit"}:
-            char_x = out_w * (0.24 + eased * 0.50)
+    # Determine Hero & Enemy Keyframe Interpolation + Impact Timing
+    hit_flash = 0.0
+    shake_x, shake_y = 0, 0
+    slash_alpha = 0.0
+    impact_t = 0.52
+
+    if action in {"slash", "heavy_slash", "fight"}:
+        if prog < 0.35:
+            hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["windup"], prog / 0.35)
+            enemy_pose = POSE_LIBRARY["stance"]
+            hero_x = out_w * (0.28 + (prog / 0.35) * 0.14)
+            enemy_x = out_w * 0.68
+        elif prog < 0.58:
+            sub = (prog - 0.35) / 0.23
+            hero_pose = lerp_pose(POSE_LIBRARY["windup"], POSE_LIBRARY["slash_follow"], sub)
+            enemy_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["block_guard"], sub)
+            hero_x = out_w * (0.42 + sub * 0.12)
+            enemy_x = out_w * 0.68
+            slash_alpha = math.sin(sub * math.pi)
         else:
-            char_x = out_w * 0.48
+            sub = (prog - 0.58) / 0.42
+            hero_pose = lerp_pose(POSE_LIBRARY["slash_follow"], POSE_LIBRARY["stance"], sub)
+            enemy_pose = lerp_pose(POSE_LIBRARY["knockback_hit"], POSE_LIBRARY["stance"], sub)
+            hero_x = out_w * 0.54
+            enemy_x = out_w * (0.68 + math.sin(sub * math.pi) * 0.14)
+            if sub < 0.25:
+                hit_flash = (1.0 - sub / 0.25) * 0.85
+                shake_x = int(math.sin(global_t * 65.0) * 14 * scale * (1.0 - sub / 0.25))
+                shake_y = int(math.cos(global_t * 55.0) * 10 * scale * (1.0 - sub / 0.25))
 
-        # Ground Contact Shadow
-        sh_rx = int(38 * scale_base)
-        sh_ry = int(9 * scale_base)
-        draw.ellipse([char_x - sh_rx, ground_y - sh_ry, char_x + sh_rx, ground_y + sh_ry], fill=(15, 23, 42, 115))
+    elif action in {"jump_attack", "jump"}:
+        if prog < 0.45:
+            sub = prog / 0.45
+            hero_pose = lerp_pose(POSE_LIBRARY["dash_forward"], POSE_LIBRARY["uppercut_air"], sub)
+            enemy_pose = POSE_LIBRARY["stance"]
+            hero_x = out_w * (0.26 + sub * 0.26)
+            enemy_x = out_w * 0.68
+            slash_alpha = sub * 0.8
+        else:
+            sub = (prog - 0.45) / 0.55
+            hero_pose = lerp_pose(POSE_LIBRARY["uppercut_air"], POSE_LIBRARY["slash_follow"], min(1.0, sub * 1.6))
+            enemy_pose = lerp_pose(POSE_LIBRARY["knockback_hit"], POSE_LIBRARY["stance"], sub)
+            hero_x = out_w * 0.52
+            enemy_x = out_w * (0.68 + math.sin(sub * math.pi) * 0.16)
+            if sub < 0.22:
+                hit_flash = (1.0 - sub / 0.22) * 0.90
+                shake_x = int(math.sin(global_t * 70.0) * 16 * scale)
 
-        draw_expressive_character(
-            draw=draw,
-            base_x=char_x,
-            ground_y=ground_y,
-            scale=scale_base * 1.24,
-            style_mode=style_mode,
-            is_female=beat["is_female"],
-            action=action,
-            emotion=beat["emotion"],
-            mouth_open=mouth_open,
-            t=global_t,
-            facing=1
-        )
+    elif action in {"run", "walk"}:
+        # Smooth cyclic dash/walk using keyframe blend
+        cyc = 0.5 + 0.5 * math.sin(global_t * (12.0 if action == "run" else 7.0))
+        hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["dash_forward"], cyc)
+        enemy_pose = POSE_LIBRARY["stance"]
+        hero_x = out_w * (0.24 + prog * 0.36)
+        enemy_x = out_w * 0.74
 
-    final_img = add_cinema_vignette_and_glow(canvas, glows)
+    else:
+        breathe = 0.5 + 0.5 * math.sin(global_t * 3.5)
+        hero_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["windup"], breathe * 0.22)
+        enemy_pose = lerp_pose(POSE_LIBRARY["stance"], POSE_LIBRARY["block_guard"], breathe * 0.20)
+        hero_x = out_w * 0.34
+        enemy_x = out_w * 0.68
 
-    # Dynamic Camera Zoom on Medium/Close-up Beats (like a real director!)
-    if beat["index"] % 2 == 0 and not is_dark_only:
-        zoom = 1.04 + eased * 0.09
-        cw, ch = int(out_w / zoom), int(out_h / zoom)
-        x0 = (out_w - cw) // 2
-        y0 = int((out_h - ch) * 0.35)
-        final_img = final_img.crop((x0, y0, x0 + cw, y0 + ch)).resize((out_w, out_h), Image.Resampling.BILINEAR)
+    # Dynamic Camera Zoom on Combat Climax
+    zoom = 1.03 + math.sin(prog * math.pi) * 0.08
+    cw, ch = int(out_w / zoom), int(out_h / zoom)
+    cx0 = max(0, min(out_w - cw, (out_w - cw) // 2 + shake_x))
+    cy0 = max(0, min(out_h - ch, int((out_h - ch) * 0.55) + shake_y))
 
-    # Clean Studio Captions
-    draw_f = ImageDraw.Draw(final_img)
+    frame = base_bg.crop((cx0, cy0, cx0 + cw, cy0 + ch)).resize((out_w, out_h), Image.Resampling.BILINEAR).convert("RGBA")
+    draw = ImageDraw.Draw(frame)
+
+    # Ground Contact Shadows
+    for fx in (hero_x, enemy_x):
+        draw.ellipse([fx - 30 * scale, ground_y - 6 * scale, fx + 30 * scale, ground_y + 6 * scale], fill=(0, 0, 0, 140))
+
+    # Draw Enemy Fighter (facing left = -1) & Hero Fighter (facing right = +1)
+    draw_silhouette_fighter(draw, enemy_x, ground_y, scale * 1.22, enemy_pose, facing=-1, global_t=global_t, has_sword=True, accent_col=(244, 63, 94), slash_arc_alpha=0.0)
+    draw_silhouette_fighter(draw, hero_x, ground_y, scale * 1.25, hero_pose, facing=1, global_t=global_t, has_sword=True, accent_col=(56, 189, 248), slash_arc_alpha=slash_alpha)
+
+    # Impact Sparks & Ink Splatter after hit moment!
+    if prog > impact_t and action in {"slash", "heavy_slash", "fight", "jump_attack", "jump"}:
+        dt = (prog - impact_t) * 1.6
+        ix, iy = (hero_x + enemy_x) * 0.5, ground_y - 85 * scale
+        for vx, vy, sz in sparks:
+            px = ix + vx * dt * scale * 0.45
+            py = iy + (vy * dt + 280.0 * (dt ** 2)) * scale * 0.45
+            if py < ground_y:
+                r = max(1.5, sz * scale * (1.0 - dt * 0.6))
+                draw.ellipse([px - r, py - r, px + r, py + r], fill=(12, 14, 18, 230))
+
+    # Dramatic White Impact Flash Overlay (44835.mp4 signature frame!)
+    if hit_flash > 0.05:
+        flash_layer = Image.new("RGBA", (out_w, out_h), (255, 255, 255, int(190 * hit_flash)))
+        frame = Image.alpha_composite(frame, flash_layer)
+
+    # Clean Cinematic Action Captions
+    draw_f = ImageDraw.Draw(frame)
     words = beat.get("words", [])
     if words:
         active_idx = min(len(words) - 1, int(prog * len(words)))
@@ -708,28 +485,95 @@ def render_studio_frame(out_w: int, out_h: int, beat: dict, prog: float, global_
             lines.append(curr_line)
 
         line_h = int(font_size * 1.32)
-        top_y = int(out_h * 0.90) - (len(lines) * line_h) // 2
+        top_y = int(out_h * 0.89) - (len(lines) * line_h) // 2
 
         for l_idx, tokens in enumerate(lines):
             row_w = sum(tk[2] for tk in tokens) + space_w * (len(tokens) - 1)
             cx = (out_w - row_w) // 2
             cy = top_y + l_idx * line_h
             for wd, idx, ww in tokens:
-                col = (250, 204, 21) if (idx == active_idx) else (255, 255, 255)
-                draw_f.text((cx, cy), wd, font=font, fill=(*col, 255), stroke_width=3, stroke_fill=(15, 23, 42, 255))
+                col = (56, 189, 248) if (idx == active_idx) else (255, 255, 255)
+                draw_f.text((cx, cy), wd, font=font, fill=(*col, 255), stroke_width=3, stroke_fill=(8, 10, 14, 255))
                 cx += ww + space_w
 
-    return final_img.convert("RGB").tobytes()
+    return frame.convert("RGB").tobytes()
 
 
 # ===========================================================================
-# 5. FULL RENDER PIPELINE & API ROUTES
+# 4. SCRIPT PARSER & PIPELINE
 # ===========================================================================
-def run_animation_job(job_id: str, script_text: str, ratio: str, style_mode: str,
-                      voice_mode: str, lang_mode: str, custom_wav_path):
+_FONT_CACHE = {}
+def get_font(size: int):
+    if size in _FONT_CACHE:
+        return _FONT_CACHE[size]
+    for p in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+    ]:
+        if os.path.exists(p):
+            try:
+                f = ImageFont.truetype(p, size)
+                _FONT_CACHE[size] = f
+                return f
+            except Exception:
+                pass
+    return ImageFont.load_default()
+
+def parse_combat_beats(raw_script: str):
+    lines = [ln.strip() for ln in str(raw_script or "").splitlines() if ln.strip()]
+    beats = []
+    current_scene = "MOONLIT DOJO ARENA"
+
+    for ln in lines:
+        if re.match(r"^SCENE\s*\d*", ln, re.I):
+            loc = re.sub(r"^SCENE\s*\d*\s*[:\-]?\s*", "", ln, flags=re.I).strip()
+            if loc:
+                current_scene = loc.upper()
+            continue
+
+        tags = []
+        caption = re.sub(r"\[([^\]]+)\]", lambda m: (tags.append(m.group(1).strip()), "")[1], ln).strip()
+        if not caption:
+            continue
+
+        speaker = "Hero"
+        action = "auto"
+
+        for tg in tags:
+            u = tg.upper()
+            if u in {"SLASH", "HEAVY_SLASH", "JUMP_ATTACK", "FIGHT", "RUN", "WALK", "JUMP", "BLOCK", "STANCE"}:
+                action = u.lower()
+            elif u not in {"HAPPY", "SAD", "SHOCK", "ROMANTIC", "CONFUSED", "FEAR", "CHILL", "ANGRY", "HEROIC", "FULL", "HALF", "WIDE", "CLOSEUP"}:
+                speaker = tg
+
+        low = (current_scene + " " + caption).lower()
+        if action == "auto":
+            if any(k in low for k in ["jump", "uchhal", "air", "upar", "kood"]):
+                action = "jump_attack"
+            elif any(k in low for k in ["slash", "sword", "talwar", "attack", "vaar", "fight", "ladai"]):
+                action = "slash"
+            elif any(k in low for k in ["run", "dash", "bhag", "daud", "tez"]):
+                action = "run"
+            else:
+                action = "slash" if (len(beats) % 2 == 1) else "run"
+
+        is_female = bool(re.search(r"(girl|meera|ananya|priya|aditi|neha|sara|riya|sakchunni)", speaker.lower()))
+
+        beats.append({
+            "index": len(beats) + 1,
+            "scene": current_scene,
+            "speaker": speaker,
+            "is_female": is_female,
+            "action": action,
+            "caption": caption,
+            "words": caption.split()
+        })
+    return beats
+
+def run_combat_job(job_id: str, script_text: str, ratio: str, voice_mode: str, lang_mode: str, custom_wav_path):
     job = JOBS[job_id]
     try:
-        beats = parse_script_beats(script_text)
+        beats = parse_combat_beats(script_text)
         if not beats:
             job["status"] = "error"
             job["message"] = "Script is empty!"
@@ -739,18 +583,19 @@ def run_animation_job(job_id: str, script_text: str, ratio: str, style_mode: str
         fps = 24
         total = len(beats)
 
-        job["message"] = "Generating Voiceover & Audio Lip-Sync Track..."
+        job["message"] = "Preparing Voiceover & Sword Clash Sound FX..."
         job["progress"] = 10
 
-        master_wav = os.path.join(AUDIO_DIR, f"{job_id}_master.wav")
+        raw_wav = os.path.join(AUDIO_DIR, f"{job_id}_raw.wav")
+        final_wav = os.path.join(AUDIO_DIR, f"{job_id}_final.wav")
         beat_durations = []
 
         if voice_mode == "manual" and custom_wav_path and os.path.exists(custom_wav_path):
-            total_audio_dur = convert_custom_audio_to_wav(custom_wav_path, master_wav)
+            total_audio_dur = convert_custom_audio_to_wav(custom_wav_path, raw_wav)
             total_words = sum(max(1, len(b["words"])) for b in beats)
             for b in beats:
                 share = max(1, len(b["words"])) / float(total_words)
-                beat_durations.append(max(1.5, total_audio_dur * share))
+                beat_durations.append(max(1.6, total_audio_dur * share))
         else:
             seg_wavs = []
             for idx, b in enumerate(beats):
@@ -758,20 +603,33 @@ def run_animation_job(job_id: str, script_text: str, ratio: str, style_mode: str
                 dur = generate_tts_wav(b["caption"], b["is_female"], lang_mode, seg_path)
                 beat_durations.append(dur)
                 seg_wavs.append(seg_path)
-                job["progress"] = 10 + int(((idx + 1) / total) * 20)
+                job["progress"] = 10 + int(((idx + 1) / total) * 18)
 
             concat_txt = os.path.join(AUDIO_DIR, f"{job_id}_list.txt")
             with open(concat_txt, "w") as cf:
                 for sw in seg_wavs:
                     cf.write(f"file '{sw}'\n")
             subprocess.run(
-                [FFMPEG_BIN, "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", master_wav],
+                [FFMPEG_BIN, "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", raw_wav],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
             )
 
-        lip_envelope = extract_lip_envelope(master_wav, fps)
+        # Calculate exact sword clash & whoosh timestamps for SFX injection
+        impact_times = []
+        t_acc = 0.0
+        for i, b in enumerate(beats):
+            dur = beat_durations[i]
+            if b["action"] in {"slash", "heavy_slash", "fight", "jump_attack", "jump"}:
+                impact_times.append((t_acc + dur * 0.36, "whoosh"))
+                impact_times.append((t_acc + dur * 0.54, "clash"))
+            t_acc += dur
 
-        out_name = f"NEXORA_PRO_2D_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        inject_combat_sfx(raw_wav, impact_times, final_wav)
+
+        base_bg = build_monochrome_dojo_bg(out_w, out_h, beats[0]["scene"])
+        sparks = spawn_sparks(out_w * 0.56, out_h * 0.62, count=28)
+
+        out_name = f"NEXORA_COMBAT_STICKMAN_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         ffmpeg_cmd = [
@@ -779,29 +637,25 @@ def run_animation_job(job_id: str, script_text: str, ratio: str, style_mode: str
             "-f", "rawvideo", "-vcodec", "rawvideo",
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
-            "-i", master_wav,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "21",
+            "-i", final_wav,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
             "-c:a", "aac", "-b:a", "128k",
             "-shortest", "-pix_fmt", "yuv420p", out_path
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         global_t = 0.0
-        frame_cursor = 0
         for i, b in enumerate(beats):
             dur = beat_durations[i]
             n_frames = max(1, int(dur * fps))
-
             for f in range(n_frames):
                 prog = f / max(1, n_frames - 1)
-                mouth_val = lip_envelope[frame_cursor] if frame_cursor < len(lip_envelope) else 0.0
-                raw_bytes = render_studio_frame(out_w, out_h, b, prog, global_t, mouth_val, style_mode)
+                raw_bytes = render_combat_frame(base_bg, out_w, out_h, b, prog, global_t, sparks)
                 proc.stdin.write(raw_bytes)
                 global_t += 1.0 / fps
-                frame_cursor += 1
 
             job["progress"] = 30 + int(((i + 1) / total) * 68)
-            job["message"] = f"Rendering Studio Scene {i + 1}/{total}..."
+            job["message"] = f"Animating Combat Scene {i + 1}/{total} (24 FPS Keyframe Rig)..."
 
         proc.stdin.close()
         proc.wait()
@@ -814,7 +668,7 @@ def run_animation_job(job_id: str, script_text: str, ratio: str, style_mode: str
 
     except Exception as exc:
         job["status"] = "error"
-        job["message"] = f"Animation Error: {exc}"
+        job["message"] = f"Render Error: {exc}"
 
 @app.route("/")
 def serve_home():
@@ -835,7 +689,6 @@ def api_start():
     if request.content_type and "multipart/form-data" in request.content_type:
         script_text = request.form.get("script", "")
         ratio = request.form.get("ratio", "9:16")
-        style_mode = request.form.get("style", "cartoon")
         voice_mode = request.form.get("voice_mode", "auto")
         lang_mode = request.form.get("lang_mode", "HINDI")
         if "voice_file" in request.files and request.files["voice_file"].filename:
@@ -846,14 +699,13 @@ def api_start():
         data = request.get_json(force=True)
         script_text = data.get("script", "")
         ratio = data.get("ratio", "9:16")
-        style_mode = data.get("style", "cartoon")
         voice_mode = data.get("voice_mode", "auto")
         lang_mode = data.get("lang_mode", "HINDI")
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Building Studio Environment & Character Rig..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing Silhouette Stickman Combat Engine..."}
     threading.Thread(
-        target=run_animation_job,
-        args=(job_id, script_text, ratio, style_mode, voice_mode, lang_mode, custom_wav_path),
+        target=run_combat_job,
+        args=(job_id, script_text, ratio, voice_mode, lang_mode, custom_wav_path),
         daemon=True
     ).start()
     return jsonify({"job_id": job_id})
