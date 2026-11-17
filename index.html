@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA STICKMAN COMBAT STUDIO — Hybrid Pro Action</title>
+  <title>NEXORA PURE COMBAT STUDIO — Clean Stickman Action &amp; Sword VFX</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -63,16 +63,16 @@
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
     .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
-    select, textarea, input[type="file"] {
+    textarea, input[type="file"] {
       width: 100%; background: var(--bg-input); border: 1px solid var(--border);
       border-radius: 10px; color: var(--text); padding: 10px; font-size: 13px;
       font-family: inherit; outline: none;
     }
-    textarea { min-height: 195px; line-height: 1.55; resize: vertical; }
+    textarea { min-height: 150px; line-height: 1.55; resize: vertical; }
     .tag-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
     .tag-chip {
-      padding: 5px 9px; border-radius: 7px; border: 1px solid rgba(34, 211, 238, 0.35);
-      background: rgba(34, 211, 238, 0.08); color: var(--cyan); font-size: 11px; font-weight: 700; cursor: pointer;
+      padding: 6px 10px; border-radius: 7px; border: 1px solid rgba(34, 211, 238, 0.35);
+      background: rgba(34, 211, 238, 0.08); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
     }
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -86,7 +86,7 @@
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet), var(--rose)); transition: width 0.25s; }
-    video { width: 100%; max-height: 500px; border-radius: 12px; background: #000; margin-top: 8px; }
+    video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
       background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
@@ -98,22 +98,32 @@
     <div class="brand">
       <div class="logo">⚔️</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA COMBAT STUDIO PRO</div>
-        <div style="font-size:11px; color:var(--cyan);">Face-to-Face Fast Combos • Custom BG Upload • Voice + SFX</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA PURE COMBAT STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">No Voice • No Captions • 100% Mirror-Locked Face-to-Face Action</div>
       </div>
     </div>
-    <div class="badge">🟢 24 FPS Pro Rig</div>
+    <div class="badge">🟢 Clean 24 FPS</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Format &amp; Battle Arena (Or Upload Custom Background)</div>
+        <div class="card-title">1. Video Format &amp; Duration</div>
         <div class="grid-2">
           <div class="pill active" data-group="ratio" data-val="9:16">9:16 Reels / Shorts</div>
           <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube</div>
         </div>
 
+        <span class="label">Clip Duration</span>
+        <div class="grid-3" style="margin-bottom:0;">
+          <div class="pill" data-group="dur" data-val="6">⚡ 6 Seconds</div>
+          <div class="pill active" data-group="dur" data-val="10">🔥 10 Seconds</div>
+          <div class="pill" data-group="dur" data-val="15">🎬 15 Seconds</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">2. Battle Arena (Or Upload Custom Background)</div>
         <div class="grid-3">
           <div class="pill active" data-group="arena" data-val="dojo_moon">🌕 Moonlit Torii</div>
           <div class="pill" data-group="arena" data-val="blood_moon">🩸 Blood Moon</div>
@@ -125,35 +135,9 @@
       </div>
 
       <div class="card">
-        <div class="card-title">2. Voiceover &amp; Sword Clash SFX</div>
-        <div class="grid-2">
-          <div class="pill active" data-group="voice" data-val="auto">🤖 Auto AI Voice + SFX</div>
-          <div class="pill" data-group="voice" data-val="manual">🎙 My Own Voice + SFX</div>
-        </div>
-
-        <div id="auto-voice-box">
-          <span class="label">AI Voice Language</span>
-          <select id="lang-mode">
-            <option value="HINDI" selected>Hindi / Hinglish Anime Voice (Madhur / Swara)</option>
-            <option value="ENGLISH">Indian English Voice (Prabhat / Neerja)</option>
-          </select>
-        </div>
-
-        <div id="manual-voice-box" style="display:none;">
-          <span class="label">Upload Audio (.mp3 / .wav / .m4a) OR Record Mic</span>
-          <input type="file" id="voice-file" accept="audio/*" />
-          <div style="display:flex; gap:8px; margin-top:8px;">
-            <button type="button" class="btn" id="btn-rec" style="flex:1; background:#be123c;">🔴 Record Mic</button>
-            <button type="button" class="btn" id="btn-stop-rec" style="flex:1;" disabled>⏹ Stop</button>
-          </div>
-          <div id="rec-status" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
-        </div>
-      </div>
-
-      <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">3. Fast Combat Story Script</div>
-          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Load Viral Combo Script</button>
+          <div class="card-title">3. Fight Move Sequence (No Captions on Video)</div>
+          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Reset Default Moves</button>
         </div>
 
         <div class="tag-bar">
@@ -163,16 +147,19 @@
           <span class="tag-chip" data-tag="[JUMP_ATTACK]">+ [JUMP_ATTACK]</span>
         </div>
 
-        <textarea id="script" placeholder="Write your stickman sword-fight story..."></textarea>
-        <button class="btn btn-primary" id="btn-generate">⚔️ Render Fast-Paced Stickman Fight</button>
+        <textarea id="script">[SHADOW_DASH]
+[COMBO_CLASH]
+[SLASH]
+[JUMP_ATTACK]</textarea>
+        <button class="btn btn-primary" id="btn-generate">⚔️ Render Clean Stickman Fight Video</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">4. Live Combat Output</div>
+        <div class="card-title">4. Clean Action Output (Zero Text / Zero Voice)</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Click "Load Viral Combo Script" and press Render!
+          Ready — Click "Render Clean Stickman Fight Video" to generate!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -185,16 +172,14 @@
       ? window.location.origin
       : "http://127.0.0.1:5000";
 
-    const VIRAL_COMBO_SCRIPT = `[SHADOW_DASH] [Aarav] Jab dushman ne sab kuch chheen liya, tab maine apni talwar uthai aur bijli ki raftar se aage badha!
-[COMBO_CLASH] [Aarav] Ek ke baad ek talwaron ki takkar se poora aasman chingariyon se bhar gaya!
-[JUMP_ATTACK] [Aarav] Aur aakhiri chhalang ke saath maine is ladai ka faisla hamesha ke liye kar diya!`;
+    const DEFAULT_MOVES = `[SHADOW_DASH]
+[COMBO_CLASH]
+[SLASH]
+[JUMP_ATTACK]`;
 
     let ratio = "9:16";
     let arena = "dojo_moon";
-    let voiceMode = "auto";
-    let recordedBlob = null;
-    let mediaRecorder = null;
-    let audioChunks = [];
+    let duration = "10";
 
     document.querySelectorAll(".pill").forEach(p => {
       p.onclick = () => {
@@ -203,81 +188,35 @@
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
         if (grp === "arena") arena = p.dataset.val;
-        if (grp === "voice") {
-          voiceMode = p.dataset.val;
-          document.getElementById("auto-voice-box").style.display = voiceMode === "auto" ? "block" : "none";
-          document.getElementById("manual-voice-box").style.display = voiceMode === "manual" ? "block" : "none";
-        }
+        if (grp === "dur") duration = p.dataset.val;
       };
     });
 
     const scriptBox = document.getElementById("script");
     document.getElementById("btn-sample").onclick = () => {
-      scriptBox.value = VIRAL_COMBO_SCRIPT;
+      scriptBox.value = DEFAULT_MOVES;
     };
 
     document.querySelectorAll(".tag-chip").forEach(chip => {
       chip.onclick = () => {
-        const tag = chip.dataset.tag + " ";
-        const pos = scriptBox.selectionStart || scriptBox.value.length;
-        scriptBox.value = scriptBox.value.slice(0, pos) + tag + scriptBox.value.slice(pos);
+        const tag = "\n" + chip.dataset.tag;
+        scriptBox.value = scriptBox.value.trim() + tag;
         scriptBox.focus();
       };
     });
 
-    document.getElementById("btn-rec").onclick = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-          recordedBlob = new Blob(audioChunks, { type: "audio/webm" });
-          document.getElementById("rec-status").textContent = "✅ Mic Voice Recorded!";
-        };
-        mediaRecorder.start();
-        document.getElementById("btn-rec").disabled = true;
-        document.getElementById("btn-stop-rec").disabled = false;
-        document.getElementById("rec-status").textContent = "🎙 Recording your voice...";
-      } catch (err) {
-        alert("Mic permission denied. Please upload an audio file instead.");
-      }
-    };
-
-    document.getElementById("btn-stop-rec").onclick = () => {
-      if (mediaRecorder) mediaRecorder.stop();
-      document.getElementById("btn-rec").disabled = false;
-      document.getElementById("btn-stop-rec").disabled = true;
-    };
-
     document.getElementById("btn-generate").onclick = async () => {
-      const script = scriptBox.value.trim();
-      if (!script) { alert("Please paste or write your combat script first!"); return; }
-
       document.getElementById("video-area").innerHTML = "";
-      document.getElementById("prog-bar").style.width = "4%";
+      document.getElementById("prog-bar").style.width = "5%";
 
       const fd = new FormData();
-      fd.append("script", script);
+      fd.append("script", scriptBox.value.trim() || DEFAULT_MOVES);
       fd.append("ratio", ratio);
       fd.append("arena", arena);
-      fd.append("voice_mode", voiceMode);
-      fd.append("lang_mode", document.getElementById("lang-mode").value);
+      fd.append("duration", duration);
 
       const bgPicked = document.getElementById("bg-file").files?.[0];
       if (bgPicked) fd.append("bg_file", bgPicked);
-
-      if (voiceMode === "manual") {
-        const pickedFile = document.getElementById("voice-file").files?.[0];
-        if (pickedFile) {
-          fd.append("voice_file", pickedFile);
-        } else if (recordedBlob) {
-          fd.append("voice_file", recordedBlob, "mic_voice.webm");
-        } else {
-          alert("Please upload an audio file or record your voice first!");
-          return;
-        }
-      }
 
       const res = await fetch(API_BASE + "/api/start", { method: "POST", body: fd });
       const { job_id } = await res.json();
@@ -294,12 +233,12 @@
           const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
           document.getElementById("video-area").innerHTML = `
             <video src="${streamUrl}" controls autoplay loop playsinline></video>
-            <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download MP4 (${st.file_name})</a>
+            <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Clean MP4 (${st.file_name})</a>
           `;
         } else if (st.status === "error") {
           clearInterval(poll);
         }
-      }, 1200);
+      }, 900);
     };
   </script>
 </body>
