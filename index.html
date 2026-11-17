@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA PURE COMBAT STUDIO — Clean Stickman Action &amp; Sword VFX</title>
+  <title>NEXORA QUANTUM STUDIO — 3D Audio-Reactive Soul &amp; Emotion Engine</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -11,7 +11,7 @@
       --bg-input: #070b14;
       --border: rgba(148, 163, 184, 0.18);
       --cyan: #22d3ee;
-      --violet: #a855f7;
+      --gold: #facc15;
       --rose: #f43f5e;
       --emerald: #10b981;
       --text: #f8fafc;
@@ -19,7 +19,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #131e3d 0%, var(--bg-void) 65%);
+      background: radial-gradient(circle at top right, #161d36 0%, var(--bg-void) 65%);
       color: var(--text);
       font-family: system-ui, -apple-system, sans-serif;
       padding-bottom: 40px;
@@ -34,7 +34,7 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--rose));
+      background: linear-gradient(135deg, var(--gold), var(--cyan));
       display: grid; place-items: center; font-weight: 900; color: #030712;
     }
     .badge {
@@ -62,18 +62,13 @@
       padding: 11px 8px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
-    .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
-    textarea, input[type="file"] {
+    .pill.active { border-color: var(--gold); background: rgba(250, 204, 21, 0.14); color: var(--gold); }
+    select, textarea, input[type="file"] {
       width: 100%; background: var(--bg-input); border: 1px solid var(--border);
       border-radius: 10px; color: var(--text); padding: 10px; font-size: 13px;
       font-family: inherit; outline: none;
     }
-    textarea { min-height: 150px; line-height: 1.55; resize: vertical; }
-    .tag-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-    .tag-chip {
-      padding: 6px 10px; border-radius: 7px; border: 1px solid rgba(34, 211, 238, 0.35);
-      background: rgba(34, 211, 238, 0.08); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
-    }
+    textarea { min-height: 195px; line-height: 1.55; resize: vertical; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
@@ -81,11 +76,11 @@
     }
     .btn-primary {
       width: 100%; padding: 14px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--rose));
+      background: linear-gradient(135deg, var(--gold), var(--cyan));
       color: #030712; font-size: 14px; font-weight: 900; margin-top: 10px;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet), var(--rose)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--cyan), var(--rose)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
@@ -96,70 +91,77 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">⚔️</div>
+      <div class="logo">✦</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA PURE COMBAT STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">No Voice • No Captions • 100% Mirror-Locked Face-to-Face Action</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA QUANTUM SOUL STUDIO</div>
+        <div style="font-size:11px; color:var(--gold);">3D Chaotic Particle Physics • 432Hz Heartbeat Synth • Kinetic Typography</div>
       </div>
     </div>
-    <div class="badge">🟢 Clean 24 FPS</div>
+    <div class="badge">🟢 24 FPS Physics</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Video Format &amp; Duration</div>
+        <div class="card-title">1. Platform Format &amp; 3D Quantum Universe</div>
         <div class="grid-2">
-          <div class="pill active" data-group="ratio" data-val="9:16">9:16 Reels / Shorts</div>
-          <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube</div>
+          <div class="pill active" data-group="ratio" data-val="9:16">9:16 Reels / Shorts / Moj</div>
+          <div class="pill" data-group="ratio" data-val="16:9">16:9 YouTube Long Video</div>
         </div>
 
-        <span class="label">Clip Duration</span>
+        <span class="label">Select Hypnotic Visual Universe</span>
         <div class="grid-3" style="margin-bottom:0;">
-          <div class="pill" data-group="dur" data-val="6">⚡ 6 Seconds</div>
-          <div class="pill active" data-group="dur" data-val="10">🔥 10 Seconds</div>
-          <div class="pill" data-group="dur" data-val="15">🎬 15 Seconds</div>
+          <div class="pill active" data-group="univ" data-val="golden_soul">✨ Golden Soul</div>
+          <div class="pill" data-group="univ" data-val="crimson_heart">❤️ Crimson Heart</div>
+          <div class="pill" data-group="univ" data-val="quantum_cyan">🌌 Quantum Cyan</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">2. Battle Arena (Or Upload Custom Background)</div>
-        <div class="grid-3">
-          <div class="pill active" data-group="arena" data-val="dojo_moon">🌕 Moonlit Torii</div>
-          <div class="pill" data-group="arena" data-val="blood_moon">🩸 Blood Moon</div>
-          <div class="pill" data-group="arena" data-val="rain_rooftop">🌧 Rainy Night</div>
+        <div class="card-title">2. Voiceover &amp; 432Hz Ambient Heartbeat Music</div>
+        <div class="grid-2">
+          <div class="pill active" data-group="voice" data-val="auto">🤖 Auto AI Deep Voice</div>
+          <div class="pill" data-group="voice" data-val="manual">🎙 My Own Voice (Upload / Mic)</div>
         </div>
 
-        <span class="label">Optional: Upload Your Own Background Image (.jpg / .png)</span>
-        <input type="file" id="bg-file" accept="image/*" />
+        <div id="auto-voice-box">
+          <span class="label">Voice Language</span>
+          <select id="lang-mode">
+            <option value="HINDI" selected>Hindi / Hinglish Deep Emotional Voice</option>
+            <option value="ENGLISH">Indian English Deep Voice</option>
+          </select>
+        </div>
+
+        <div id="manual-voice-box" style="display:none;">
+          <span class="label">Upload Audio (.mp3 / .wav / .m4a) OR Record Mic</span>
+          <input type="file" id="voice-file" accept="audio/*" />
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button type="button" class="btn" id="btn-rec" style="flex:1; background:#be123c;">🔴 Record Mic</button>
+            <button type="button" class="btn" id="btn-stop-rec" style="flex:1;" disabled>⏹ Stop</button>
+          </div>
+          <div id="rec-status" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
+        </div>
       </div>
 
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">3. Fight Move Sequence (No Captions on Video)</div>
-          <button type="button" class="btn" id="btn-sample" style="padding:6px 10px; font-size:11px;">Reset Default Moves</button>
+          <div class="card-title">3. Deep Reality / Motivation / Shayari Script</div>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn" id="btn-sample-short" style="padding:6px 9px; font-size:11px;">Viral Short</button>
+            <button type="button" class="btn" id="btn-sample-long" style="padding:6px 9px; font-size:11px;">Deep Story</button>
+          </div>
         </div>
 
-        <div class="tag-bar">
-          <span class="tag-chip" data-tag="[SHADOW_DASH]">+ [SHADOW_DASH]</span>
-          <span class="tag-chip" data-tag="[COMBO_CLASH]">+ [COMBO_CLASH]</span>
-          <span class="tag-chip" data-tag="[SLASH]">+ [SLASH]</span>
-          <span class="tag-chip" data-tag="[JUMP_ATTACK]">+ [JUMP_ATTACK]</span>
-        </div>
-
-        <textarea id="script">[SHADOW_DASH]
-[COMBO_CLASH]
-[SLASH]
-[JUMP_ATTACK]</textarea>
-        <button class="btn btn-primary" id="btn-generate">⚔️ Render Clean Stickman Fight Video</button>
+        <textarea id="script" placeholder="Write your emotional story, dark psychology, or life motivation lines..."></textarea>
+        <button class="btn btn-primary" id="btn-generate">✦ Render Ready-to-Upload Quantum Video</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">4. Clean Action Output (Zero Text / Zero Voice)</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Click "Render Clean Stickman Fight Video" to generate!
+        <div class="card-title">4. Live Quantum Output</div>
+        <div id="status-txt" style="font-size:13px; font-weight:800; color:#facc15; margin-top:4px;">
+          Ready — Choose a template or write your script, then press Render!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -172,14 +174,21 @@
       ? window.location.origin
       : "http://127.0.0.1:5000";
 
-    const DEFAULT_MOVES = `[SHADOW_DASH]
-[COMBO_CLASH]
-[SLASH]
-[JUMP_ATTACK]`;
+    const VIRAL_SHORT_SCRIPT = `Log kehte hain ki waqt sab kuch badal deta hai, par sach toh yeh hai ki waqt sirf logon ke chehre se naqab hatata hai.
+Jis din tum akele chalna seekh jaoge, us din kisi ke chhod jaane ka dard hamesha ke liye khatam ho jayega.
+Khamosh reh kar apni mehnat ko itna bada banao ki tumhari kamyabi khud shor macha de.`;
+
+    const DEEP_STORY_SCRIPT = `Raat ke teen baje jab poori duniya so rahi hoti hai, tab insaan ka asli dimaag jaagta hai.
+Hum aksar un logon ke liye apni neend kharab karte hain jinhe hamari maujoodgi ka ehsaas tak nahi hota.
+Yaad rakhna, heere ki chamak tabhi dikhti hai jab woh andhere mein tarasha jaata hai.
+Aaj se apni keemat khud तय karo, kyunki bheed hamesha aasaan raasta chunti hai, aur itihas hamesha akele chalne wale likhte hain.`;
 
     let ratio = "9:16";
-    let arena = "dojo_moon";
-    let duration = "10";
+    let universe = "golden_soul";
+    let voiceMode = "auto";
+    let recordedBlob = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
 
     document.querySelectorAll(".pill").forEach(p => {
       p.onclick = () => {
@@ -187,36 +196,71 @@
         document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "arena") arena = p.dataset.val;
-        if (grp === "dur") duration = p.dataset.val;
+        if (grp === "univ") universe = p.dataset.val;
+        if (grp === "voice") {
+          voiceMode = p.dataset.val;
+          document.getElementById("auto-voice-box").style.display = voiceMode === "auto" ? "block" : "none";
+          document.getElementById("manual-voice-box").style.display = voiceMode === "manual" ? "block" : "none";
+        }
       };
     });
 
     const scriptBox = document.getElementById("script");
-    document.getElementById("btn-sample").onclick = () => {
-      scriptBox.value = DEFAULT_MOVES;
+    scriptBox.value = VIRAL_SHORT_SCRIPT;
+
+    document.getElementById("btn-sample-short").onclick = () => { scriptBox.value = VIRAL_SHORT_SCRIPT; };
+    document.getElementById("btn-sample-long").onclick = () => { scriptBox.value = DEEP_STORY_SCRIPT; };
+
+    document.getElementById("btn-rec").onclick = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(audioChunks, { type: "audio/webm" });
+          document.getElementById("rec-status").textContent = "✅ Voice Recorded! Ready to synthesize.";
+        };
+        mediaRecorder.start();
+        document.getElementById("btn-rec").disabled = true;
+        document.getElementById("btn-stop-rec").disabled = false;
+        document.getElementById("rec-status").textContent = "🎙 Recording your voice...";
+      } catch (err) {
+        alert("Mic permission denied. Please upload an audio file instead.");
+      }
     };
 
-    document.querySelectorAll(".tag-chip").forEach(chip => {
-      chip.onclick = () => {
-        const tag = "\n" + chip.dataset.tag;
-        scriptBox.value = scriptBox.value.trim() + tag;
-        scriptBox.focus();
-      };
-    });
+    document.getElementById("btn-stop-rec").onclick = () => {
+      if (mediaRecorder) mediaRecorder.stop();
+      document.getElementById("btn-rec").disabled = false;
+      document.getElementById("btn-stop-rec").disabled = true;
+    };
 
     document.getElementById("btn-generate").onclick = async () => {
+      const script = scriptBox.value.trim();
+      if (!script) { alert("Please enter your script lines first!"); return; }
+
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "5%";
 
       const fd = new FormData();
-      fd.append("script", scriptBox.value.trim() || DEFAULT_MOVES);
+      fd.append("script", script);
       fd.append("ratio", ratio);
-      fd.append("arena", arena);
-      fd.append("duration", duration);
+      fd.append("universe", universe);
+      fd.append("voice_mode", voiceMode);
+      fd.append("lang_mode", document.getElementById("lang-mode").value);
 
-      const bgPicked = document.getElementById("bg-file").files?.[0];
-      if (bgPicked) fd.append("bg_file", bgPicked);
+      if (voiceMode === "manual") {
+        const pickedFile = document.getElementById("voice-file").files?.[0];
+        if (pickedFile) {
+          fd.append("voice_file", pickedFile);
+        } else if (recordedBlob) {
+          fd.append("voice_file", recordedBlob, "mic_voice.webm");
+        } else {
+          alert("Please upload an audio file or record your voice first!");
+          return;
+        }
+      }
 
       const res = await fetch(API_BASE + "/api/start", { method: "POST", body: fd });
       const { job_id } = await res.json();
@@ -233,12 +277,12 @@
           const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
           document.getElementById("video-area").innerHTML = `
             <video src="${streamUrl}" controls autoplay loop playsinline></video>
-            <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Clean MP4 (${st.file_name})</a>
+            <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Ready-to-Upload MP4 (${st.file_name})</a>
           `;
         } else if (st.status === "error") {
           clearInterval(poll);
         }
-      }, 900);
+      }, 1000);
     };
   </script>
 </body>
