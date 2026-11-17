@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA QUIZ &amp; RIDDLE STUDIO — Automated GK Video Generator</title>
+  <title>NEXORA TERRITORY CONQUEST STUDIO — Country Battle Royale Simulator</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -12,14 +12,14 @@
       --border: rgba(148, 163, 184, 0.18);
       --cyan: #22d3ee;
       --gold: #facc15;
-      --indigo: #6366f1;
+      --rose: #f43f5e;
       --emerald: #10b981;
       --text: #f8fafc;
       --dim: #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #18224a 0%, var(--bg-void) 65%);
+      background: radial-gradient(circle at top right, #16203c 0%, var(--bg-void) 65%);
       color: var(--text);
       font-family: system-ui, -apple-system, sans-serif;
       padding-bottom: 40px;
@@ -34,8 +34,8 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--indigo));
-      display: grid; place-items: center; font-weight: 900; color: #fff;
+      background: linear-gradient(135deg, var(--rose), var(--gold));
+      display: grid; place-items: center; font-weight: 900; color: #030712;
     }
     .badge {
       padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 800;
@@ -43,7 +43,7 @@
     }
     .wrap {
       max-width: 1100px; margin: 0 auto; padding: 16px;
-      display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 16px; align-items: start;
     }
     @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
@@ -58,77 +58,90 @@
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
     .pill {
-      padding: 11px 8px; border-radius: 10px; border: 2px solid var(--border);
+      padding: 12px 6px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
-    .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
-    textarea {
-      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--text); padding: 10px; font-size: 12px;
-      font-family: monospace; outline: none; min-height: 150px; line-height: 1.5; resize: vertical;
-    }
+    .pill.active { border-color: var(--gold); background: rgba(250, 204, 21, 0.14); color: var(--gold); }
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--indigo));
-      color: #fff; font-size: 14px; font-weight: 900; margin-top: 10px; cursor: pointer;
+      background: linear-gradient(135deg, var(--rose), var(--gold));
+      color: #030712; font-size: 14px; font-weight: 900; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--gold), var(--emerald)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--rose), var(--gold), var(--cyan)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
       background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
+    }
+    .info-box {
+      font-size: 12px; line-height: 1.55; color: var(--dim);
+      background: rgba(7, 11, 20, 0.7); padding: 12px; border-radius: 10px; border: 1px solid var(--border);
     }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">❓</div>
+      <div class="logo">⚔️</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA INTERACTIVE QUIZ STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">Auto Shuffled GK &amp; Riddles • 5s Tick-Tock Timer • Green Answer Reveal</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA TERRITORY CONQUEST STUDIO</div>
+        <div style="font-size:11px; color:var(--gold);">No-Voice Battle Royale Map • Live Leaderboard • War Drums Audio</div>
       </div>
     </div>
-    <div class="badge">🟢 Zero-Glitch Studio</div>
+    <div class="badge">🗺️ Procedural Map</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Video Format &amp; Quiz Host Voice</div>
-        <div class="grid-2">
-          <div class="pill active" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long</div>
-          <div class="pill" data-group="ratio" data-val="9:16">📱 9:16 Shorts / Reels</div>
-        </div>
-
+        <div class="card-title">1. Video Format (YouTube Long vs Shorts)</div>
         <div class="grid-2" style="margin-bottom:0;">
-          <div class="pill active" data-group="gender" data-val="FEMALE">👩 Female Host Voice</div>
-          <div class="pill" data-group="gender" data-val="MALE">👨 Male Host Voice</div>
+          <div class="pill active" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long</div>
+          <div class="pill" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">2. Question Count &amp; Custom Questions</div>
-        <div class="grid-3">
-          <div class="pill" data-group="qcount" data-val="3">⚡ 3 Questions<br/><small>(~35s Short)</small></div>
-          <div class="pill active" data-group="qcount" data-val="6">🔥 6 Questions<br/><small>(~1.5 Min)</small></div>
-          <div class="pill" data-group="qcount" data-val="15">💰 15 Questions<br/><small>(~3.5 Mins)</small></div>
+        <div class="card-title">2. Warring Factions &amp; Battle Length</div>
+        <div class="grid-2">
+          <div class="pill active" data-group="roster" data-val="countries">🌍 World Countries</div>
+          <div class="pill" data-group="roster" data-val="empires">🛡️ Color Empires</div>
         </div>
 
-        <span class="label">Optional: Paste Your Own Questions (Leave blank for fresh Auto-Shuffled GK!)</span>
-        <textarea id="custom-raw" placeholder="Optional Format (1 per line):&#10;What is the capital of Australia? | Sydney | Melbourne | Canberra | Perth | 3&#10;Which planet is closest to the Sun? | Venus | Mercury | Mars | Earth | 2"></textarea>
+        <span class="label">Number of Countries / Empires</span>
+        <div class="grid-3">
+          <div class="pill" data-group="factions" data-val="6">6 Teams</div>
+          <div class="pill active" data-group="factions" data-val="10">10 Teams</div>
+          <div class="pill" data-group="factions" data-val="12">12 Teams</div>
+        </div>
 
-        <button class="btn-primary" id="btn-generate">❓ Generate Interactive Quiz Show Video</button>
+        <span class="label">Simulation Duration</span>
+        <div class="grid-4">
+          <div class="pill" data-group="dur" data-val="30">⚡ 30s<br/><small>(Short)</small></div>
+          <div class="pill active" data-group="dur" data-val="90">🔥 1.5 Min<br/><small>(Fast)</small></div>
+          <div class="pill" data-group="dur" data-val="240">💰 4 Mins<br/><small>(Long)</small></div>
+          <div class="pill" data-group="dur" data-val="480">🎬 8 Mins<br/><small>(Mid-Roll)</small></div>
+        </div>
+
+        <button class="btn-primary" id="btn-generate">⚔️ Simulate New Territory Battle Royale</button>
+      </div>
+
+      <div class="card">
+        <div class="info-box">
+          <strong style="color:#facc15;">100% Unique Every Single Time:</strong><br/>
+          Every click generates a brand-new procedural continent &amp; island map where nations invade across land and sea, eliminate rivals, and battle for 100% world domination—zero voiceover needed!
+        </div>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Ready-to-Upload Quiz Video</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Click Generate for fresh shuffled questions (or paste your own)!
+        <div class="card-title">3. Ready-to-Upload Battle Video</div>
+        <div id="status-txt" style="font-size:13px; font-weight:800; color:#facc15; margin-top:4px;">
+          Ready — Every click generates a brand-new world map war!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -142,8 +155,9 @@
       : "http://127.0.0.1:5000";
 
     let ratio = "16:9";
-    let gender = "FEMALE";
-    let qcount = "6";
+    let roster = "countries";
+    let factions = "10";
+    let duration = "90";
 
     document.querySelectorAll(".pill").forEach(p => {
       p.onclick = () => {
@@ -151,27 +165,22 @@
         document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
         if (grp === "ratio") ratio = p.dataset.val;
-        if (grp === "gender") gender = p.dataset.val;
-        if (grp === "qcount") qcount = p.dataset.val;
+        if (grp === "roster") roster = p.dataset.val;
+        if (grp === "factions") factions = p.dataset.val;
+        if (grp === "dur") duration = p.dataset.val;
       };
     });
 
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Building Interactive Quiz Show...";
+      document.getElementById("status-txt").textContent = "Generating Procedural Continents & Spawning Capitals...";
 
       try {
         const res = await fetch(API_BASE + "/api/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ratio,
-            voice_gender: gender,
-            q_count: qcount,
-            shuffle: true,
-            custom_raw: document.getElementById("custom-raw").value
-          })
+          body: JSON.stringify({ ratio, roster, factions, duration })
         });
         const { job_id } = await res.json();
 
@@ -188,16 +197,16 @@
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               document.getElementById("video-area").innerHTML = `
                 <video src="${streamUrl}" controls autoplay loop playsinline></video>
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Quiz Video MP4 (${st.file_name})</a>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Battle Royale MP4 (${st.file_name})</a>
               `;
             } else if (st.status === "error") {
               clearInterval(poll);
             }
           } catch (e) {
             clearInterval(poll);
-            document.getElementById("status-txt").textContent = "Connection lost — please click Generate again!";
+            document.getElementById("status-txt").textContent = "Connection lost — try 1.5 Min first on free server!";
           }
-        }, 1100);
+        }, 1200);
       } catch (err) {
         document.getElementById("status-txt").textContent = "Server waking up — click Generate again in 5 seconds!";
       }
