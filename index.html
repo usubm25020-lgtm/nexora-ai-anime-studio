@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA ULTRA-GAMING QUIZ STUDIO v2.1 — Bandwidth-Saver Pro</title>
+  <title>NEXORA ULTRA-GAMING QUIZ STUDIO v2.2 — 5X Turbo + Auto-Save</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -74,7 +74,6 @@
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--purple), var(--gold)); transition: width 0.25s; }
-    video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 10px; }
     .dl-btn {
       display: block; text-align: center; padding: 15px; margin-top: 8px;
       background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none; font-size: 14px;
@@ -90,11 +89,11 @@
     <div class="brand">
       <div class="logo">🎮</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA ULTRA-GAMING QUIZ STUDIO v2.1</div>
-        <div style="font-size:11px; color:var(--cyan);">75% Smaller File Size • Auto Storage Cleanup • 30-Min Long Ready</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA ULTRA-GAMING QUIZ STUDIO v2.2</div>
+        <div style="font-size:11px; color:var(--cyan);">5X Turbo Render • Auto-Download MP4 • Zero Bandwidth Waste</div>
       </div>
     </div>
-    <div class="badge">⚡ Eco-Compressed</div>
+    <div class="badge">⚡ 5X Turbo + Auto-Save</div>
   </header>
 
   <main class="wrap">
@@ -102,8 +101,8 @@
       <div class="card">
         <div class="card-title">1. Platform Format</div>
         <div class="grid-2" style="margin-bottom:0;">
-          <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts<br/><small>(Fast ~22s + Comment Trap)</small></div>
-          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long<br/><small>(15–30 Min Ready • Ultra Light)</small></div>
+          <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts<br/><small>(~20s Render • Auto-Save)</small></div>
+          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long<br/><small>(5X Fast • Auto-Save)</small></div>
         </div>
       </div>
 
@@ -113,17 +112,17 @@
           <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy AI Prompt</button>
         </div>
 
-        <textarea id="custom-raw" placeholder="Paste questions from ChatGPT or Gemini here (1 per line):&#10;Question? | Option A | Option B | Option C | Option D | CorrectOptionNumber(1-4) | Short Fact&#10;&#10;Note: Last question automatically becomes a LOCKED BONUS COMMENT TRAP!"></textarea>
+        <textarea id="custom-raw" placeholder="Paste questions from ChatGPT or Gemini here (1 per line):&#10;Question? | Option A | Option B | Option C | Option D | CorrectOptionNumber(1-4) | Short Fact&#10;&#10;Note: Video automatically downloads to your device as soon as rendering hits 100%!"></textarea>
 
-        <button class="btn-primary" id="btn-generate">🔥 Render Ultra-Light Gaming Quiz Video</button>
+        <button class="btn-primary" id="btn-generate">🚀 Render &amp; Auto-Download MP4</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Ready-to-Upload Compressed Video</div>
+        <div class="card-title">3. Render Progress &amp; Auto-Save Status</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Generates ultra-light MP4 files to protect your 5 GB monthly Render limit!
+          Ready — Video will automatically save to your phone/PC upon completion!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -157,10 +156,20 @@ Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber
       });
     };
 
+    function triggerAutoDownload(url, filename) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 1500);
+    }
+
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Building Shock-Wave Hook & 3D Hologram Quiz...";
+      document.getElementById("status-txt").textContent = "Initializing 5X Turbo Render Engine...";
 
       try {
         const res = await fetch(API_BASE + "/api/start", {
@@ -182,11 +191,10 @@ Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber
 
             if (st.status === "done") {
               clearInterval(poll);
-              const streamUrl = `${API_BASE}/api/video/${job_id}`;
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
+              triggerAutoDownload(dlUrl, st.file_name);
               document.getElementById("video-area").innerHTML = `
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download MP4 (${st.size_mb} MB) — Saves Bandwidth!</a>
-                <video src="${streamUrl}" controls preload="metadata" playsinline></video>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">✅ Auto-Saved! (Tap here only if browser blocked auto-download • ${st.size_mb} MB)</a>
                 <div class="chap-box"><strong>Auto YouTube Chapters:</strong>\n${st.chapters}</div>
               `;
             } else if (st.status === "error") {
@@ -194,11 +202,11 @@ Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber
             }
           } catch (e) {
             clearInterval(poll);
-            document.getElementById("status-txt").textContent = "Connection lost — please click Generate again!";
+            document.getElementById("status-txt").textContent = "Connection lost — please click Render again!";
           }
         }, 1000);
       } catch (err) {
-        document.getElementById("status-txt").textContent = "Server waking up — click Generate again in 5 seconds!";
+        document.getElementById("status-txt").textContent = "Server waking up — click Render again in 5 seconds!";
       }
     };
   </script>
