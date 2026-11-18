@@ -3,42 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA 3D HOLOGRAM STUDIO — Blueprint-to-Reality Morph Engine</title>
+  <title>NEXORA CCTV ANOMALY STUDIO — Night-Vision Found Footage Generator</title>
   <style>
     :root {
-      --bg-void: #04060c;
-      --bg-card: #0f1626;
-      --bg-input: #070b14;
-      --border: rgba(148, 163, 184, 0.18);
-      --cyan: #22d3ee;
-      --gold: #facc15;
-      --emerald: #10b981;
-      --text: #f8fafc;
-      --dim: #94a3b8;
+      --bg-void: #030705;
+      --bg-card: #0a140e;
+      --bg-input: #040a07;
+      --border: rgba(74, 222, 128, 0.22);
+      --green: #22c55e;
+      --red: #ef4444;
+      --text: #ecfdf5;
+      --dim: #86efac;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #112a46 0%, var(--bg-void) 65%);
+      background: radial-gradient(circle at top right, #0d2b18 0%, var(--bg-void) 65%);
       color: var(--text);
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: monospace, system-ui, sans-serif;
       padding-bottom: 40px;
       min-height: 100vh;
     }
     .topbar {
       position: sticky; top: 0; z-index: 50;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; background: rgba(4, 6, 12, 0.92);
+      padding: 12px 16px; background: rgba(3, 7, 5, 0.92);
       backdrop-filter: blur(14px); border-bottom: 1px solid var(--border);
     }
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), #3b82f6);
-      display: grid; place-items: center; font-weight: 900; color: #030712;
+      background: linear-gradient(135deg, var(--green), #15803d);
+      display: grid; place-items: center; font-weight: 900; color: #030705;
     }
     .badge {
       padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 800;
-      background: rgba(34, 211, 238, 0.15); border: 1px solid rgba(34, 211, 238, 0.45); color: var(--cyan);
+      background: rgba(239, 68, 68, 0.18); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5;
     }
     .wrap {
       max-width: 1100px; margin: 0 auto; padding: 16px;
@@ -57,35 +56,35 @@
       padding: 12px 6px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
-    .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
+    .pill.active { border-color: var(--green); background: rgba(34, 197, 94, 0.16); color: var(--green); }
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), #3b82f6);
-      color: #030712; font-size: 14px; font-weight: 900; cursor: pointer;
+      background: linear-gradient(135deg, var(--green), #16a34a);
+      color: #030705; font-size: 14px; font-weight: 900; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--gold), var(--emerald)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green), var(--red)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
-      background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
+      background: #22c55e; color: #030705; font-weight: 900; border-radius: 10px; text-decoration: none;
     }
     .info-box {
       font-size: 12px; line-height: 1.55; color: var(--dim);
-      background: rgba(7, 11, 20, 0.7); padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: rgba(4, 10, 7, 0.8); padding: 12px; border-radius: 10px; border: 1px solid var(--border);
     }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">💠</div>
+      <div class="logo">📹</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA 3D HOLOGRAM STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">Real-Time 3D Wireframe → Laser Materialization → Reality Lock</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA CCTV ANOMALY STUDIO</div>
+        <div style="font-size:11px; color:var(--green);">Night-Vision IR • Red Target Lock • Glitch &amp; Heartbeat Audio</div>
       </div>
     </div>
-    <div class="badge">🔮 True 3D Engine</div>
+    <div class="badge">● REC LIVE FEED</div>
   </header>
 
   <main class="wrap">
@@ -99,30 +98,30 @@
       </div>
 
       <div class="card">
-        <div class="card-title">2. Video Duration &amp; 3D Models Count</div>
+        <div class="card-title">2. CCTV Anomaly Compilation Length</div>
         <div class="grid-4">
-          <div class="pill active" data-group="dur" data-val="18">⚡ 18s<br/><small>(2 Models)</small></div>
-          <div class="pill" data-group="dur" data-val="36">🔥 36s<br/><small>(4 Models)</small></div>
-          <div class="pill" data-group="dur" data-val="90">🎬 1.5 Min<br/><small>(10 Models)</small></div>
-          <div class="pill" data-group="dur" data-val="270">💰 4.5 Mins<br/><small>(30 Models)</small></div>
+          <div class="pill active" data-group="dur" data-val="18">⚡ 18s<br/><small>(2 Cams)</small></div>
+          <div class="pill" data-group="dur" data-val="36">🔥 36s<br/><small>(4 Cams)</small></div>
+          <div class="pill" data-group="dur" data-val="90">🎬 1.5 Min<br/><small>(10 Cams)</small></div>
+          <div class="pill" data-group="dur" data-val="270">💰 4.5 Mins<br/><small>(30 Cams)</small></div>
         </div>
 
-        <button class="btn-primary" id="btn-generate">💠 Render 3D Hologram Morph Video</button>
+        <button class="btn-primary" id="btn-generate">📹 Generate Night-Vision CCTV Footage</button>
       </div>
 
       <div class="card">
         <div class="info-box">
-          <strong style="color:#22d3ee;">Instant Scroll-Stop Visual Hook:</strong><br/>
-          Starts immediately in Frame 1 with a rotating 3D cyan blueprint wireframe, sweeps a glowing laser beam downward to materialize metallic 3D surfaces, and locks into reality with sci-fi sound effects.
+          <strong style="color:#4ade80;">Psychological Scroll-Stop Hook:</strong><br/>
+          Opens immediately with an infrared security camera feed, live millisecond timecode, CRT scanlines, static glitches, and a red target-lock alert when an unknown entity emerges from the dark.
         </div>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Ready-to-Upload 3D Hologram Video</div>
-        <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Choose Reels (18s) or Long and click Render!
+        <div class="card-title">3. Ready-to-Upload CCTV Video</div>
+        <div id="status-txt" style="font-size:13px; font-weight:800; color:#4ade80; margin-top:4px;">
+          Ready — Choose Reels (18s) or Long and click Generate!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -151,7 +150,7 @@
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Building 3D Vertices & Laser Shader...";
+      document.getElementById("status-txt").textContent = "Connecting to Infrared Security Cameras...";
 
       try {
         const res = await fetch(API_BASE + "/api/start", {
@@ -174,18 +173,18 @@
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               document.getElementById("video-area").innerHTML = `
                 <video src="${streamUrl}" controls autoplay loop playsinline></video>
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download 3D Hologram MP4 (${st.file_name})</a>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download CCTV Anomaly MP4 (${st.file_name})</a>
               `;
             } else if (st.status === "error") {
               clearInterval(poll);
             }
           } catch (e) {
             clearInterval(poll);
-            document.getElementById("status-txt").textContent = "Connection lost — please click Render again!";
+            document.getElementById("status-txt").textContent = "Connection lost — please click Generate again!";
           }
         }, 1000);
       } catch (err) {
-        document.getElementById("status-txt").textContent = "Server waking up — click Render again in 5 seconds!";
+        document.getElementById("status-txt").textContent = "Server waking up — click Generate again in 5 seconds!";
       }
     };
   </script>
