@@ -1,5 +1,4 @@
 import os
-import re
 import time
 import math
 import uuid
@@ -32,189 +31,181 @@ FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. ULTRA-GAMING VISUAL THEMES & SMART AUTO-DIRECTOR ANALYZER
+# 1. PROCEDURAL 3D MESH LIBRARY (TRUE 3D VERTICES, EDGES & SHADED FACES)
 # ===========================================================================
-GAMING_THEMES = {
-    "cyber": {
-        "name": "CYBER ARENA",
-        "bg_top": (10, 18, 42),
-        "bg_bot": (4, 7, 18),
-        "grid": (22, 42, 82),
-        "primary": (34, 211, 238),    # Neon Cyan
-        "secondary": (168, 85, 247),  # Electric Purple
-        "accent": (250, 204, 21)      # Cyber Gold
-    },
-    "royal": {
-        "name": "ROYAL GOLD",
-        "bg_top": (28, 20, 10),
-        "bg_bot": (6, 5, 4),
-        "grid": (58, 42, 18),
-        "primary": (250, 204, 21),    # Pure Gold
-        "secondary": (249, 115, 22),  # Amber Blaze
-        "accent": (56, 189, 248)      # Sky Highlight
-    },
-    "crimson": {
-        "name": "BOSS RUSH",
-        "bg_top": (32, 10, 24),
-        "bg_bot": (6, 3, 10),
-        "grid": (64, 18, 44),
-        "primary": (244, 63, 94),     # Neon Crimson
-        "secondary": (232, 121, 249), # Plasma Magenta
-        "accent": (250, 204, 21)      # Gold
-    },
-    "emerald": {
-        "name": "MATRIX PRO",
-        "bg_top": (8, 28, 24),
-        "bg_bot": (3, 9, 8),
-        "grid": (16, 56, 48),
-        "primary": (16, 185, 129),    # Neon Emerald
-        "secondary": (34, 211, 238),  # Aqua
-        "accent": (250, 204, 21)      # Gold
-    }
-}
+def build_3d_model(model_type: str):
+    """Returns (name, vertices_Nx3, edges_list, faces_list_of_tuples, accent_color)"""
+    verts = []
+    edges = []
+    faces = []
 
-DEFAULT_SAMPLE_QUESTIONS = [
-    {"q": "Which planet has the shortest day in our Solar System?", "opts": ["Mercury", "Jupiter", "Mars", "Venus"], "ans": 1, "fact": "Jupiter spins once every 9 hours and 55 minutes!"},
-    {"q": "If you freeze seawater, what happens to the salt?", "opts": ["Turns into crystals", "Gets pushed out", "Makes ice hotter", "Turns blue"], "ans": 1, "fact": "Pure water freezes first, expelling salt into surrounding brine."},
-    {"q": "What has 13 hearts, but no other organs?", "opts": ["An Octopus", "A Deck of Cards", "A Starfish", "A Jellyfish"], "ans": 1, "fact": "All 13 cards in the Hearts suit!"},
-    {"q": "Which metal can melt right in the palm of your hand?", "opts": ["Gallium", "Titanium", "Zinc", "Nickel"], "ans": 0, "fact": "Gallium has a melting point of just 29.76 degrees Celsius."},
-    {"q": "How many triangles can you form using 3 straight lines?", "opts": ["Zero", "One", "Two", "Three"], "ans": 1, "fact": "Three non-parallel lines intersect to enclose exactly 1 triangle."}
-]
+    if model_type == "jet":
+        name = "STEALTH CYBER FIGHTER JET"
+        accent = (34, 211, 238)
+        # Sleek delta-wing fighter jet geometry
+        verts = [
+            (0.0, 0.0, 1.55),     # 0: Nose tip
+            (0.0, 0.22, 0.45),    # 1: Canopy top
+            (-0.24, 0.0, 0.35),   # 2: Left fuselage mid
+            (0.24, 0.0, 0.35),    # 3: Right fuselage mid
+            (0.0, -0.14, 0.35),   # 4: Belly mid
+            (-1.35, -0.05, -0.65),# 5: Left wingtip
+            (1.35, -0.05, -0.65), # 6: Right wingtip
+            (-0.32, 0.05, -0.95), # 7: Left engine exhaust
+            (0.32, 0.05, -0.95),  # 8: Right engine exhaust
+            (0.0, -0.15, -0.95),  # 9: Rear belly
+            (-0.45, 0.55, -0.88), # 10: Left twin tail fin
+            (0.45, 0.55, -0.88),  # 11: Right twin tail fin
+        ]
+        faces = [
+            (0, 1, 2), (0, 3, 1), (0, 2, 4), (0, 4, 3),
+            (1, 7, 2), (1, 3, 8), (2, 5, 7), (3, 8, 6),
+            (2, 4, 5), (3, 6, 4), (4, 9, 5), (4, 6, 9),
+            (2, 7, 10), (3, 11, 8), (1, 8, 7), (4, 7, 9), (4, 9, 8)
+        ]
 
-def smart_parse_and_direct(raw_text: str):
-    """
-    Parses pasted ChatGPT/Gemini questions and automatically assigns:
-    - Optimal reading + thinking timer based on question length & math/logic complexity
-    - Dynamic gaming theme based on topic keywords & level progression
-    - Boss Question status every 5th question
-    """
-    items = []
-    for ln in str(raw_text or "").splitlines():
-        ln = ln.strip()
-        if not ln or "|" not in ln:
-            continue
-        parts = [p.strip() for p in ln.split("|")]
-        if len(parts) >= 6:
-            q_txt = re.sub(r"^Q\d*\s*[:.\-]\s*", "", parts[0], flags=re.I).strip()
-            opts = parts[1:5]
-            try:
-                ans_idx = max(0, min(3, int(re.sub(r"[^0-9]", "", parts[5])) - 1))
-            except Exception:
-                ans_idx = 0
-            fact_txt = parts[6].strip() if len(parts) >= 7 else ""
-            items.append({"q": q_txt, "opts": opts, "ans": ans_idx, "fact": fact_txt})
+    elif model_type == "saturn":
+        name = "RINGED EXOPLANET SATURN"
+        accent = (250, 204, 21)
+        # UV Sphere + Tilted Planetary Rings
+        stacks, slices = 10, 16
+        for i in range(stacks + 1):
+            phi = math.pi * i / stacks
+            y = 0.62 * math.cos(phi)
+            r = 0.62 * math.sin(phi)
+            for j in range(slices):
+                theta = 2.0 * math.pi * j / slices
+                verts.append((r * math.cos(theta), y, r * math.sin(theta)))
 
-    if not items:
-        items = [dict(x) for x in DEFAULT_SAMPLE_QUESTIONS]
+        for i in range(stacks):
+            for j in range(slices):
+                jn = (j + 1) % slices
+                a = i * slices + j
+                b = a + 1 if j + 1 < slices else i * slices
+                c = (i + 1) * slices + j
+                d = (i + 1) * slices + jn
+                faces.append((a, c, d))
+                faces.append((a, d, b))
 
-    directed_questions = []
-    theme_keys = list(GAMING_THEMES.keys())
+        # Add outer planetary ring quad strips
+        base_idx = len(verts)
+        r_in, r_out = 0.85, 1.42
+        ring_segs = 24
+        for j in range(ring_segs):
+            ang = 2.0 * math.pi * j / ring_segs
+            verts.append((r_in * math.cos(ang), 0.02, r_in * math.sin(ang)))
+            verts.append((r_out * math.cos(ang), -0.02, r_out * math.sin(ang)))
+        for j in range(ring_segs):
+            jn = (j + 1) % ring_segs
+            i0 = base_idx + j * 2
+            i1 = i0 + 1
+            i2 = base_idx + jn * 2
+            i3 = i2 + 1
+            faces.append((i0, i1, i3))
+            faces.append((i0, i3, i2))
 
-    for idx, item in enumerate(items):
-        q_low = item["q"].lower()
-        word_cnt = len(item["q"].split())
-        is_boss = ((idx + 1) % 5 == 0)
+    elif model_type == "dna":
+        name = "QUANTUM DNA DOUBLE HELIX"
+        accent = (16, 185, 129)
+        steps = 22
+        for i in range(steps):
+            t = (i / float(steps - 1)) * 2.0 - 1.0
+            y = t * 1.15
+            ang = t * math.pi * 2.2
+            r = 0.52
+            x1, z1 = r * math.cos(ang), r * math.sin(ang)
+            x2, z2 = -x1, -z1
+            verts.append((x1 - 0.08, y, z1))
+            verts.append((x1 + 0.08, y, z1))
+            verts.append((x2 - 0.08, y, z2))
+            verts.append((x2 + 0.08, y, z2))
+            if i > 0:
+                p = (i - 1) * 4
+                c = i * 4
+                faces.append((p, c, c + 1))
+                faces.append((p, c + 1, p + 1))
+                faces.append((p + 2, c + 2, c + 3))
+                faces.append((p + 2, c + 3, p + 3))
+            if i % 2 == 0:
+                c = i * 4
+                faces.append((c, c + 2, c + 3))
+                faces.append((c, c + 3, c + 1))
 
-        # 1. Auto-decide think timer duration (4s fast, 6s medium, 8s complex/math)
-        has_math = bool(re.search(r"[0-9%+\-*/=]|calculate|solve|how many|equation|ratio", q_low))
-        if has_math or word_cnt >= 15:
-            think_sec = 7.5
-        elif word_cnt >= 10:
-            think_sec = 5.5
-        else:
-            think_sec = 4.5
+    else:
+        name = "HYPER-CORE OCTAHEDRON REACTOR"
+        accent = (244, 63, 94)
+        verts = [
+            (0.0, 1.25, 0.0),    # 0 Top
+            (0.0, -1.25, 0.0),   # 1 Bottom
+            (1.10, 0.0, 0.0),    # 2 Right
+            (-1.10, 0.0, 0.0),   # 3 Left
+            (0.0, 0.0, 1.10),    # 4 Front
+            (0.0, 0.0, -1.10),   # 5 Back
+            (0.55, 0.55, 0.55),  # 6 Inner cube corners
+            (-0.55, 0.55, 0.55),
+            (0.55, -0.55, 0.55),
+            (-0.55, -0.55, 0.55),
+            (0.55, 0.55, -0.55),
+            (-0.55, 0.55, -0.55),
+            (0.55, -0.55, -0.55),
+            (-0.55, -0.55, -0.55)
+        ]
+        faces = [
+            (0, 4, 2), (0, 2, 5), (0, 5, 3), (0, 3, 4),
+            (1, 2, 4), (1, 5, 2), (1, 3, 5), (1, 4, 3),
+            (6, 7, 9), (6, 9, 8), (10, 12, 13), (10, 13, 11),
+            (6, 10, 11), (6, 11, 7), (8, 9, 13), (8, 13, 12)
+        ]
 
-        read_sec = max(1.6, min(3.2, word_cnt * 0.16))
-        reveal_sec = 3.2 if item["fact"] else 2.5
+    edge_set = set()
+    for a, b, c in faces:
+        edge_set.add(tuple(sorted((a, b))))
+        edge_set.add(tuple(sorted((b, c))))
+        edge_set.add(tuple(sorted((c, a))))
 
-        # 2. Auto-select Gaming Theme based on subject matter + level shifts
-        if is_boss:
-            t_key = "crimson"
-        elif any(k in q_low for k in ["space", "planet", "atom", "physics", "science", "chem", "bio", "energy", "light"]):
-            t_key = "cyber"
-        elif any(k in q_low for k in ["history", "king", "india", "world", "capital", "country", "war", "constitution"]):
-            t_key = "royal"
-        elif any(k in q_low for k in ["riddle", "brain", "logic", "number", "math", "code", "computer"]):
-            t_key = "emerald"
-        else:
-            t_key = theme_keys[(idx // 3) % len(theme_keys)]
-
-        directed_questions.append({
-            **item,
-            "is_boss": is_boss,
-            "theme_key": t_key,
-            "read_sec": read_sec,
-            "think_sec": think_sec,
-            "reveal_sec": reveal_sec,
-            "level": (idx // 5) + 1
-        })
-
-    return directed_questions
+    return name, np.array(verts, dtype=np.float32), list(edge_set), faces, accent
 
 
 # ===========================================================================
-# 2. ULTRA-GAMING SYNTHWAVE BEAT + WHOOSH, TICK-TOCK & XP CHIME AUDIO
+# 2. SCI-FI LASER SCANNING, HUM & MECHANICAL LOCK AUDIO ENGINE
 # ===========================================================================
-def build_gaming_sfx_track(timeline: list, total_dur: float, out_wav: str):
-    """
-    Zero robotic voiceover! Generates energetic gaming synthwave beat,
-    card slide whooshes, crisp digital countdown ticks, and victory XP fanfare.
-    """
+def build_hologram_audio_wav(stages: list, total_dur: float, out_wav: str):
+    """Synthesizes deep sci-fi reactor hum, rising laser scan frequency, and reality lock boom."""
     rate = 22050
     n = int(total_dur * rate)
     t = np.linspace(0, total_dur, n, endpoint=False, dtype=np.float32)
 
-    bpm = 124.0
+    # Futuristic cyber pulse bass + harmonic shimmer
+    bpm = 118.0
     beat_dur = 60.0 / bpm
-    beat_pos = (t % beat_dur) / beat_dur
+    b_pos = (t % beat_dur) / beat_dur
+    pulse = np.sin(2.0 * np.pi * 55.0 * t) * (0.18 + 0.14 * np.exp(-b_pos * 6.0))
+    shimmer = np.sin(2.0 * np.pi * 220.0 * t + 1.5 * np.sin(2.0 * np.pi * 3.0 * t)) * 0.06
+    audio = pulse + shimmer
 
-    # Punchy lo-fi gaming kick + warm bassline
-    kick = np.sin(2.0 * np.pi * (52.0 + 55.0 * np.exp(-beat_pos * 18.0)) * (t % beat_dur)) * np.exp(-beat_pos * 8.5) * 0.24
-    bass_notes = [110.0, 110.0, 130.81, 146.83, 98.0, 98.0, 130.81, 123.47]
-    b_idx = (t / (beat_dur * 2.0)).astype(np.int32)
-    b_freq = np.array([bass_notes[i % len(bass_notes)] for i in b_idx], dtype=np.float32)
-    bass = np.sin(2.0 * np.pi * b_freq * t) * 0.11
+    for t_start, t_scan_start, t_lock, t_end in stages:
+        # Rising laser scan frequency sweep during materialization
+        s0 = int(t_scan_start * rate)
+        s1 = min(n, int(t_lock * rate))
+        if s0 < s1:
+            ts = np.linspace(0, (s1 - s0) / float(rate), s1 - s0, endpoint=False, dtype=np.float32)
+            prog = ts / max(0.01, (s1 - s0) / float(rate))
+            freq = 180.0 + 620.0 * (prog ** 1.4)
+            laser = np.sin(2.0 * np.pi * freq * ts) * (0.14 * np.sin(np.pi * prog))
+            audio[s0:s1] += laser
 
-    audio = kick + bass
-    rng = np.random.default_rng(2026)
-
-    for q_obj, t_start, t_think_start, t_reveal_start, t_end in timeline:
-        # 1. Card Slide-In Whoosh at t_start
-        s0 = int(t_start * rate)
-        w_len = int(0.28 * rate)
-        if s0 + w_len < n:
-            tw = np.linspace(0, 0.28, w_len, endpoint=False, dtype=np.float32)
-            noise = rng.uniform(-1.0, 1.0, w_len).astype(np.float32)
-            env = np.sin(np.pi * (tw / 0.28)) ** 1.5
-            audio[s0:s0 + w_len] += noise * env * 0.18
-
-        # 2. Digital Countdown Ticks during think phase (accelerates in final 2 seconds!)
-        cur_t = t_think_start + 0.2
-        tick_i = 0
-        while cur_t < t_reveal_start - 0.12:
-            rem = t_reveal_start - cur_t
-            step = 0.25 if rem <= 2.0 else 0.50
-            st = int(cur_t * rate)
-            t_len = int(0.055 * rate)
-            if st + t_len < n:
-                tt = np.linspace(0, 0.055, t_len, endpoint=False, dtype=np.float32)
-                freq = 1480.0 if rem <= 2.0 else (1120.0 if tick_i % 2 == 0 else 920.0)
-                tk = np.sin(2.0 * np.pi * freq * tt) * np.exp(-tt * 75.0) * 0.36
-                audio[st:st + t_len] += tk
-            cur_t += step
-            tick_i += 1
-
-        # 3. Gaming Victory Chord / XP Level-Up Chime at t_reveal_start
-        sr = int(t_reveal_start * rate)
-        r_len = int(0.75 * rate)
-        if sr + r_len < n:
-            tr = np.linspace(0, 0.75, r_len, endpoint=False, dtype=np.float32)
-            # Arpeggiated bright major triad (C6 - E6 - G6 - C7)
-            c1 = np.sin(2.0 * np.pi * 1046.50 * tr) * np.exp(-tr * 6.0)
-            c2 = np.sin(2.0 * np.pi * 1318.51 * np.maximum(0, tr - 0.06)) * np.exp(-np.maximum(0, tr - 0.06) * 5.5)
-            c3 = np.sin(2.0 * np.pi * 1567.98 * np.maximum(0, tr - 0.12)) * np.exp(-np.maximum(0, tr - 0.12) * 5.0)
-            c4 = np.sin(2.0 * np.pi * 2093.00 * np.maximum(0, tr - 0.18)) * np.exp(-np.maximum(0, tr - 0.18) * 4.2)
-            audio[sr:sr + r_len] += (c1 + c2 + c3 + c4) * 0.24
+        # Heavy sci-fi sub-bass lock + bright crystalline chord at 100% Reality Lock!
+        sl = int(t_lock * rate)
+        l_len = min(n - sl, int(0.95 * rate))
+        if l_len > 0:
+            tl = np.linspace(0, l_len / float(rate), l_len, endpoint=False, dtype=np.float32)
+            boom = np.sin(2.0 * np.pi * (110.0 * np.exp(-tl * 7.0) + 42.0) * tl) * np.exp(-tl * 4.5) * 0.55
+            chord = (
+                0.35 * np.sin(2.0 * np.pi * 523.25 * tl) +
+                0.30 * np.sin(2.0 * np.pi * 659.25 * tl) +
+                0.25 * np.sin(2.0 * np.pi * 1046.50 * tl)
+            ) * np.exp(-tl * 4.0) * 0.30
+            audio[sl:sl + l_len] += (boom + chord)
 
     fade_s = min(int(0.8 * rate), n // 4)
     if fade_s > 0:
@@ -230,7 +221,7 @@ def build_gaming_sfx_track(timeline: list, total_dur: float, out_wav: str):
 
 
 # ===========================================================================
-# 3. HIGH-MOTION ULTRA-GAMING QUIZ GRAPHICS & CONFETTI ENGINE
+# 3. 3D PROJECTION, LASER SCANNER & HOLOGRAM MORPH RENDERER
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
@@ -249,289 +240,184 @@ def get_font(size: int):
                 pass
     return ImageFont.load_default()
 
-def ease_out_back(x: float) -> float:
-    x = max(0.0, min(1.0, x))
-    c1 = 1.70158
-    c3 = c1 + 1.0
-    return 1.0 + c3 * ((x - 1.0) ** 3) + c1 * ((x - 1.0) ** 2)
-
-def wrap_lines(draw: ImageDraw.Draw, text: str, font, max_w: int) -> list:
-    words = text.split()
-    lines, cur = [], ""
-    for wd in words:
-        test = (cur + " " + wd).strip()
-        bbox = draw.textbbox((0, 0), test, font=font)
-        if bbox[2] - bbox[0] <= max_w or not cur:
-            cur = test
-        else:
-            lines.append(cur)
-            cur = wd
-    if cur:
-        lines.append(cur)
-    return lines
-
-class UltraGamingQuizRenderer:
-    def __init__(self, w: int, h: int, total_q: int):
+class Hologram3DRenderer:
+    def __init__(self, w: int, h: int):
         self.w = w
         self.h = h
-        self.total_q = total_q
         self.is_vertical = (h > w)
-        self.rng = random.Random(777)
-
-        # Pre-spawn floating ambient cyber particles
-        self.ambient_orbs = [
-            [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(18, 45), self.rng.uniform(2, 5)]
-            for _ in range(28)
+        self.rng = random.Random(2026)
+        self.sparks = [
+            [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(25, 65)]
+            for _ in range(36)
         ]
-        # Confetti particles burst on answer reveal
-        self.confetti = []
-        self.last_confetti_q = -1
 
-    def _spawn_confetti(self, cx: float, cy: float):
-        cols = [(34, 211, 238), (250, 204, 21), (52, 211, 153), (244, 63, 94), (168, 85, 247), (255, 255, 255)]
-        self.confetti = []
-        for _ in range(65):
-            ang = self.rng.uniform(0, 2.0 * math.pi)
-            spd = self.rng.uniform(140.0, 520.0)
-            self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 160.0, 1.0, self.rng.choice(cols)])
-
-    def render_frame(self, q_idx: int, q_obj: dict, phase: str, phase_prog: float,
-                     phase_elapsed: float, global_t: float, dt: float) -> bytes:
-        theme = GAMING_THEMES[q_obj["theme_key"]]
+    def render_frame(self, model_data: tuple, stage_prog: float, global_t: float) -> bytes:
+        m_name, base_verts, edges, faces, accent = model_data
         sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
 
-        # 1. Dynamic Gradient + Moving Perspective Cyber-Grid Background
-        grad = np.zeros((self.h, self.w, 3), dtype=np.uint8)
-        for ch in range(3):
-            col_line = np.linspace(theme["bg_top"][ch], theme["bg_bot"][ch], self.h, dtype=np.uint8)[:, None]
-            grad[:, :, ch] = np.repeat(col_line, self.w, axis=1)
-        frame = Image.fromarray(grad, mode="RGB")
+        frame = Image.new("RGB", (self.w, self.h), (5, 8, 18))
         draw = ImageDraw.Draw(frame)
 
-        grid_step = int(52 * sc)
-        gx_off = int((global_t * 36) % grid_step)
-        gy_off = int((global_t * 24) % grid_step)
-        for gx in range(-grid_step, self.w + grid_step, grid_step):
-            draw.line([(gx + gx_off, 0), (gx + gx_off, self.h)], fill=theme["grid"], width=1)
-        for gy in range(-grid_step, self.h + grid_step, grid_step):
-            draw.line([(0, gy + gy_off), (self.w, gy + gy_off)], fill=theme["grid"], width=1)
+        # 1. Perspective 3D Hologram Floor Grid & Ambient Sparks
+        horizon_y = int(self.h * 0.62)
+        cx = self.w * 0.5
+        cy = self.h * 0.47
 
-        # Floating ambient glowing orbs
-        for orb in self.ambient_orbs:
-            ox = (orb[0] + math.sin(global_t * 0.8 + orb[1]) * 18) % self.w
-            oy = (orb[1] - global_t * orb[2]) % self.h
-            r_o = orb[3] * sc
-            draw.ellipse([ox - r_o, oy - r_o, ox + r_o, oy + r_o], fill=theme["primary"])
+        for i in range(-8, 9):
+            x_top = cx + i * int(34 * sc)
+            x_bot = cx + i * int(135 * sc)
+            draw.line([(x_top, horizon_y), (x_bot, self.h)], fill=(18, 34, 66), width=1)
 
-        # 2. Top Gaming HUD Bar (Level, Question Counter, XP Score)
-        font_hud = get_font(max(13, int(16 * sc)))
-        margin = int(self.w * 0.055)
-        hud_y = int(self.h * 0.035)
+        for r_i in range(1, 8):
+            frac = ((r_i / 7.0) + (global_t * 0.35) % (1.0 / 7.0))
+            ry = horizon_y + int((self.h - horizon_y) * (frac ** 1.6))
+            draw.line([(0, ry), (self.w, ry)], fill=(18, 34, 66), width=1)
 
-        lvl_txt = f"LVL {q_obj['level']} • {'BOSS 2X XP' if q_obj['is_boss'] else theme['name']}"
-        xp_val = (q_idx + (1 if phase == "reveal" else 0)) * 100
-        xp_txt = f"Q {q_idx + 1}/{self.total_q}  •  {xp_val} XP"
+        for sp in self.sparks:
+            sx = (sp[0] + math.sin(global_t + sp[1]) * 14) % self.w
+            sy = (sp[1] - global_t * sp[2]) % self.h
+            draw.ellipse([sx - 2, sy - 2, sx + 2, sy + 2], fill=accent)
 
-        draw.rounded_rectangle([margin, hud_y, margin + int(230 * sc), hud_y + int(32 * sc)], radius=8, fill=(15, 23, 42), outline=theme["primary"], width=2)
-        draw.text((margin + 12, hud_y + int(6 * sc)), lvl_txt, font=font_hud, fill=theme["primary"])
+        # 2. Rotate 3D Vertices in Real-Time (Yaw + Gentle Pitch Tilt)
+        yaw = global_t * 1.45
+        pitch = 0.38 + 0.14 * math.sin(global_t * 0.9)
 
-        xb = draw.textbbox((0, 0), xp_txt, font=font_hud)
-        xw = xb[2] - xb[0] + 24
-        draw.rounded_rectangle([self.w - margin - xw, hud_y, self.w - margin, hud_y + int(32 * sc)], radius=8, fill=(15, 23, 42), outline=theme["accent"], width=2)
-        draw.text((self.w - margin - xw + 12, hud_y + int(6 * sc)), xp_txt, font=font_hud, fill=theme["accent"])
+        cy_a, sy_a = math.cos(yaw), math.sin(yaw)
+        cp_a, sp_a = math.cos(pitch), math.sin(pitch)
 
-        # 3. Elastic Slide-In Question Card
-        slide_t = ease_out_back(min(1.0, phase_elapsed / 0.42)) if phase == "read" else 1.0
-        y_shift = int((1.0 - slide_t) * -140 * sc)
+        rot_y = np.array([[cy_a, 0, sy_a], [0, 1, 0], [-sy_a, 0, cy_a]], dtype=np.float32)
+        rot_x = np.array([[1, 0, 0], [0, cp_a, -sp_a], [0, sp_a, cp_a]], dtype=np.float32)
+        v_rot = (base_verts @ rot_y.T) @ rot_x.T
 
-        q_top = int(self.h * 0.115) + y_shift
-        q_h = int(self.h * (0.23 if self.is_vertical else 0.25))
-        card_w = self.w - margin * 2
+        # Perspective projection to 2D screen coordinates
+        fov = min(self.w, self.h) * (0.62 if self.is_vertical else 0.56)
+        cam_z = 3.2
+        z_depth = cam_z - v_rot[:, 2]
+        px = cx + (v_rot[:, 0] / z_depth) * fov
+        py = cy - (v_rot[:, 1] / z_depth) * fov
 
-        # Pulse border red in final 2 seconds of countdown!
-        rem_sec = q_obj["think_sec"] * (1.0 - phase_prog) if phase == "think" else 99.0
-        if phase == "think" and rem_sec <= 2.0 and int(global_t * 8) % 2 == 0:
-            q_border = (244, 63, 94)
-        elif q_obj["is_boss"]:
-            q_border = (250, 204, 21)
+        min_py = float(np.min(py))
+        max_py = float(np.max(py))
+        span_py = max(10.0, max_py - min_py)
+
+        # Morph threshold: 0.0 -> 0.25 pure wireframe; 0.25 -> 0.85 laser sweeps down; 0.85 -> 1.0 full reality
+        if stage_prog < 0.25:
+            scan_y = min_py - 20.0
+            phase_label = "PHASE 1: WIREFRAME BLUEPRINT"
+        elif stage_prog < 0.85:
+            scan_frac = (stage_prog - 0.25) / 0.60
+            scan_y = min_py + span_py * scan_frac
+            phase_label = "PHASE 2: LASER MATERIALIZING..."
         else:
-            q_border = theme["primary"]
+            scan_y = max_py + 40.0
+            phase_label = "PHASE 3: 100% REALITY LOCKED!"
 
-        draw.rounded_rectangle([margin, q_top, margin + card_w, q_top + q_h], radius=16, fill=(11, 17, 32), outline=q_border, width=3)
+        # 3. Draw Solid Shaded 3D Faces ABOVE the Laser Scan Line (Painter's Algorithm Depth Sort)
+        light_dir = np.array([0.4, 0.7, 0.6], dtype=np.float32)
+        light_dir /= np.linalg.norm(light_dir)
 
-        font_q = get_font(max(19, int(25 * sc)))
-        q_lines = wrap_lines(draw, q_obj["q"], font_q, card_w - int(44 * sc))
-        lh = int(font_q.size * 1.32)
-        ty_start = q_top + (q_h - len(q_lines) * lh) // 2
-        for li, ln in enumerate(q_lines):
-            lb = draw.textbbox((0, 0), ln, font=font_q)
-            draw.text(((self.w - (lb[2] - lb[0])) // 2, ty_start + li * lh), ln, font=font_q, fill=(248, 250, 252))
+        face_depths = []
+        for idx_f, (a, b, c) in enumerate(faces):
+            avg_z = (v_rot[a, 2] + v_rot[b, 2] + v_rot[c, 2]) / 3.0
+            face_depths.append((avg_z, a, b, c))
+        face_depths.sort(key=lambda x: x[0])
 
-        # 4. Neon Laser Countdown Bar + Numeric Seconds Badge
-        timer_y = q_top + q_h + int(self.h * 0.025)
-        timer_h = max(14, int(18 * sc))
-        draw.rounded_rectangle([margin, timer_y, margin + card_w, timer_y + timer_h], radius=timer_h // 2, fill=(22, 30, 52))
+        for _, a, b, c in face_depths:
+            f_cy = (py[a] + py[b] + py[c]) / 3.0
+            if f_cy <= scan_y:
+                # Compute 3D surface normal for metallic directional lighting
+                e1 = v_rot[b] - v_rot[a]
+                e2 = v_rot[c] - v_rot[a]
+                norm = np.cross(e1, e2)
+                n_len = np.linalg.norm(norm)
+                if n_len > 1e-5:
+                    norm /= n_len
+                shade = 0.35 + 0.65 * abs(float(np.dot(norm, light_dir)))
+                fill_col = (
+                    min(255, int(accent[0] * shade)),
+                    min(255, int(accent[1] * shade)),
+                    min(255, int(accent[2] * shade))
+                )
+                outline_col = (
+                    min(255, int(accent[0] * 0.9 + 40)),
+                    min(255, int(accent[1] * 0.9 + 40)),
+                    min(255, int(accent[2] * 0.9 + 40))
+                )
+                draw.polygon([(px[a], py[a]), (px[b], py[b]), (px[c], py[c])], fill=fill_col, outline=outline_col)
 
-        if phase == "read":
-            frac = 1.0
-            t_col = theme["primary"]
-            sec_lbl = f"{q_obj['think_sec']:.0f}s"
-        elif phase == "think":
-            frac = max(0.0, 1.0 - phase_prog)
-            t_col = (244, 63, 94) if rem_sec <= 2.0 else theme["accent"]
-            sec_lbl = f"{max(0.0, rem_sec):.1f}s"
-        else:
-            frac = 1.0
-            t_col = (16, 185, 129)
-            sec_lbl = "DONE!"
+        # 4. Draw Glowing Cyan Blueprint Wireframe Edges BELOW the Laser Scan Line
+        for a, b in edges:
+            e_cy = (py[a] + py[b]) * 0.5
+            if e_cy > scan_y:
+                draw.line([(px[a], py[a]), (px[b], py[b])], fill=(34, 211, 238), width=2)
 
-        fill_w = int(card_w * frac)
-        if fill_w > 10:
-            draw.rounded_rectangle([margin, timer_y, margin + fill_w, timer_y + timer_h], radius=timer_h // 2, fill=t_col)
-            # Bright laser tip spark
-            draw.ellipse([margin + fill_w - 8, timer_y - 2, margin + fill_w + 4, timer_y + timer_h + 2], fill=(255, 255, 255))
+        # Draw Blueprint Vertex Nodes below scan line
+        for i in range(len(px)):
+            if py[i] > scan_y:
+                draw.ellipse([px[i] - 2.5, py[i] - 2.5, px[i] + 2.5, py[i] + 2.5], fill=(255, 255, 255))
 
-        font_tm = get_font(max(12, int(14 * sc)))
-        sb = draw.textbbox((0, 0), sec_lbl, font=font_tm)
-        draw.text(((self.w - (sb[2] - sb[0])) // 2, timer_y - 1), sec_lbl, font=font_tm, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0))
+        # 5. Active Glowing Laser Scanner Beam during Materialization
+        if 0.25 <= stage_prog < 0.85:
+            lx0 = int(self.w * 0.14)
+            lx1 = int(self.w * 0.86)
+            draw.line([(lx0, scan_y), (lx1, scan_y)], fill=accent, width=max(4, int(5 * sc)))
+            draw.line([(lx0, scan_y), (lx1, scan_y)], fill=(255, 255, 255), width=2)
 
-        # 5. Staggered Pop-In Option Cards (A, B, C, D)
-        opts = q_obj["opts"]
-        ans_idx = q_obj["ans"]
-        labels = ["A", "B", "C", "D"]
-        font_opt = get_font(max(17, int(21 * sc)))
-        font_lbl = get_font(max(16, int(19 * sc)))
+        # 6. Futuristic Telemetry HUD & Build Progress Meter
+        margin = int(self.w * 0.06)
+        font_title = get_font(max(17, int(23 * sc)))
+        font_sub = get_font(max(13, int(16 * sc)))
 
-        opts_top = timer_y + timer_h + int(self.h * 0.032)
-        opts_area_h = int(self.h * (0.44 if self.is_vertical else 0.42))
+        draw.text((margin, int(self.h * 0.04)), m_name, font=font_title, fill=(248, 250, 252))
+        draw.text((margin, int(self.h * 0.088)), phase_label, font=font_sub, fill=accent)
 
-        if self.is_vertical:
-            gap = int(12 * sc)
-            box_h = (opts_area_h - gap * 3) // 4
-            for i in range(4):
-                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.08) / 0.35))) if phase == "read" else 1.0
-                x_off = int((1.0 - stagger) * (180 if i % 2 == 0 else -180) * sc)
-                oy0 = opts_top + i * (box_h + gap)
-                self._draw_gaming_option(draw, margin + x_off, oy0, margin + card_w + x_off, oy0 + box_h,
-                                         labels[i], opts[i], i == ans_idx, phase, theme, font_lbl, font_opt, sc)
-        else:
-            gap_x = int(18 * sc)
-            gap_y = int(16 * sc)
-            box_w = (card_w - gap_x) // 2
-            box_h = (opts_area_h - gap_y) // 2
-            for i in range(4):
-                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.08) / 0.35))) if phase == "read" else 1.0
-                y_off = int((1.0 - stagger) * 90 * sc)
-                col_i, row_i = i % 2, i // 2
-                ox0 = margin + col_i * (box_w + gap_x)
-                oy0 = opts_top + row_i * (box_h + gap_y) + y_off
-                self._draw_gaming_option(draw, ox0, oy0, ox0 + box_w, oy0 + box_h,
-                                         labels[i], opts[i], i == ans_idx, phase, theme, font_lbl, font_opt, sc)
+        # Bottom Progress Bar
+        bar_y = int(self.h * 0.88)
+        bar_h = max(14, int(18 * sc))
+        bar_w = self.w - margin * 2
+        pct = min(100, int(stage_prog * 100))
 
-        # 6. Confetti Burst + Quick Fact Banner on Reveal Phase
-        if phase == "reveal":
-            if self.last_confetti_q != q_idx:
-                self.last_confetti_q = q_idx
-                self._spawn_confetti(self.w * 0.5, opts_top + opts_area_h * 0.5)
+        draw.rounded_rectangle([margin, bar_y, margin + bar_w, bar_y + bar_h], radius=bar_h // 2, fill=(15, 23, 42), outline=(51, 65, 85), width=2)
+        fw = int(bar_w * (pct / 100.0))
+        if fw > 8:
+            draw.rounded_rectangle([margin, bar_y, margin + fw, bar_y + bar_h], radius=bar_h // 2, fill=accent)
 
-            for p in self.confetti:
-                p[0] += p[2] * dt
-                p[1] += p[3] * dt
-                p[3] += 480.0 * dt
-                p[4] -= dt * 0.85
-                if p[4] > 0:
-                    pr = max(2.0, 5.0 * sc * p[4])
-                    draw.rectangle([p[0] - pr, p[1] - pr, p[0] + pr, p[1] + pr], fill=p[5])
-
-            # Floating "+100 XP!" Tag
-            xp_pop = "+200 XP BOSS CLEAR!" if q_obj["is_boss"] else "+100 XP CORRECT!"
-            font_xp = get_font(max(16, int(20 * sc)))
-            xb2 = draw.textbbox((0, 0), xp_pop, font=font_xp)
-            float_y = int(opts_top - 12 * sc - min(22 * sc, phase_elapsed * 30 * sc))
-            draw.text(((self.w - (xb2[2] - xb2[0])) // 2, float_y), xp_pop, font=font_xp, fill=(52, 211, 153), stroke_width=3, stroke_fill=(0, 0, 0))
-
-            # Quick Fact Footer Box (if present)
-            if q_obj["fact"]:
-                fact_y = opts_top + opts_area_h + int(self.h * 0.025)
-                font_fc = get_font(max(13, int(16 * sc)))
-                fc_txt = f"💡 {q_obj['fact']}"
-                fb = draw.textbbox((0, 0), fc_txt, font=font_fc)
-                fw = min(card_w, fb[2] - fb[0] + 28)
-                fx0 = (self.w - fw) // 2
-                draw.rounded_rectangle([fx0, fact_y, fx0 + fw, fact_y + int(34 * sc)], radius=10, fill=(15, 23, 42), outline=(52, 211, 153), width=2)
-                draw.text((fx0 + 14, fact_y + int(7 * sc)), fc_txt[:68], font=font_fc, fill=(248, 250, 252))
+        pct_txt = f"REALITY CONSTRUCTION: {pct}%"
+        pb = draw.textbbox((0, 0), pct_txt, font=font_sub)
+        draw.text(((self.w - (pb[2] - pb[0])) // 2, bar_y - int(24 * sc)), pct_txt, font=font_sub, fill=(248, 250, 252))
 
         return frame.tobytes()
-
-    def _draw_gaming_option(self, draw, x0, y0, x1, y1, letter, text, is_correct, phase, theme, font_lbl, font_opt, sc):
-        if phase == "reveal":
-            if is_correct:
-                bg_col = (6, 78, 59)
-                border_col = (52, 211, 153)
-                txt_col = (255, 255, 255)
-                pill_col = (16, 185, 129)
-            else:
-                bg_col = (12, 16, 28)
-                border_col = (30, 41, 59)
-                txt_col = (71, 85, 105)
-                pill_col = (30, 41, 59)
-        else:
-            bg_col = (15, 23, 42)
-            border_col = theme["secondary"]
-            txt_col = (241, 245, 249)
-            pill_col = theme["secondary"]
-
-        draw.rounded_rectangle([x0, y0, x1, y1], radius=14, fill=bg_col, outline=border_col, width=3)
-
-        bh = y1 - y0
-        cr = int(min(bh * 0.34, 21 * sc))
-        cx = x0 + cr + int(15 * sc)
-        cy = y0 + bh // 2
-        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=pill_col)
-
-        lb = draw.textbbox((0, 0), letter, font=font_lbl)
-        draw.text((cx - (lb[2] - lb[0]) // 2, cy - (lb[3] - lb[1]) // 2 - 2), letter, font=font_lbl, fill=(255, 255, 255))
-
-        tb = draw.textbbox((0, 0), text, font=font_opt)
-        draw.text((cx + cr + int(14 * sc), cy - (tb[3] - tb[1]) // 2 - 2), text, font=font_opt, fill=txt_col)
 
 
 # ===========================================================================
 # 4. RENDER PIPELINE & API ROUTES
 # ===========================================================================
-def run_ultra_quiz_job(job_id: str, ratio: str, custom_raw: str):
+def run_hologram_job(job_id: str, ratio: str, duration_sec: float):
     job = JOBS[job_id]
     try:
-        questions = smart_parse_and_direct(custom_raw)
         out_w, out_h = (960, 540) if ratio == "16:9" else (540, 960)
         fps = 24
         dt = 1.0 / float(fps)
-        total_q = len(questions)
 
-        # Build exact timeline & YouTube chapter timestamps automatically
-        timeline = []
-        chapters = []
-        t_cursor = 0.0
-        for idx, q_obj in enumerate(questions):
-            if idx % 5 == 0:
-                mins = int(t_cursor // 60)
-                secs = int(t_cursor % 60)
-                chapters.append(f"{mins:02d}:{secs:02d} Level {q_obj['level']} Challenge")
+        model_keys = ["jet", "saturn", "dna", "core"]
+        random.shuffle(model_keys)
 
-            t_start = t_cursor
-            t_think = t_start + q_obj["read_sec"]
-            t_reveal = t_think + q_obj["think_sec"]
-            t_end = t_reveal + q_obj["reveal_sec"]
-            timeline.append((q_obj, t_start, t_think, t_reveal, t_end))
-            t_cursor = t_end
+        # Each 3D model morph takes 9 seconds (for 18s Short -> 2 models; for 90s -> 10 models)
+        seg_dur = 9.0
+        num_models = max(1, int(round(duration_sec / seg_dur)))
+        actual_dur = num_models * seg_dur
 
-        total_dur = max(4.0, t_cursor)
-        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_gaming_sfx.wav")
-        job["progress"] = 10
-        job["message"] = "Synthesizing Synthwave Beat, Countdown Ticks & XP Chimes..."
-        build_gaming_sfx_track(timeline, total_dur, wav_path)
+        stages_audio = []
+        for i in range(num_models):
+            t0 = i * seg_dur
+            stages_audio.append((t0, t0 + seg_dur * 0.25, t0 + seg_dur * 0.85, t0 + seg_dur))
 
-        out_name = f"NEXORA_GAMING_QUIZ_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_holo_sfx.wav")
+        job["progress"] = 8
+        job["message"] = "Synthesizing Sci-Fi Laser Scan & Reality Lock Audio..."
+        build_hologram_audio_wav(stages_audio, actual_dur, wav_path)
+
+        out_name = f"NEXORA_3D_HOLOGRAM_{int(actual_dur)}s_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         ffmpeg_cmd = [
@@ -546,26 +432,20 @@ def run_ultra_quiz_job(job_id: str, ratio: str, custom_raw: str):
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-        renderer = UltraGamingQuizRenderer(out_w, out_h, total_q)
+        renderer = Hologram3DRenderer(out_w, out_h)
         global_t = 0.0
+        frames_per_seg = int(seg_dur * fps)
 
-        for idx, (q_obj, t_start, t_think, t_reveal, t_end) in enumerate(timeline):
-            phases = [
-                ("read", q_obj["read_sec"]),
-                ("think", q_obj["think_sec"]),
-                ("reveal", q_obj["reveal_sec"])
-            ]
-            for p_name, p_dur in phases:
-                n_frames = max(1, int(p_dur * fps))
-                for f in range(n_frames):
-                    prog = f / max(1, n_frames - 1)
-                    elapsed = f * dt
-                    raw_bytes = renderer.render_frame(idx, q_obj, p_name, prog, elapsed, global_t, dt)
-                    proc.stdin.write(raw_bytes)
-                    global_t += dt
+        for m_idx in range(num_models):
+            m_data = build_3d_model(model_keys[m_idx % len(model_keys)])
+            for f in range(frames_per_seg):
+                s_prog = f / max(1, frames_per_seg - 1)
+                raw_bytes = renderer.render_frame(m_data, s_prog, global_t)
+                proc.stdin.write(raw_bytes)
+                global_t += dt
 
-            job["progress"] = 15 + int(((idx + 1) / total_q) * 82)
-            job["message"] = f"Rendering Ultra-Gaming Animations ({idx + 1}/{total_q})..."
+            job["progress"] = 12 + int(((m_idx + 1) / num_models) * 85)
+            job["message"] = f"Rendering 3D Hologram Morph {m_idx + 1}/{num_models}..."
 
         proc.stdin.close()
         proc.wait()
@@ -574,8 +454,7 @@ def run_ultra_quiz_job(job_id: str, ratio: str, custom_raw: str):
         job["progress"] = 100
         job["file_path"] = out_path
         job["file_name"] = out_name
-        job["chapters"] = "\n".join(chapters)
-        job["message"] = f"Completed! {total_q}-Question Ultra-Gaming Video Ready ({out_name})"
+        job["message"] = f"Completed! 3D Hologram Blueprint Video Ready ({out_name})"
 
     except Exception as exc:
         job["status"] = "error"
@@ -596,13 +475,13 @@ def api_start():
 
     job_id = uuid.uuid4().hex[:10]
     data = request.get_json(force=True) if request.is_json else request.form
-    ratio = data.get("ratio", "16:9")
-    custom_raw = data.get("custom_raw", "")
+    ratio = data.get("ratio", "9:16")
+    duration_sec = max(9.0, min(600.0, float(data.get("duration", "18"))))
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Auto-Director Analyzing Questions & Setting Timers..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing 3D Wireframe Projection Engine..."}
     threading.Thread(
-        target=run_ultra_quiz_job,
-        args=(job_id, ratio, custom_raw),
+        target=run_hologram_job,
+        args=(job_id, ratio, duration_sec),
         daemon=True
     ).start()
     return jsonify({"job_id": job_id})
