@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA ULTRA-GAMING QUIZ STUDIO — Auto-Director Video Engine</title>
+  <title>NEXORA 3D HOLOGRAM STUDIO — Blueprint-to-Reality Morph Engine</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -11,7 +11,6 @@
       --bg-input: #070b14;
       --border: rgba(148, 163, 184, 0.18);
       --cyan: #22d3ee;
-      --purple: #a855f7;
       --gold: #facc15;
       --emerald: #10b981;
       --text: #f8fafc;
@@ -19,7 +18,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #1c1642 0%, var(--bg-void) 65%);
+      background: radial-gradient(circle at top right, #112a46 0%, var(--bg-void) 65%);
       color: var(--text);
       font-family: system-ui, -apple-system, sans-serif;
       padding-bottom: 40px;
@@ -34,16 +33,16 @@
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--purple));
-      display: grid; place-items: center; font-weight: 900; color: #fff;
+      background: linear-gradient(135deg, var(--cyan), #3b82f6);
+      display: grid; place-items: center; font-weight: 900; color: #030712;
     }
     .badge {
       padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 800;
-      background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.45); color: #d8b4fe;
+      background: rgba(34, 211, 238, 0.15); border: 1px solid rgba(34, 211, 238, 0.45); color: var(--cyan);
     }
     .wrap {
       max-width: 1100px; margin: 0 auto; padding: 16px;
-      display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 16px; align-items: start;
     }
     @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
@@ -53,77 +52,77 @@
     }
     .card-title { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
     .pill {
-      padding: 12px 8px; border-radius: 10px; border: 2px solid var(--border);
+      padding: 12px 6px; border-radius: 10px; border: 2px solid var(--border);
       background: var(--bg-input); text-align: center; cursor: pointer; font-weight: 800; font-size: 12px;
     }
     .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
-    textarea {
-      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--text); padding: 11px; font-size: 12px;
-      font-family: monospace; outline: none; min-height: 195px; line-height: 1.55; resize: vertical;
-    }
-    .btn-copy {
-      padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
-      background: rgba(34, 211, 238, 0.14); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
-    }
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--purple));
-      color: #fff; font-size: 14px; font-weight: 900; margin-top: 10px; cursor: pointer;
+      background: linear-gradient(135deg, var(--cyan), #3b82f6);
+      color: #030712; font-size: 14px; font-weight: 900; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--purple), var(--gold)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--gold), var(--emerald)); transition: width 0.25s; }
     video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
     .dl-btn {
       display: block; text-align: center; padding: 14px; margin-top: 10px;
       background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
     }
-    .chap-box {
-      margin-top: 12px; padding: 10px; border-radius: 10px; background: var(--bg-input);
-      border: 1px solid var(--border); font-size: 12px; font-family: monospace; color: var(--gold); white-space: pre-line;
+    .info-box {
+      font-size: 12px; line-height: 1.55; color: var(--dim);
+      background: rgba(7, 11, 20, 0.7); padding: 12px; border-radius: 10px; border: 1px solid var(--border);
     }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">🎮</div>
+      <div class="logo">💠</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA ULTRA-GAMING QUIZ STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">100% Auto-Director • Auto Timer &amp; Themes • Confetti &amp; XP Animations</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA 3D HOLOGRAM STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">Real-Time 3D Wireframe → Laser Materialization → Reality Lock</div>
       </div>
     </div>
-    <div class="badge">⚡ Zero-Setup AI</div>
+    <div class="badge">🔮 True 3D Engine</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Platform Aspect Ratio</div>
+        <div class="card-title">1. Platform Format (Reels/Shorts vs YouTube Long)</div>
         <div class="grid-2" style="margin-bottom:0;">
-          <div class="pill active" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long</div>
-          <div class="pill" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts</div>
+          <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts</div>
+          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long</div>
         </div>
       </div>
 
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">2. Paste Questions from ChatGPT / Gemini</div>
-          <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy AI Prompt</button>
+        <div class="card-title">2. Video Duration &amp; 3D Models Count</div>
+        <div class="grid-4">
+          <div class="pill active" data-group="dur" data-val="18">⚡ 18s<br/><small>(2 Models)</small></div>
+          <div class="pill" data-group="dur" data-val="36">🔥 36s<br/><small>(4 Models)</small></div>
+          <div class="pill" data-group="dur" data-val="90">🎬 1.5 Min<br/><small>(10 Models)</small></div>
+          <div class="pill" data-group="dur" data-val="270">💰 4.5 Mins<br/><small>(30 Models)</small></div>
         </div>
 
-        <textarea id="custom-raw" placeholder="Paste questions from ChatGPT or Gemini here (1 per line):&#10;Question? | Option A | Option B | Option C | Option D | CorrectOptionNumber(1-4) | Short Fact&#10;&#10;Leave blank to test built-in demo questions!"></textarea>
+        <button class="btn-primary" id="btn-generate">💠 Render 3D Hologram Morph Video</button>
+      </div>
 
-        <button class="btn-primary" id="btn-generate">🎮 Auto-Direct &amp; Render Ultra-Gaming Video</button>
+      <div class="card">
+        <div class="info-box">
+          <strong style="color:#22d3ee;">Instant Scroll-Stop Visual Hook:</strong><br/>
+          Starts immediately in Frame 1 with a rotating 3D cyan blueprint wireframe, sweeps a glowing laser beam downward to materialize metallic 3D surfaces, and locks into reality with sci-fi sound effects.
+        </div>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Ready-to-Upload Gaming Video</div>
+        <div class="card-title">3. Ready-to-Upload 3D Hologram Video</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Paste questions (or click Generate directly to test) and let Auto-Director handle everything!
+          Ready — Choose Reels (18s) or Long and click Render!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -136,40 +135,29 @@
       ? window.location.origin
       : "http://127.0.0.1:5000";
 
-    let ratio = "16:9";
+    let ratio = "9:16";
+    let duration = "18";
 
     document.querySelectorAll(".pill").forEach(p => {
       p.onclick = () => {
-        document.querySelectorAll('.pill[data-group="ratio"]').forEach(x => x.classList.remove("active"));
+        const grp = p.dataset.group;
+        document.querySelectorAll(`.pill[data-group="${grp}"]`).forEach(x => x.classList.remove("active"));
         p.classList.add("active");
-        ratio = p.dataset.val;
+        if (grp === "ratio") ratio = p.dataset.val;
+        if (grp === "dur") duration = p.dataset.val;
       };
     });
-
-    document.getElementById("btn-copy-prompt").onclick = () => {
-      const promptText = `Generate 20 engaging, accurate MCQ questions on [ENTER TOPIC HERE e.g. Class 10 Science / Brain Riddles / World GK].
-Output ONLY plain lines in this exact pipe-separated format with NO numbering, NO markdown, and NO extra text:
-Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber(1-4) | Short 1-line fun fact`;
-      navigator.clipboard.writeText(promptText).then(() => {
-        const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Prompt Copied! Paste in Gemini/GPT";
-        setTimeout(() => btn.textContent = "📋 Copy AI Prompt", 3000);
-      });
-    };
 
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Auto-Director Analyzing Questions & Setting Timers...";
+      document.getElementById("status-txt").textContent = "Building 3D Vertices & Laser Shader...";
 
       try {
         const res = await fetch(API_BASE + "/api/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ratio,
-            custom_raw: document.getElementById("custom-raw").value
-          })
+          body: JSON.stringify({ ratio, duration })
         });
         const { job_id } = await res.json();
 
@@ -186,19 +174,18 @@ Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               document.getElementById("video-area").innerHTML = `
                 <video src="${streamUrl}" controls autoplay loop playsinline></video>
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download Gaming Quiz MP4 (${st.file_name})</a>
-                <div class="chap-box"><strong>Auto YouTube Chapters:</strong>\n${st.chapters}</div>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download 3D Hologram MP4 (${st.file_name})</a>
               `;
             } else if (st.status === "error") {
               clearInterval(poll);
             }
           } catch (e) {
             clearInterval(poll);
-            document.getElementById("status-txt").textContent = "Connection lost — please click Generate again!";
+            document.getElementById("status-txt").textContent = "Connection lost — please click Render again!";
           }
         }, 1000);
       } catch (err) {
-        document.getElementById("status-txt").textContent = "Server waking up — click Generate again in 5 seconds!";
+        document.getElementById("status-txt").textContent = "Server waking up — click Render again in 5 seconds!";
       }
     };
   </script>
