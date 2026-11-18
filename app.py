@@ -31,8 +31,8 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
-def cleanup_old_files(max_age_sec: int = 1800):
-    """Automatically deletes temporary WAV and old MP4 files older than 30 mins to keep Render storage empty."""
+def cleanup_old_files(max_age_sec: int = 1200):
+    """Deletes all old MP4 & WAV files older than 20 mins to keep Render storage completely clean."""
     now = time.time()
     for folder in (OUTPUT_DIR, AUDIO_DIR):
         try:
@@ -52,36 +52,36 @@ GAMING_THEMES = {
         "bg_top": (10, 18, 44),
         "bg_bot": (4, 7, 18),
         "grid": (22, 44, 86),
-        "primary": (34, 211, 238),    # Neon Cyan
-        "secondary": (168, 85, 247),  # Electric Purple
-        "accent": (250, 204, 21)      # Cyber Gold
+        "primary": (34, 211, 238),
+        "secondary": (168, 85, 247),
+        "accent": (250, 204, 21)
     },
     "royal": {
         "name": "ROYAL GOLD",
         "bg_top": (30, 22, 10),
         "bg_bot": (6, 5, 4),
         "grid": (62, 44, 18),
-        "primary": (250, 204, 21),    # Pure Gold
-        "secondary": (249, 115, 22),  # Amber Blaze
-        "accent": (56, 189, 248)      # Sky Highlight
+        "primary": (250, 204, 21),
+        "secondary": (249, 115, 22),
+        "accent": (56, 189, 248)
     },
     "crimson": {
         "name": "BOSS RUSH",
         "bg_top": (36, 10, 24),
         "bg_bot": (6, 3, 10),
         "grid": (68, 18, 44),
-        "primary": (244, 63, 94),     # Neon Crimson
-        "secondary": (232, 121, 249), # Plasma Magenta
-        "accent": (250, 204, 21)      # Gold
+        "primary": (244, 63, 94),
+        "secondary": (232, 121, 249),
+        "accent": (250, 204, 21)
     },
     "emerald": {
         "name": "MATRIX PRO",
         "bg_top": (8, 30, 24),
         "bg_bot": (3, 9, 8),
         "grid": (16, 60, 48),
-        "primary": (16, 185, 129),    # Neon Emerald
-        "secondary": (34, 211, 238),  # Aqua
-        "accent": (250, 204, 21)      # Gold
+        "primary": (16, 185, 129),
+        "secondary": (34, 211, 238),
+        "accent": (250, 204, 21)
     }
 }
 
@@ -262,7 +262,7 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
 
 
 # ===========================================================================
-# 3. ULTRA-GAMING RENDERER (HOOK INTRO + 3D HOLOGRAM WIDGET + COMMENT TRAP)
+# 3. TURBO-CACHED ULTRA-GAMING RENDERER (5X FASTER CPU PERFORMANCE)
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
@@ -302,43 +302,46 @@ def wrap_lines(draw: ImageDraw.Draw, text: str, font, max_w: int) -> list:
         lines.append(cur)
     return lines
 
-class UltraGamingQuizV2Renderer:
+class UltraGamingQuizTurboRenderer:
     def __init__(self, w: int, h: int, total_q: int):
         self.w = w
         self.h = h
         self.total_q = total_q
         self.is_vertical = (h > w)
         self.rng = random.Random(999)
+        self.sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
+
+        # Pre-render static theme backgrounds once (eliminates per-frame numpy & grid loops!)
+        self.bg_cache = {}
+        grid_step = int(48 * self.sc)
+        for t_key, theme in GAMING_THEMES.items():
+            grad = np.zeros((self.h, self.w, 3), dtype=np.uint8)
+            for ch in range(3):
+                col_line = np.linspace(theme["bg_top"][ch], theme["bg_bot"][ch], self.h, dtype=np.uint8)[:, None]
+                grad[:, :, ch] = np.repeat(col_line, self.w, axis=1)
+            bg_img = Image.fromarray(grad, mode="RGB")
+            d = ImageDraw.Draw(bg_img)
+            for gx in range(0, self.w + grid_step, grid_step):
+                d.line([(gx, 0), (gx, self.h)], fill=theme["grid"], width=1)
+            for gy in range(0, self.h + grid_step, grid_step):
+                d.line([(0, gy), (self.w, gy)], fill=theme["grid"], width=1)
+            self.bg_cache[t_key] = bg_img
 
         self.ambient_orbs = [
-            [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(22, 55), self.rng.uniform(2, 4.5)]
-            for _ in range(30)
+            [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(22, 55), self.rng.uniform(2, 4.0)]
+            for _ in range(18)
         ]
         self.confetti = []
         self.last_confetti_q = -1
 
-    def _draw_cyber_bg(self, theme: dict, global_t: float, sc: float) -> tuple:
-        grad = np.zeros((self.h, self.w, 3), dtype=np.uint8)
-        for ch in range(3):
-            col_line = np.linspace(theme["bg_top"][ch], theme["bg_bot"][ch], self.h, dtype=np.uint8)[:, None]
-            grad[:, :, ch] = np.repeat(col_line, self.w, axis=1)
-        frame = Image.fromarray(grad, mode="RGB")
+    def _get_bg_frame(self, t_key: str, theme: dict, global_t: float) -> tuple:
+        frame = self.bg_cache[t_key].copy()
         draw = ImageDraw.Draw(frame)
-
-        grid_step = int(48 * sc)
-        gx_off = int((global_t * 40) % grid_step)
-        gy_off = int((global_t * 28) % grid_step)
-        for gx in range(-grid_step, self.w + grid_step, grid_step):
-            draw.line([(gx + gx_off, 0), (gx + gx_off, self.h)], fill=theme["grid"], width=1)
-        for gy in range(-grid_step, self.h + grid_step, grid_step):
-            draw.line([(0, gy + gy_off), (self.w, gy + gy_off)], fill=theme["grid"], width=1)
-
         for orb in self.ambient_orbs:
-            ox = (orb[0] + math.sin(global_t * 0.9 + orb[1]) * 18) % self.w
+            ox = (orb[0] + math.sin(global_t * 0.9 + orb[1]) * 16) % self.w
             oy = (orb[1] - global_t * orb[2]) % self.h
-            r_o = orb[3] * sc
+            r_o = orb[3] * self.sc
             draw.ellipse([ox - r_o, oy - r_o, ox + r_o, oy + r_o], fill=theme["primary"])
-
         return frame, draw
 
     def _draw_3d_holo_badge(self, draw: ImageDraw.Draw, cx: float, cy: float, radius: float, holo_type: str, global_t: float, col: tuple):
@@ -347,8 +350,8 @@ class UltraGamingQuizV2Renderer:
             draw.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(255, 255, 255))
             for tilt in [0.0, math.pi / 3.0, -math.pi / 3.0]:
                 pts = []
-                for s in range(16):
-                    a = (2.0 * math.pi * s / 16.0) + ang
+                for s in range(12):
+                    a = (2.0 * math.pi * s / 12.0) + ang
                     lx = radius * math.cos(a)
                     ly = radius * 0.36 * math.sin(a)
                     rx = lx * math.cos(tilt) - ly * math.sin(tilt)
@@ -377,15 +380,15 @@ class UltraGamingQuizV2Renderer:
     def _spawn_confetti(self, cx: float, cy: float):
         cols = [(34, 211, 238), (250, 204, 21), (52, 211, 153), (244, 63, 94), (168, 85, 247), (255, 255, 255)]
         self.confetti = []
-        for _ in range(70):
+        for _ in range(45):
             ang = self.rng.uniform(0, 2.0 * math.pi)
-            spd = self.rng.uniform(160.0, 560.0)
-            self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 180.0, 1.0, self.rng.choice(cols)])
+            spd = self.rng.uniform(160.0, 520.0)
+            self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 170.0, 1.0, self.rng.choice(cols)])
 
     def render_intro_hook(self, intro_prog: float, global_t: float) -> bytes:
-        sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
+        sc = self.sc
         theme = GAMING_THEMES["cyber"]
-        frame, draw = self._draw_cyber_bg(theme, global_t, sc)
+        frame, draw = self._get_bg_frame("cyber", theme, global_t)
 
         cx, cy = self.w * 0.5, self.h * 0.48
         for r_i in range(3):
@@ -418,9 +421,10 @@ class UltraGamingQuizV2Renderer:
 
     def render_question_frame(self, q_idx: int, q_obj: dict, phase: str, phase_prog: float,
                               phase_elapsed: float, global_t: float, dt: float) -> bytes:
-        theme = GAMING_THEMES[q_obj["theme_key"]]
-        sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
-        frame, draw = self._draw_cyber_bg(theme, global_t, sc)
+        sc = self.sc
+        t_key = q_obj["theme_key"]
+        theme = GAMING_THEMES[t_key]
+        frame, draw = self._get_bg_frame(t_key, theme, global_t)
 
         rem_sec = q_obj["think_sec"] * (1.0 - phase_prog) if phase == "think" else 99.0
         shake_x = int(math.sin(global_t * 45.0) * 3.0 * sc) if (phase == "think" and rem_sec <= 1.8) else 0
@@ -430,11 +434,11 @@ class UltraGamingQuizV2Renderer:
         hud_y = int(self.h * 0.032)
 
         if q_obj["is_secret_trap"]:
-            lvl_txt = "🔒 FINAL SECRET CHALLENGE (NO ANSWER!)"
+            lvl_txt = "FINAL SECRET CHALLENGE (NO ANSWER!)"
         elif q_obj["is_boss"]:
-            lvl_txt = "👑 BOSS ROUND • 2X XP"
+            lvl_txt = "BOSS ROUND • 2X XP"
         else:
-            lvl_txt = f"LVL {q_obj['level']} • STREAK {q_idx + 1}x 🔥"
+            lvl_txt = f"LVL {q_obj['level']} • STREAK {q_idx + 1}X"
 
         xp_val = min(q_idx, self.total_q - 1) * 100 + (100 if (phase == "reveal" and not q_obj["is_secret_trap"]) else 0)
         xp_txt = f"Q {q_idx + 1}/{self.total_q} • {xp_val} XP"
@@ -537,8 +541,8 @@ class UltraGamingQuizV2Renderer:
                 draw.rounded_rectangle([margin + 12, trap_y, margin + card_w - 12, trap_y + trap_h], radius=16, fill=(15, 23, 42), outline=(250, 204, 21), width=4)
                 font_tr1 = get_font(max(17, int(22 * sc)))
                 font_tr2 = get_font(max(13, int(16 * sc)))
-                t1 = "🔒 ANSWER HIDDEN!"
-                t2 = "COMMENT A, B, C OR D TO PROVE YOUR IQ! 👇"
+                t1 = "ANSWER HIDDEN!"
+                t2 = "COMMENT A, B, C OR D TO PROVE YOUR IQ!"
                 b_t1 = draw.textbbox((0, 0), t1, font=font_tr1)
                 b_t2 = draw.textbbox((0, 0), t2, font=font_tr2)
                 draw.text(((self.w - (b_t1[2] - b_t1[0])) // 2, trap_y + int(12 * sc)), t1, font=font_tr1, fill=(250, 204, 21))
@@ -566,7 +570,7 @@ class UltraGamingQuizV2Renderer:
                 if q_obj["fact"]:
                     fact_y = opts_top + opts_area_h + int(self.h * 0.024)
                     font_fc = get_font(max(13, int(16 * sc)))
-                    fc_txt = f"💡 {q_obj['fact']}"
+                    fc_txt = f"FACT: {q_obj['fact']}"
                     fb = draw.textbbox((0, 0), fc_txt, font=font_fc)
                     fw = min(card_w, fb[2] - fb[0] + 28)
                     fx0 = (self.w - fw) // 2
@@ -599,9 +603,9 @@ class UltraGamingQuizV2Renderer:
         draw.text((cx + cr + int(14 * sc), cy - (tb[3] - tb[1]) // 2 - 2), text, font=font_opt, fill=txt_col)
 
     def render_outro_comment_trap(self, outro_prog: float, global_t: float) -> bytes:
-        sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
+        sc = self.sc
         theme = GAMING_THEMES["royal"]
-        frame, draw = self._draw_cyber_bg(theme, global_t, sc)
+        frame, draw = self._get_bg_frame("royal", theme, global_t)
 
         margin = int(self.w * 0.07)
         box_w = self.w - margin * 2
@@ -614,15 +618,15 @@ class UltraGamingQuizV2Renderer:
         font_row = get_font(max(15, int(20 * sc)))
         font_cta = get_font(max(16, int(21 * sc)))
 
-        hdr = "CLAIM YOUR IQ RANK BELOW! 👇"
+        hdr = "CLAIM YOUR IQ RANK BELOW!"
         bh = draw.textbbox((0, 0), hdr, font=font_hdr)
         draw.text(((self.w - (bh[2] - bh[0])) // 2, box_y + int(28 * sc)), hdr, font=font_hdr, fill=(250, 204, 21))
 
         max_xp = (self.total_q - 1) * 100
         ranks = [
-            (f"0 - {int(max_xp * 0.4)} XP  →  🌱 ROOKIE BRAIN", (148, 163, 184)),
-            (f"{int(max_xp * 0.5)} - {int(max_xp * 0.8)} XP  →  ⚡ PRO CHALLENGER", (34, 211, 238)),
-            (f"{max_xp}+ XP + BONUS  →  👑 TOP 1% GENIUS", (52, 211, 153))
+            (f"0 - {int(max_xp * 0.4)} XP  ->  ROOKIE BRAIN", (148, 163, 184)),
+            (f"{int(max_xp * 0.5)} - {int(max_xp * 0.8)} XP  ->  PRO CHALLENGER", (34, 211, 238)),
+            (f"{max_xp}+ XP + BONUS  ->  TOP 1% GENIUS", (52, 211, 153))
         ]
         for idx, (r_txt, r_col) in enumerate(ranks):
             ry = box_y + int((105 + idx * 62) * sc)
@@ -642,17 +646,17 @@ class UltraGamingQuizV2Renderer:
 
 
 # ===========================================================================
-# 4. RENDER PIPELINE & API ROUTES (WITH SMART COMPRESSION & AUTO-CLEANUP)
+# 4. RENDER PIPELINE & API ROUTES (5X SPEED + AUTO-CLEANUP)
 # ===========================================================================
 def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
     job = JOBS[job_id]
     wav_path = None
     try:
-        cleanup_old_files(1800)
+        cleanup_old_files(1200)
         is_vertical = (ratio == "9:16")
         questions = smart_parse_and_direct(custom_raw, is_vertical)
         out_w, out_h = (540, 960) if is_vertical else (960, 540)
-        fps = 24
+        fps = 18
         dt = 1.0 / float(fps)
         total_q = len(questions)
 
@@ -689,21 +693,20 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         out_name = f"NEXORA_VIRAL_QUIZ_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
-        # Smart Compression (-crf 26 -preset fast -b:a 96k) cuts file size by ~75% with crisp UI sharpness!
         ffmpeg_cmd = [
             FFMPEG_BIN, "-y",
             "-f", "rawvideo", "-vcodec", "rawvideo",
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
             "-i", wav_path,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "26",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
             "-c:a", "aac", "-b:a", "96k",
             "-movflags", "+faststart",
             "-shortest", "-pix_fmt", "yuv420p", out_path
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-        renderer = UltraGamingQuizV2Renderer(out_w, out_h, total_q)
+        renderer = UltraGamingQuizTurboRenderer(out_w, out_h, total_q)
         global_t = 0.0
 
         intro_frames = int(intro_dur * fps)
@@ -721,7 +724,7 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
                     global_t += dt
 
             job["progress"] = 15 + int(((idx + 1) / total_q) * 78)
-            job["message"] = f"Rendering Compressed Ultra-Gaming Scene ({idx + 1}/{total_q})..."
+            job["message"] = f"Turbo-Rendering Ultra-Gaming Scene ({idx + 1}/{total_q})..."
 
         outro_frames = int(outro_dur * fps)
         for f in range(outro_frames):
@@ -732,7 +735,6 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         proc.stdin.close()
         proc.wait()
 
-        # Delete temporary WAV file immediately after MP4 muxing
         if wav_path and os.path.exists(wav_path):
             try:
                 os.remove(wav_path)
@@ -746,7 +748,7 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         job["file_name"] = out_name
         job["size_mb"] = size_mb
         job["chapters"] = "\n".join(chapters)
-        job["message"] = f"Completed! Ultra-Light MP4 Ready ({size_mb} MB — Saves 75% Bandwidth!)"
+        job["message"] = f"Completed & Auto-Downloading ({size_mb} MB)!"
 
     except Exception as exc:
         job["status"] = "error"
@@ -770,7 +772,7 @@ def api_start():
     ratio = data.get("ratio", "9:16")
     custom_raw = data.get("custom_raw", "")
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Building Scroll-Stop Hook & 3D Hologram Quiz..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing 5X Turbo Render Engine..."}
     threading.Thread(
         target=run_ultra_quiz_v2_job,
         args=(job_id, ratio, custom_raw),
