@@ -31,6 +31,18 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
+def cleanup_old_files(max_age_sec: int = 1800):
+    """Automatically deletes temporary WAV and old MP4 files older than 30 mins to keep Render storage empty."""
+    now = time.time()
+    for folder in (OUTPUT_DIR, AUDIO_DIR):
+        try:
+            for fname in os.listdir(folder):
+                fpath = os.path.join(folder, fname)
+                if os.path.isfile(fpath) and (now - os.path.getmtime(fpath)) > max_age_sec:
+                    os.remove(fpath)
+        except Exception:
+            pass
+
 # ===========================================================================
 # 1. ULTRA-GAMING VISUAL THEMES & AUTO-DIRECTOR ANALYZER
 # ===========================================================================
@@ -82,12 +94,6 @@ DEFAULT_SAMPLE_QUESTIONS = [
 ]
 
 def smart_parse_and_direct(raw_text: str, is_vertical: bool):
-    """
-    Parses pasted ChatGPT/Gemini questions and builds a high-retention director plan:
-    - Reserves the final question as an UNANSWERED PSYCHOLOGICAL COMMENT TRAP!
-    - For 9:16 Shorts/Reels, auto-selects top 3 punchy questions + 1 Locked Bonus Trap (~20s total).
-    - Auto-assigns 3D hologram widget type (atom, globe, cube) & dynamic gaming themes.
-    """
     items = []
     for ln in str(raw_text or "").splitlines():
         ln = ln.strip()
@@ -107,7 +113,6 @@ def smart_parse_and_direct(raw_text: str, is_vertical: bool):
     if not items:
         items = [dict(x) for x in DEFAULT_SAMPLE_QUESTIONS]
 
-    # For 9:16 Shorts/Reels, keep it ultra-fast (3 main + 1 secret comment-trap bonus = 4 total)
     if is_vertical and len(items) > 4:
         items = items[:4]
     elif len(items) < 2:
@@ -123,7 +128,6 @@ def smart_parse_and_direct(raw_text: str, is_vertical: bool):
         is_secret_trap = (idx == total_n - 1)
         is_boss = ((idx + 1) % 5 == 0) and not is_secret_trap
 
-        # Auto-timer pacing (faster on Shorts to trigger re-watches)
         has_math = bool(re.search(r"[0-9%+\-*/=]|calculate|solve|how many|equation|ratio", q_low))
         if is_vertical:
             think_sec = 4.2 if has_math else 3.4
@@ -139,22 +143,16 @@ def smart_parse_and_direct(raw_text: str, is_vertical: bool):
             read_sec = max(1.5, min(2.8, word_cnt * 0.14))
             reveal_sec = 3.2 if is_secret_trap else (2.9 if item["fact"] else 2.3)
 
-        # Auto-select 3D Hologram Widget & Color Theme
         if is_secret_trap:
-            t_key = "crimson"
-            holo_type = "cube"
+            t_key, holo_type = "crimson", "cube"
         elif is_boss:
-            t_key = "crimson"
-            holo_type = "atom"
+            t_key, holo_type = "crimson", "atom"
         elif any(k in q_low for k in ["space", "planet", "atom", "physics", "science", "chem", "bio", "energy", "light", "si unit", "gas", "vitamin"]):
-            t_key = "cyber"
-            holo_type = "atom"
+            t_key, holo_type = "cyber", "atom"
         elif any(k in q_low for k in ["history", "king", "india", "world", "capital", "country", "war", "earth", "coffee"]):
-            t_key = "royal"
-            holo_type = "globe"
+            t_key, holo_type = "royal", "globe"
         elif any(k in q_low for k in ["riddle", "brain", "logic", "number", "math", "train", "father", "hearts"]):
-            t_key = "emerald"
-            holo_type = "cube"
+            t_key, holo_type = "emerald", "cube"
         else:
             t_key = theme_keys[(idx // 3) % len(theme_keys)]
             holo_type = ["atom", "globe", "cube"][idx % 3]
@@ -186,7 +184,6 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
     beat_dur = 60.0 / bpm
     beat_pos = (t % beat_dur) / beat_dur
 
-    # Driving cyber-gaming kick & sub-bass pulse
     kick = np.sin(2.0 * np.pi * (54.0 + 60.0 * np.exp(-beat_pos * 18.0)) * (t % beat_dur)) * np.exp(-beat_pos * 8.5) * 0.25
     bass_notes = [110.0, 110.0, 130.81, 146.83, 98.0, 98.0, 130.81, 164.81]
     b_idx = (t / (beat_dur * 2.0)).astype(np.int32)
@@ -196,7 +193,6 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
     audio = kick + bass
     rng = np.random.default_rng(2026)
 
-    # 0. Shock-wave Impact Boom at 0.05s for instant Scroll-Stop!
     imp_len = min(n, int(0.65 * rate))
     if imp_len > 0:
         ti = np.linspace(0, imp_len / float(rate), imp_len, endpoint=False, dtype=np.float32)
@@ -204,7 +200,6 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
         audio[:imp_len] += boom
 
     for q_obj, t_start, t_think_start, t_reveal_start, t_end in timeline:
-        # Card Slide-In Whoosh
         s0 = int(t_start * rate)
         w_len = int(0.26 * rate)
         if s0 + w_len < n:
@@ -213,7 +208,6 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
             env = np.sin(np.pi * (tw / 0.26)) ** 1.5
             audio[s0:s0 + w_len] += noise * env * 0.18
 
-        # Accelerating Digital Countdown Ticks
         cur_t = t_think_start + 0.15
         tick_i = 0
         while cur_t < t_reveal_start - 0.10:
@@ -229,13 +223,11 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
             cur_t += step
             tick_i += 1
 
-        # Reveal Sound: Mystery Lock Alarm for final trap question vs Victory XP Chord for normal questions!
         sr = int(t_reveal_start * rate)
         r_len = int(0.75 * rate)
         if sr + r_len < n:
             tr = np.linspace(0, 0.75, r_len, endpoint=False, dtype=np.float32)
             if q_obj["is_secret_trap"]:
-                # Suspenseful double-lock ping!
                 p1 = np.sin(2.0 * np.pi * 622.25 * tr) * np.exp(-tr * 8.0)
                 p2 = np.sin(2.0 * np.pi * 587.33 * np.maximum(0, tr - 0.16)) * np.exp(-np.maximum(0, tr - 0.16) * 7.0)
                 audio[sr:sr + r_len] += (p1 + p2) * 0.34
@@ -246,7 +238,6 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
                 c4 = np.sin(2.0 * np.pi * 2093.00 * np.maximum(0, tr - 0.18)) * np.exp(-np.maximum(0, tr - 0.18) * 4.2)
                 audio[sr:sr + r_len] += (c1 + c2 + c3 + c4) * 0.24
 
-    # Outro Rank Claim Fanfare
     so = int((total_dur - outro_dur) * rate)
     o_len = min(n - so, int(0.9 * rate))
     if o_len > 0:
@@ -351,10 +342,8 @@ class UltraGamingQuizV2Renderer:
         return frame, draw
 
     def _draw_3d_holo_badge(self, draw: ImageDraw.Draw, cx: float, cy: float, radius: float, holo_type: str, global_t: float, col: tuple):
-        """Draws a live rotating 3D wireframe hologram icon in the corner of the question card."""
         ang = global_t * 2.2
         if holo_type == "atom":
-            # 3 tilted rotating orbital rings + glowing nucleus
             draw.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(255, 255, 255))
             for tilt in [0.0, math.pi / 3.0, -math.pi / 3.0]:
                 pts = []
@@ -368,12 +357,10 @@ class UltraGamingQuizV2Renderer:
                 draw.polygon(pts, outline=col)
         elif holo_type == "globe":
             draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=col, width=2)
-            # Rotating longitude meridian
             mer_w = abs(math.cos(ang)) * radius
             draw.ellipse([cx - mer_w, cy - radius, cx + mer_w, cy + radius], outline=col, width=1)
             draw.line([(cx - radius, cy), (cx + radius, cy)], fill=col, width=1)
         else:
-            # Rotating 3D Wireframe Cube
             r = radius * 0.65
             verts = [(-r, -r, -r), (r, -r, -r), (r, r, -r), (-r, r, -r),
                      (-r, -r, r), (r, -r, r), (r, r, r), (-r, r, r)]
@@ -396,13 +383,11 @@ class UltraGamingQuizV2Renderer:
             self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 180.0, 1.0, self.rng.choice(cols)])
 
     def render_intro_hook(self, intro_prog: float, global_t: float) -> bytes:
-        """0.0 - 1.5s High-Voltage Scroll-Stop Intro Frame."""
         sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
         theme = GAMING_THEMES["cyber"]
         frame, draw = self._draw_cyber_bg(theme, global_t, sc)
 
         cx, cy = self.w * 0.5, self.h * 0.48
-        # Expanding neon shockwave rings
         for r_i in range(3):
             ring_r = ((intro_prog * 1.4 + r_i * 0.33) % 1.0) * max(self.w, self.h) * 0.65
             draw.ellipse([cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r], outline=theme["primary"], width=3)
@@ -420,7 +405,6 @@ class UltraGamingQuizV2Renderer:
         b2 = draw.textbbox((0, 0), hook_l2, font=font_sub)
         draw.text(((self.w - (b2[2] - b2[0])) // 2, int(cy + 10 * sc)), hook_l2, font=font_sub, fill=(34, 211, 238))
 
-        # Ready countdown pill
         cd_num = max(1, 3 - int(intro_prog * 3))
         pill_txt = f"STARTING IN {cd_num}..."
         bp = draw.textbbox((0, 0), pill_txt, font=font_sub)
@@ -438,11 +422,9 @@ class UltraGamingQuizV2Renderer:
         sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
         frame, draw = self._draw_cyber_bg(theme, global_t, sc)
 
-        # Micro-shake in final 1.8s of countdown for intense gaming tension
         rem_sec = q_obj["think_sec"] * (1.0 - phase_prog) if phase == "think" else 99.0
         shake_x = int(math.sin(global_t * 45.0) * 3.0 * sc) if (phase == "think" and rem_sec <= 1.8) else 0
 
-        # Top Gaming HUD Bar
         font_hud = get_font(max(13, int(16 * sc)))
         margin = int(self.w * 0.055)
         hud_y = int(self.h * 0.032)
@@ -450,7 +432,7 @@ class UltraGamingQuizV2Renderer:
         if q_obj["is_secret_trap"]:
             lvl_txt = "🔒 FINAL SECRET CHALLENGE (NO ANSWER!)"
         elif q_obj["is_boss"]:
-            lvl_txt = f"👑 BOSS ROUND • 2X XP"
+            lvl_txt = "👑 BOSS ROUND • 2X XP"
         else:
             lvl_txt = f"LVL {q_obj['level']} • STREAK {q_idx + 1}x 🔥"
 
@@ -465,7 +447,6 @@ class UltraGamingQuizV2Renderer:
         draw.rounded_rectangle([self.w - margin - xw, hud_y, self.w - margin, hud_y + int(32 * sc)], radius=8, fill=(15, 23, 42), outline=theme["accent"], width=2)
         draw.text((self.w - margin - xw + 11, hud_y + int(6 * sc)), xp_txt, font=font_hud, fill=theme["accent"])
 
-        # Elastic Slide-In Question Card
         slide_t = ease_out_back(min(1.0, phase_elapsed / 0.38)) if phase == "read" else 1.0
         y_shift = int((1.0 - slide_t) * -130 * sc)
 
@@ -482,7 +463,6 @@ class UltraGamingQuizV2Renderer:
 
         draw.rounded_rectangle([margin + shake_x, q_top, margin + card_w + shake_x, q_top + q_h], radius=16, fill=(11, 17, 32), outline=q_border, width=3)
 
-        # Live Rotating 3D Hologram Widget in Top-Right of Question Card
         holo_r = 16 * sc
         self._draw_3d_holo_badge(draw, margin + card_w - holo_r - 14 * sc + shake_x, q_top + holo_r + 12 * sc, holo_r, q_obj["holo_type"], global_t, theme["primary"])
 
@@ -494,15 +474,12 @@ class UltraGamingQuizV2Renderer:
             lb = draw.textbbox((0, 0), ln, font=font_q)
             draw.text(((self.w - (lb[2] - lb[0])) // 2 + shake_x, ty_start + li * lh), ln, font=font_q, fill=(248, 250, 252))
 
-        # Neon Laser Countdown Bar
         timer_y = q_top + q_h + int(self.h * 0.024)
         timer_h = max(14, int(18 * sc))
         draw.rounded_rectangle([margin, timer_y, margin + card_w, timer_y + timer_h], radius=timer_h // 2, fill=(22, 30, 52))
 
         if phase == "read":
-            frac = 1.0
-            t_col = theme["primary"]
-            sec_lbl = f"{q_obj['think_sec']:.1f}s"
+            frac, t_col, sec_lbl = 1.0, theme["primary"], f"{q_obj['think_sec']:.1f}s"
         elif phase == "think":
             frac = max(0.0, 1.0 - phase_prog)
             t_col = (244, 63, 94) if rem_sec <= 1.8 else theme["accent"]
@@ -521,7 +498,6 @@ class UltraGamingQuizV2Renderer:
         sb = draw.textbbox((0, 0), sec_lbl, font=font_tm)
         draw.text(((self.w - (sb[2] - sb[0])) // 2, timer_y - 1), sec_lbl, font=font_tm, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0))
 
-        # Staggered Option Cards (A, B, C, D)
         opts = q_obj["opts"]
         ans_idx = q_obj["ans"]
         labels = ["A", "B", "C", "D"]
@@ -554,10 +530,8 @@ class UltraGamingQuizV2Renderer:
                 self._draw_option(draw, ox0, oy0, ox0 + box_w, oy0 + box_h,
                                   labels[i], opts[i], i == ans_idx, q_obj["is_secret_trap"], phase, theme, font_lbl, font_opt, sc)
 
-        # Reveal Phase: Either Psychological Comment Trap Overlay OR Confetti + XP + Fact!
         if phase == "reveal":
             if q_obj["is_secret_trap"]:
-                # PSYCHOLOGICAL COMMENT TRAP BANNER OVER OPTIONS!
                 trap_h = int(86 * sc)
                 trap_y = opts_top + (opts_area_h - trap_h) // 2
                 draw.rounded_rectangle([margin + 12, trap_y, margin + card_w - 12, trap_y + trap_h], radius=16, fill=(15, 23, 42), outline=(250, 204, 21), width=4)
@@ -625,7 +599,6 @@ class UltraGamingQuizV2Renderer:
         draw.text((cx + cr + int(14 * sc), cy - (tb[3] - tb[1]) // 2 - 2), text, font=font_opt, fill=txt_col)
 
     def render_outro_comment_trap(self, outro_prog: float, global_t: float) -> bytes:
-        """Final 2.8s Psychological Status & Comment Call-To-Action Screen."""
         sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
         theme = GAMING_THEMES["royal"]
         frame, draw = self._draw_cyber_bg(theme, global_t, sc)
@@ -656,7 +629,6 @@ class UltraGamingQuizV2Renderer:
             br = draw.textbbox((0, 0), r_txt, font=font_row)
             draw.text(((self.w - (br[2] - br[0])) // 2, ry), r_txt, font=font_row, fill=r_col)
 
-        # Pulsing Comment CTA Button
         pulse = 1.0 + 0.04 * math.sin(global_t * 10.0)
         cta_txt = "COMMENT YOUR XP + BONUS ANSWER!"
         bc = draw.textbbox((0, 0), cta_txt, font=font_cta)
@@ -670,11 +642,13 @@ class UltraGamingQuizV2Renderer:
 
 
 # ===========================================================================
-# 4. RENDER PIPELINE & API ROUTES
+# 4. RENDER PIPELINE & API ROUTES (WITH SMART COMPRESSION & AUTO-CLEANUP)
 # ===========================================================================
 def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
     job = JOBS[job_id]
+    wav_path = None
     try:
+        cleanup_old_files(1800)
         is_vertical = (ratio == "9:16")
         questions = smart_parse_and_direct(custom_raw, is_vertical)
         out_w, out_h = (540, 960) if is_vertical else (960, 540)
@@ -715,14 +689,16 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         out_name = f"NEXORA_VIRAL_QUIZ_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
+        # Smart Compression (-crf 26 -preset fast -b:a 96k) cuts file size by ~75% with crisp UI sharpness!
         ffmpeg_cmd = [
             FFMPEG_BIN, "-y",
             "-f", "rawvideo", "-vcodec", "rawvideo",
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
             "-i", wav_path,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "19",
-            "-c:a", "aac", "-b:a", "160k",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "26",
+            "-c:a", "aac", "-b:a", "96k",
+            "-movflags", "+faststart",
             "-shortest", "-pix_fmt", "yuv420p", out_path
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -730,14 +706,12 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         renderer = UltraGamingQuizV2Renderer(out_w, out_h, total_q)
         global_t = 0.0
 
-        # 1. Render 1.5s Scroll-Stop Intro
         intro_frames = int(intro_dur * fps)
         for f in range(intro_frames):
             raw_bytes = renderer.render_intro_hook(f / max(1, intro_frames - 1), global_t)
             proc.stdin.write(raw_bytes)
             global_t += dt
 
-        # 2. Render All Questions + Final Locked Bonus Trap
         for idx, (q_obj, t_start, t_think, t_reveal, t_end) in enumerate(timeline):
             for p_name, p_dur in [("read", q_obj["read_sec"]), ("think", q_obj["think_sec"]), ("reveal", q_obj["reveal_sec"])]:
                 n_frames = max(1, int(p_dur * fps))
@@ -747,9 +721,8 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
                     global_t += dt
 
             job["progress"] = 15 + int(((idx + 1) / total_q) * 78)
-            job["message"] = f"Rendering Ultra-Gaming Scene ({idx + 1}/{total_q})..."
+            job["message"] = f"Rendering Compressed Ultra-Gaming Scene ({idx + 1}/{total_q})..."
 
-        # 3. Render 2.8s Psychological Rank & Comment Trap Outro
         outro_frames = int(outro_dur * fps)
         for f in range(outro_frames):
             raw_bytes = renderer.render_outro_comment_trap(f / max(1, outro_frames - 1), global_t)
@@ -759,12 +732,21 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         proc.stdin.close()
         proc.wait()
 
+        # Delete temporary WAV file immediately after MP4 muxing
+        if wav_path and os.path.exists(wav_path):
+            try:
+                os.remove(wav_path)
+            except Exception:
+                pass
+
+        size_mb = round(os.path.getsize(out_path) / (1024.0 * 1024.0), 1)
         job["status"] = "done"
         job["progress"] = 100
         job["file_path"] = out_path
         job["file_name"] = out_name
+        job["size_mb"] = size_mb
         job["chapters"] = "\n".join(chapters)
-        job["message"] = f"Completed! High-Retention Quiz Video Ready ({out_name})"
+        job["message"] = f"Completed! Ultra-Light MP4 Ready ({size_mb} MB — Saves 75% Bandwidth!)"
 
     except Exception as exc:
         job["status"] = "error"
