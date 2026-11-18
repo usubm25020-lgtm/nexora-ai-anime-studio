@@ -31,183 +31,91 @@ FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. PROCEDURAL 3D MESH LIBRARY (TRUE 3D VERTICES, EDGES & SHADED FACES)
+# 1. CLASSIFIED CCTV SCENARIOS & ANOMALY LOGS
 # ===========================================================================
-def build_3d_model(model_type: str):
-    """Returns (name, vertices_Nx3, edges_list, faces_list_of_tuples, accent_color)"""
-    verts = []
-    edges = []
-    faces = []
-
-    if model_type == "jet":
-        name = "STEALTH CYBER FIGHTER JET"
-        accent = (34, 211, 238)
-        # Sleek delta-wing fighter jet geometry
-        verts = [
-            (0.0, 0.0, 1.55),     # 0: Nose tip
-            (0.0, 0.22, 0.45),    # 1: Canopy top
-            (-0.24, 0.0, 0.35),   # 2: Left fuselage mid
-            (0.24, 0.0, 0.35),    # 3: Right fuselage mid
-            (0.0, -0.14, 0.35),   # 4: Belly mid
-            (-1.35, -0.05, -0.65),# 5: Left wingtip
-            (1.35, -0.05, -0.65), # 6: Right wingtip
-            (-0.32, 0.05, -0.95), # 7: Left engine exhaust
-            (0.32, 0.05, -0.95),  # 8: Right engine exhaust
-            (0.0, -0.15, -0.95),  # 9: Rear belly
-            (-0.45, 0.55, -0.88), # 10: Left twin tail fin
-            (0.45, 0.55, -0.88),  # 11: Right twin tail fin
-        ]
-        faces = [
-            (0, 1, 2), (0, 3, 1), (0, 2, 4), (0, 4, 3),
-            (1, 7, 2), (1, 3, 8), (2, 5, 7), (3, 8, 6),
-            (2, 4, 5), (3, 6, 4), (4, 9, 5), (4, 6, 9),
-            (2, 7, 10), (3, 11, 8), (1, 8, 7), (4, 7, 9), (4, 9, 8)
-        ]
-
-    elif model_type == "saturn":
-        name = "RINGED EXOPLANET SATURN"
-        accent = (250, 204, 21)
-        # UV Sphere + Tilted Planetary Rings
-        stacks, slices = 10, 16
-        for i in range(stacks + 1):
-            phi = math.pi * i / stacks
-            y = 0.62 * math.cos(phi)
-            r = 0.62 * math.sin(phi)
-            for j in range(slices):
-                theta = 2.0 * math.pi * j / slices
-                verts.append((r * math.cos(theta), y, r * math.sin(theta)))
-
-        for i in range(stacks):
-            for j in range(slices):
-                jn = (j + 1) % slices
-                a = i * slices + j
-                b = a + 1 if j + 1 < slices else i * slices
-                c = (i + 1) * slices + j
-                d = (i + 1) * slices + jn
-                faces.append((a, c, d))
-                faces.append((a, d, b))
-
-        # Add outer planetary ring quad strips
-        base_idx = len(verts)
-        r_in, r_out = 0.85, 1.42
-        ring_segs = 24
-        for j in range(ring_segs):
-            ang = 2.0 * math.pi * j / ring_segs
-            verts.append((r_in * math.cos(ang), 0.02, r_in * math.sin(ang)))
-            verts.append((r_out * math.cos(ang), -0.02, r_out * math.sin(ang)))
-        for j in range(ring_segs):
-            jn = (j + 1) % ring_segs
-            i0 = base_idx + j * 2
-            i1 = i0 + 1
-            i2 = base_idx + jn * 2
-            i3 = i2 + 1
-            faces.append((i0, i1, i3))
-            faces.append((i0, i3, i2))
-
-    elif model_type == "dna":
-        name = "QUANTUM DNA DOUBLE HELIX"
-        accent = (16, 185, 129)
-        steps = 22
-        for i in range(steps):
-            t = (i / float(steps - 1)) * 2.0 - 1.0
-            y = t * 1.15
-            ang = t * math.pi * 2.2
-            r = 0.52
-            x1, z1 = r * math.cos(ang), r * math.sin(ang)
-            x2, z2 = -x1, -z1
-            verts.append((x1 - 0.08, y, z1))
-            verts.append((x1 + 0.08, y, z1))
-            verts.append((x2 - 0.08, y, z2))
-            verts.append((x2 + 0.08, y, z2))
-            if i > 0:
-                p = (i - 1) * 4
-                c = i * 4
-                faces.append((p, c, c + 1))
-                faces.append((p, c + 1, p + 1))
-                faces.append((p + 2, c + 2, c + 3))
-                faces.append((p + 2, c + 3, p + 3))
-            if i % 2 == 0:
-                c = i * 4
-                faces.append((c, c + 2, c + 3))
-                faces.append((c, c + 3, c + 1))
-
-    else:
-        name = "HYPER-CORE OCTAHEDRON REACTOR"
-        accent = (244, 63, 94)
-        verts = [
-            (0.0, 1.25, 0.0),    # 0 Top
-            (0.0, -1.25, 0.0),   # 1 Bottom
-            (1.10, 0.0, 0.0),    # 2 Right
-            (-1.10, 0.0, 0.0),   # 3 Left
-            (0.0, 0.0, 1.10),    # 4 Front
-            (0.0, 0.0, -1.10),   # 5 Back
-            (0.55, 0.55, 0.55),  # 6 Inner cube corners
-            (-0.55, 0.55, 0.55),
-            (0.55, -0.55, 0.55),
-            (-0.55, -0.55, 0.55),
-            (0.55, 0.55, -0.55),
-            (-0.55, 0.55, -0.55),
-            (0.55, -0.55, -0.55),
-            (-0.55, -0.55, -0.55)
-        ]
-        faces = [
-            (0, 4, 2), (0, 2, 5), (0, 5, 3), (0, 3, 4),
-            (1, 2, 4), (1, 5, 2), (1, 3, 5), (1, 4, 3),
-            (6, 7, 9), (6, 9, 8), (10, 12, 13), (10, 13, 11),
-            (6, 10, 11), (6, 11, 7), (8, 9, 13), (8, 13, 12)
-        ]
-
-    edge_set = set()
-    for a, b, c in faces:
-        edge_set.add(tuple(sorted((a, b))))
-        edge_set.add(tuple(sorted((b, c))))
-        edge_set.add(tuple(sorted((c, a))))
-
-    return name, np.array(verts, dtype=np.float32), list(edge_set), faces, accent
-
+CCTV_SCENARIOS = [
+    {
+        "cam": "CAM-04 • SUBWAY TUNNEL B",
+        "env": "tunnel",
+        "log1": "[03:14:02] MOTION SENSOR TRIGGERED IN SECTOR 4...",
+        "log2": "[WARNING] UNKNOWN ENTITY DETECTED — DO NOT APPROACH",
+        "anomaly": "shadow_walker"
+    },
+    {
+        "cam": "CAM-09 • BLACKWOOD FOREST",
+        "env": "forest",
+        "log1": "[02:47:19] THERMAL SIGNATURE SPIKE NEAR PERIMETER...",
+        "log2": "[ALERT] SUBJECT IS STARING DIRECTLY AT CAMERA",
+        "anomaly": "twin_eyes"
+    },
+    {
+        "cam": "CAM-02 • ABANDONED WARD 7",
+        "env": "corridor",
+        "log1": "[04:01:55] SIGNAL INTERFERENCE — FREQUENCY 19.4 HZ...",
+        "log2": "[CRITICAL] CONTAINMENT BREACH — FEED COMPROMISED",
+        "anomaly": "glitch_phantom"
+    },
+    {
+        "cam": "CAM-11 • ARCTIC OUTPOST 9",
+        "env": "outpost",
+        "log1": "[01:12:40] BLIZZARD VISIBILITY 12% — RADAR PING...",
+        "log2": "[DANGER] MASSIVE SILHOUETTE APPROACHING GATE",
+        "anomaly": "tall_stalker"
+    }
+]
 
 # ===========================================================================
-# 2. SCI-FI LASER SCANNING, HUM & MECHANICAL LOCK AUDIO ENGINE
+# 2. CCTV STATIC, HEARTBEAT, GLITCH & ANOMALY ALARM AUDIO SYNTHESIZER
 # ===========================================================================
-def build_hologram_audio_wav(stages: list, total_dur: float, out_wav: str):
-    """Synthesizes deep sci-fi reactor hum, rising laser scan frequency, and reality lock boom."""
+def build_cctv_audio_wav(events: list, total_dur: float, out_wav: str):
+    """Synthesizes eerie night-vision hum, static bursts, heartbeat, and anomaly alarm."""
     rate = 22050
     n = int(total_dur * rate)
     t = np.linspace(0, total_dur, n, endpoint=False, dtype=np.float32)
 
-    # Futuristic cyber pulse bass + harmonic shimmer
-    bpm = 118.0
-    beat_dur = 60.0 / bpm
-    b_pos = (t % beat_dur) / beat_dur
-    pulse = np.sin(2.0 * np.pi * 55.0 * t) * (0.18 + 0.14 * np.exp(-b_pos * 6.0))
-    shimmer = np.sin(2.0 * np.pi * 220.0 * t + 1.5 * np.sin(2.0 * np.pi * 3.0 * t)) * 0.06
-    audio = pulse + shimmer
+    rng = np.random.default_rng(666)
+    # 60Hz electrical camera hum + low eerie wind
+    hum = 0.045 * np.sin(2.0 * np.pi * 60.0 * t) + 0.035 * np.sin(2.0 * np.pi * 42.0 * t)
+    wind = rng.uniform(-1.0, 1.0, n).astype(np.float32)
+    # Simple low-pass smoothing for eerie wind
+    wind = np.convolve(wind, np.ones(45, dtype=np.float32) / 45.0, mode="same") * 0.14
 
-    for t_start, t_scan_start, t_lock, t_end in stages:
-        # Rising laser scan frequency sweep during materialization
-        s0 = int(t_scan_start * rate)
-        s1 = min(n, int(t_lock * rate))
-        if s0 < s1:
-            ts = np.linspace(0, (s1 - s0) / float(rate), s1 - s0, endpoint=False, dtype=np.float32)
-            prog = ts / max(0.01, (s1 - s0) / float(rate))
-            freq = 180.0 + 620.0 * (prog ** 1.4)
-            laser = np.sin(2.0 * np.pi * freq * ts) * (0.14 * np.sin(np.pi * prog))
-            audio[s0:s1] += laser
+    audio = hum + wind
 
-        # Heavy sci-fi sub-bass lock + bright crystalline chord at 100% Reality Lock!
-        sl = int(t_lock * rate)
-        l_len = min(n - sl, int(0.95 * rate))
-        if l_len > 0:
-            tl = np.linspace(0, l_len / float(rate), l_len, endpoint=False, dtype=np.float32)
-            boom = np.sin(2.0 * np.pi * (110.0 * np.exp(-tl * 7.0) + 42.0) * tl) * np.exp(-tl * 4.5) * 0.55
-            chord = (
-                0.35 * np.sin(2.0 * np.pi * 523.25 * tl) +
-                0.30 * np.sin(2.0 * np.pi * 659.25 * tl) +
-                0.25 * np.sin(2.0 * np.pi * 1046.50 * tl)
-            ) * np.exp(-tl * 4.0) * 0.30
-            audio[sl:sl + l_len] += (boom + chord)
+    for t_start, t_detect, t_end in events:
+        # 1. Subtle mechanical camera zoom whir at t_start
+        s0 = int(t_start * rate)
+        w_len = min(n - s0, int(0.45 * rate))
+        if w_len > 0:
+            tw = np.linspace(0, w_len / float(rate), w_len, endpoint=False, dtype=np.float32)
+            whir = np.sin(2.0 * np.pi * (240.0 + 180.0 * tw) * tw) * np.sin(np.pi * tw / 0.45) * 0.12
+            audio[s0:s0 + w_len] += whir
 
-    fade_s = min(int(0.8 * rate), n // 4)
+        # 2. Intense heartbeat + static glitch + radar warning beep when anomaly appears!
+        sd = int(t_detect * rate)
+        d_len = min(n - sd, int((t_end - t_detect) * rate))
+        if d_len > 0:
+            td = np.linspace(0, d_len / float(rate), d_len, endpoint=False, dtype=np.float32)
+            # Fast heartbeat thump (lub-dub every 0.65s)
+            hb_cycle = td % 0.65
+            lub = np.sin(2.0 * np.pi * 48.0 * hb_cycle) * np.exp(-hb_cycle * 22.0) * 0.48
+            dub_t = np.maximum(0.0, hb_cycle - 0.16)
+            dub = np.sin(2.0 * np.pi * 44.0 * dub_t) * np.exp(-dub_t * 25.0) * (hb_cycle > 0.16) * 0.38
+
+            # Radar alert ping at detection start
+            ping_len = min(d_len, int(0.85 * rate))
+            tp = td[:ping_len]
+            beep = np.sin(2.0 * np.pi * 960.0 * tp) * ((tp % 0.22) < 0.09) * 0.22
+
+            # Static burst
+            st_len = min(d_len, int(0.25 * rate))
+            static_burst = rng.uniform(-1.0, 1.0, st_len).astype(np.float32) * np.exp(-td[:st_len] * 10.0) * 0.32
+
+            audio[sd:sd + d_len] += (lub + dub)
+            audio[sd:sd + ping_len] += beep
+            audio[sd:sd + st_len] += static_burst
+
+    fade_s = min(int(0.6 * rate), n // 4)
     if fade_s > 0:
         audio[:fade_s] *= np.linspace(0, 1, fade_s)
         audio[-fade_s:] *= np.linspace(1, 0, fade_s)
@@ -221,15 +129,16 @@ def build_hologram_audio_wav(stages: list, total_dur: float, out_wav: str):
 
 
 # ===========================================================================
-# 3. 3D PROJECTION, LASER SCANNER & HOLOGRAM MORPH RENDERER
+# 3. NIGHT-VISION CCTV SCENE, ANOMALY ENTITY & GLITCH RENDERER
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
     if size in _FONT_CACHE:
         return _FONT_CACHE[size]
     for p in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf"
     ]:
         if os.path.exists(p):
             try:
@@ -240,151 +149,160 @@ def get_font(size: int):
                 pass
     return ImageFont.load_default()
 
-class Hologram3DRenderer:
+class CCTVAnomalyRenderer:
     def __init__(self, w: int, h: int):
         self.w = w
         self.h = h
         self.is_vertical = (h > w)
-        self.rng = random.Random(2026)
-        self.sparks = [
-            [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(25, 65)]
-            for _ in range(36)
-        ]
+        self.rng = np.random.default_rng(1337)
 
-    def render_frame(self, model_data: tuple, stage_prog: float, global_t: float) -> bytes:
-        m_name, base_verts, edges, faces, accent = model_data
+        # Precompute radial IR flashlight vignette (brighter center, dark corners)
+        yy, xx = np.ogrid[0:h, 0:w]
+        nx = (xx - w * 0.5) / (w * 0.52)
+        ny = (yy - h * 0.48) / (h * 0.52)
+        dist2 = nx * nx + ny * ny
+        self.vignette = np.clip(1.15 - 0.65 * dist2, 0.18, 1.0).astype(np.float32)
+
+        # Precompute horizontal CRT scanlines
+        self.scanlines = np.ones((h, 1, 1), dtype=np.float32)
+        self.scanlines[1::2, 0, 0] = 0.80
+
+    def _draw_environment(self, draw: ImageDraw.Draw, env: str, sc: float):
+        cx, cy = self.w * 0.5, self.h * 0.46
+        if env == "tunnel":
+            # Perspective subway tunnel rings & tracks
+            for r in range(1, 9):
+                rad_x = int(r * 68 * sc)
+                rad_y = int(r * 58 * sc)
+                shade = max(16, 48 - r * 4)
+                draw.ellipse([cx - rad_x, cy - rad_y, cx + rad_x, cy + rad_y], outline=(10, shade, 18), width=3)
+            draw.line([(cx - 40 * sc, cy + 30 * sc), (self.w * 0.18, self.h)], fill=(22, 68, 32), width=3)
+            draw.line([(cx + 40 * sc, cy + 30 * sc), (self.w * 0.82, self.h)], fill=(22, 68, 32), width=3)
+
+        elif env == "forest":
+            # Dark silhouettes of twisted trees & fog horizon
+            draw.rectangle([0, int(cy), self.w, self.h], fill=(8, 26, 14))
+            for tx_frac, tw in [(0.08, 28), (0.22, 18), (0.76, 22), (0.91, 32), (0.38, 12), (0.64, 14)]:
+                tx = int(self.w * tx_frac)
+                draw.rectangle([tx - int(tw * sc * 0.5), 0, tx + int(tw * sc * 0.5), self.h], fill=(4, 14, 8))
+
+        elif env == "corridor":
+            # Hospital/facility perspective hallway walls & doors
+            box_w, box_h = int(130 * sc), int(160 * sc)
+            x0, y0 = int(cx - box_w * 0.5), int(cy - box_h * 0.5)
+            x1, y1 = int(cx + box_w * 0.5), int(cy + box_h * 0.5)
+            draw.rectangle([x0, y0, x1, y1], outline=(18, 64, 30), width=2)
+            draw.line([(0, 0), (x0, y0)], fill=(16, 56, 26), width=2)
+            draw.line([(self.w, 0), (x1, y0)], fill=(16, 56, 26), width=2)
+            draw.line([(0, self.h), (x0, y1)], fill=(16, 56, 26), width=2)
+            draw.line([(self.w, self.h), (x1, y1)], fill=(16, 56, 26), width=2)
+
+        else:
+            # Outpost fence & radar tower silhouette
+            draw.rectangle([0, int(self.h * 0.65), self.w, self.h], fill=(10, 30, 18))
+            for fx in range(0, self.w, int(45 * sc)):
+                draw.line([(fx, int(self.h * 0.45)), (fx, int(self.h * 0.72))], fill=(18, 64, 32), width=2)
+            draw.line([(0, int(self.h * 0.52)), (self.w, int(self.h * 0.52))], fill=(18, 64, 32), width=2)
+
+    def render_frame(self, scenario: dict, seg_prog: float, global_t: float) -> bytes:
         sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
+        # Slight handheld/wind camera micro-shake
+        shake_x = int(math.sin(global_t * 17.0) * 2.0 * sc)
+        shake_y = int(math.cos(global_t * 13.0) * 2.0 * sc)
 
-        frame = Image.new("RGB", (self.w, self.h), (5, 8, 18))
+        frame = Image.new("RGB", (self.w, self.h), (5, 16, 9))
         draw = ImageDraw.Draw(frame)
 
-        # 1. Perspective 3D Hologram Floor Grid & Ambient Sparks
-        horizon_y = int(self.h * 0.62)
-        cx = self.w * 0.5
-        cy = self.h * 0.47
+        self._draw_environment(draw, scenario["env"], sc)
 
-        for i in range(-8, 9):
-            x_top = cx + i * int(34 * sc)
-            x_bot = cx + i * int(135 * sc)
-            draw.line([(x_top, horizon_y), (x_bot, self.h)], fill=(18, 34, 66), width=1)
+        # Anomaly emerges at 38% of the clip and lunges/moves closer!
+        detected = (seg_prog >= 0.38)
+        cx = int(self.w * 0.5 + math.sin(global_t * 1.4) * 35 * sc) + shake_x
+        cy = int(self.h * 0.48) + shake_y
 
-        for r_i in range(1, 8):
-            frac = ((r_i / 7.0) + (global_t * 0.35) % (1.0 / 7.0))
-            ry = horizon_y + int((self.h - horizon_y) * (frac ** 1.6))
-            draw.line([(0, ry), (self.w, ry)], fill=(18, 34, 66), width=1)
+        if detected:
+            d_prog = (seg_prog - 0.38) / 0.62
+            scale_ent = 0.65 + d_prog * 0.95
+            ent_h = int(150 * sc * scale_ent)
+            ent_w = int(56 * sc * scale_ent)
 
-        for sp in self.sparks:
-            sx = (sp[0] + math.sin(global_t + sp[1]) * 14) % self.w
-            sy = (sp[1] - global_t * sp[2]) % self.h
-            draw.ellipse([sx - 2, sy - 2, sx + 2, sy + 2], fill=accent)
+            # Dark shadowy humanoid silhouette
+            ex0, ey0 = cx - ent_w // 2, cy - ent_h // 2
+            ex1, ey1 = cx + ent_w // 2, cy + ent_h // 2
+            draw.ellipse([cx - int(20 * sc * scale_ent), ey0, cx + int(20 * sc * scale_ent), ey0 + int(38 * sc * scale_ent)], fill=(2, 6, 4))
+            draw.polygon([(ex0, ey1), (ex0 + int(10 * sc), ey0 + int(36 * sc * scale_ent)), (ex1 - int(10 * sc), ey0 + int(36 * sc * scale_ent)), (ex1, ey1)], fill=(2, 6, 4))
 
-        # 2. Rotate 3D Vertices in Real-Time (Yaw + Gentle Pitch Tilt)
-        yaw = global_t * 1.45
-        pitch = 0.38 + 0.14 * math.sin(global_t * 0.9)
+            # Piercing glowing white/red anomaly eyes
+            eye_y = ey0 + int(18 * sc * scale_ent)
+            eye_sep = max(4, int(8 * sc * scale_ent))
+            eye_r = max(2, int(3.0 * sc * scale_ent))
+            eye_col = (255, 60, 60) if d_prog > 0.55 else (220, 255, 230)
+            draw.ellipse([cx - eye_sep - eye_r, eye_y - eye_r, cx - eye_sep + eye_r, eye_y + eye_r], fill=eye_col)
+            draw.ellipse([cx + eye_sep - eye_r, eye_y - eye_r, cx + eye_sep + eye_r, eye_y + eye_r], fill=eye_col)
 
-        cy_a, sy_a = math.cos(yaw), math.sin(yaw)
-        cp_a, sp_a = math.cos(pitch), math.sin(pitch)
+            # Red Target-Lock Tracking Brackets around Anomaly!
+            pad = int(18 * sc)
+            bx0, by0, bx1, by1 = ex0 - pad, ey0 - pad, ex1 + pad, ey1 + pad
+            br_len = int(18 * sc)
+            b_col = (244, 63, 94)
+            for (px, py, dx, dy) in [(bx0, by0, 1, 1), (bx1, by0, -1, 1), (bx0, by1, 1, -1), (bx1, by1, -1, -1)]:
+                draw.line([(px, py), (px + dx * br_len, py)], fill=b_col, width=3)
+                draw.line([(px, py), (px, py + dy * br_len)], fill=b_col, width=3)
 
-        rot_y = np.array([[cy_a, 0, sy_a], [0, 1, 0], [-sy_a, 0, cy_a]], dtype=np.float32)
-        rot_x = np.array([[1, 0, 0], [0, cp_a, -sp_a], [0, sp_a, cp_a]], dtype=np.float32)
-        v_rot = (base_verts @ rot_y.T) @ rot_x.T
+            font_lock = get_font(max(12, int(14 * sc)))
+            draw.text((bx0, by0 - int(20 * sc)), f"ANOMALY LOCK [{int(d_prog * 99)}%]", font=font_lock, fill=b_col)
 
-        # Perspective projection to 2D screen coordinates
-        fov = min(self.w, self.h) * (0.62 if self.is_vertical else 0.56)
-        cam_z = 3.2
-        z_depth = cam_z - v_rot[:, 2]
-        px = cx + (v_rot[:, 0] / z_depth) * fov
-        py = cy - (v_rot[:, 1] / z_depth) * fov
+        # Apply Night-Vision IR Vignette, CRT Scanlines & Sensor Grain via NumPy
+        arr = np.asarray(frame, dtype=np.float32)
+        arr *= self.vignette[:, :, None]
+        arr *= self.scanlines
 
-        min_py = float(np.min(py))
-        max_py = float(np.max(py))
-        span_py = max(10.0, max_py - min_py)
+        # Add live sensor ISO grain
+        noise = self.rng.integers(-14, 15, size=(self.h, self.w, 1), dtype=np.int16)
+        arr = np.clip(arr + noise, 0, 255).astype(np.uint8)
 
-        # Morph threshold: 0.0 -> 0.25 pure wireframe; 0.25 -> 0.85 laser sweeps down; 0.85 -> 1.0 full reality
-        if stage_prog < 0.25:
-            scan_y = min_py - 20.0
-            phase_label = "PHASE 1: WIREFRAME BLUEPRINT"
-        elif stage_prog < 0.85:
-            scan_frac = (stage_prog - 0.25) / 0.60
-            scan_y = min_py + span_py * scan_frac
-            phase_label = "PHASE 2: LASER MATERIALIZING..."
-        else:
-            scan_y = max_py + 40.0
-            phase_label = "PHASE 3: 100% REALITY LOCKED!"
+        # Glitch horizontal slice shift right when anomaly is first detected!
+        if 0.38 <= seg_prog <= 0.44 or (detected and int(global_t * 14) % 9 == 0):
+            for _ in range(4):
+                gy = int(self.rng.integers(0, max(1, self.h - 24)))
+                gh = int(self.rng.integers(6, 22))
+                shift = int(self.rng.integers(-28, 29))
+                arr[gy:gy + gh] = np.roll(arr[gy:gy + gh], shift, axis=1)
 
-        # 3. Draw Solid Shaded 3D Faces ABOVE the Laser Scan Line (Painter's Algorithm Depth Sort)
-        light_dir = np.array([0.4, 0.7, 0.6], dtype=np.float32)
-        light_dir /= np.linalg.norm(light_dir)
+        frame = Image.fromarray(arr, mode="RGB")
+        draw = ImageDraw.Draw(frame)
 
-        face_depths = []
-        for idx_f, (a, b, c) in enumerate(faces):
-            avg_z = (v_rot[a, 2] + v_rot[b, 2] + v_rot[c, 2]) / 3.0
-            face_depths.append((avg_z, a, b, c))
-        face_depths.sort(key=lambda x: x[0])
+        # CCTV HUD Overlays (REC dot, Live Timestamp, Camera ID, Typewriter Log)
+        margin = int(self.w * 0.045)
+        font_hud = get_font(max(14, int(18 * sc)))
+        font_log = get_font(max(13, int(16 * sc)))
 
-        for _, a, b, c in face_depths:
-            f_cy = (py[a] + py[b] + py[c]) / 3.0
-            if f_cy <= scan_y:
-                # Compute 3D surface normal for metallic directional lighting
-                e1 = v_rot[b] - v_rot[a]
-                e2 = v_rot[c] - v_rot[a]
-                norm = np.cross(e1, e2)
-                n_len = np.linalg.norm(norm)
-                if n_len > 1e-5:
-                    norm /= n_len
-                shade = 0.35 + 0.65 * abs(float(np.dot(norm, light_dir)))
-                fill_col = (
-                    min(255, int(accent[0] * shade)),
-                    min(255, int(accent[1] * shade)),
-                    min(255, int(accent[2] * shade))
-                )
-                outline_col = (
-                    min(255, int(accent[0] * 0.9 + 40)),
-                    min(255, int(accent[1] * 0.9 + 40)),
-                    min(255, int(accent[2] * 0.9 + 40))
-                )
-                draw.polygon([(px[a], py[a]), (px[b], py[b]), (px[c], py[c])], fill=fill_col, outline=outline_col)
+        # Blinking Red REC Indicator
+        rec_y = int(self.h * 0.035)
+        if int(global_t * 2.5) % 2 == 0:
+            draw.ellipse([margin, rec_y + 3, margin + int(14 * sc), rec_y + int(17 * sc)], fill=(239, 68, 68))
+        draw.text((margin + int(22 * sc), rec_y), "REC  •  NIGHT VISION IR", font=font_hud, fill=(220, 252, 231))
 
-        # 4. Draw Glowing Cyan Blueprint Wireframe Edges BELOW the Laser Scan Line
-        for a, b in edges:
-            e_cy = (py[a] + py[b]) * 0.5
-            if e_cy > scan_y:
-                draw.line([(px[a], py[a]), (px[b], py[b])], fill=(34, 211, 238), width=2)
+        # Running Millisecond Timecode
+        ms = int((global_t % 1.0) * 100)
+        secs = int(global_t) % 60
+        mins = (int(global_t) // 60) % 60
+        tc_txt = f"03:{14 + mins:02d}:{secs:02d}:{ms:02d}"
+        tb = draw.textbbox((0, 0), tc_txt, font=font_hud)
+        draw.text((self.w - margin - (tb[2] - tb[0]), rec_y), tc_txt, font=font_hud, fill=(134, 239, 172))
 
-        # Draw Blueprint Vertex Nodes below scan line
-        for i in range(len(px)):
-            if py[i] > scan_y:
-                draw.ellipse([px[i] - 2.5, py[i] - 2.5, px[i] + 2.5, py[i] + 2.5], fill=(255, 255, 255))
+        # Camera Sector Label
+        draw.text((margin, int(self.h * 0.082)), scenario["cam"], font=font_log, fill=(74, 222, 128))
 
-        # 5. Active Glowing Laser Scanner Beam during Materialization
-        if 0.25 <= stage_prog < 0.85:
-            lx0 = int(self.w * 0.14)
-            lx1 = int(self.w * 0.86)
-            draw.line([(lx0, scan_y), (lx1, scan_y)], fill=accent, width=max(4, int(5 * sc)))
-            draw.line([(lx0, scan_y), (lx1, scan_y)], fill=(255, 255, 255), width=2)
+        # Bottom Classified Typewriter Terminal Log
+        active_log = scenario["log2"] if detected else scenario["log1"]
+        local_p = (seg_prog - 0.38) / 0.25 if detected else (seg_prog / 0.25)
+        char_cnt = max(1, int(len(active_log) * min(1.0, local_p)))
+        shown_log = active_log[:char_cnt] + ("_" if int(global_t * 6) % 2 == 0 else "")
 
-        # 6. Futuristic Telemetry HUD & Build Progress Meter
-        margin = int(self.w * 0.06)
-        font_title = get_font(max(17, int(23 * sc)))
-        font_sub = get_font(max(13, int(16 * sc)))
-
-        draw.text((margin, int(self.h * 0.04)), m_name, font=font_title, fill=(248, 250, 252))
-        draw.text((margin, int(self.h * 0.088)), phase_label, font=font_sub, fill=accent)
-
-        # Bottom Progress Bar
-        bar_y = int(self.h * 0.88)
-        bar_h = max(14, int(18 * sc))
-        bar_w = self.w - margin * 2
-        pct = min(100, int(stage_prog * 100))
-
-        draw.rounded_rectangle([margin, bar_y, margin + bar_w, bar_y + bar_h], radius=bar_h // 2, fill=(15, 23, 42), outline=(51, 65, 85), width=2)
-        fw = int(bar_w * (pct / 100.0))
-        if fw > 8:
-            draw.rounded_rectangle([margin, bar_y, margin + fw, bar_y + bar_h], radius=bar_h // 2, fill=accent)
-
-        pct_txt = f"REALITY CONSTRUCTION: {pct}%"
-        pb = draw.textbbox((0, 0), pct_txt, font=font_sub)
-        draw.text(((self.w - (pb[2] - pb[0])) // 2, bar_y - int(24 * sc)), pct_txt, font=font_sub, fill=(248, 250, 252))
+        log_y = int(self.h * 0.87)
+        draw.rectangle([margin - 6, log_y - 6, self.w - margin + 6, log_y + int(34 * sc)], fill=(3, 10, 6), outline=(244, 63, 94) if detected else (34, 197, 94), width=2)
+        draw.text((margin + 4, log_y + int(4 * sc)), shown_log, font=font_log, fill=(254, 202, 202) if detected else (187, 247, 208))
 
         return frame.tobytes()
 
@@ -392,32 +310,31 @@ class Hologram3DRenderer:
 # ===========================================================================
 # 4. RENDER PIPELINE & API ROUTES
 # ===========================================================================
-def run_hologram_job(job_id: str, ratio: str, duration_sec: float):
+def run_cctv_job(job_id: str, ratio: str, duration_sec: float):
     job = JOBS[job_id]
     try:
         out_w, out_h = (960, 540) if ratio == "16:9" else (540, 960)
         fps = 24
         dt = 1.0 / float(fps)
 
-        model_keys = ["jet", "saturn", "dna", "core"]
-        random.shuffle(model_keys)
+        scenarios = list(CCTV_SCENARIOS)
+        random.shuffle(scenarios)
 
-        # Each 3D model morph takes 9 seconds (for 18s Short -> 2 models; for 90s -> 10 models)
         seg_dur = 9.0
-        num_models = max(1, int(round(duration_sec / seg_dur)))
-        actual_dur = num_models * seg_dur
+        num_clips = max(1, int(round(duration_sec / seg_dur)))
+        actual_dur = num_clips * seg_dur
 
-        stages_audio = []
-        for i in range(num_models):
+        audio_events = []
+        for i in range(num_clips):
             t0 = i * seg_dur
-            stages_audio.append((t0, t0 + seg_dur * 0.25, t0 + seg_dur * 0.85, t0 + seg_dur))
+            audio_events.append((t0, t0 + seg_dur * 0.38, t0 + seg_dur))
 
-        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_holo_sfx.wav")
+        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_cctv_sfx.wav")
         job["progress"] = 8
-        job["message"] = "Synthesizing Sci-Fi Laser Scan & Reality Lock Audio..."
-        build_hologram_audio_wav(stages_audio, actual_dur, wav_path)
+        job["message"] = "Synthesizing Night-Vision Static, Heartbeat & Anomaly Alarm..."
+        build_cctv_audio_wav(audio_events, actual_dur, wav_path)
 
-        out_name = f"NEXORA_3D_HOLOGRAM_{int(actual_dur)}s_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        out_name = f"NEXORA_CCTV_ANOMALY_{int(actual_dur)}s_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         ffmpeg_cmd = [
@@ -426,26 +343,26 @@ def run_hologram_job(job_id: str, ratio: str, duration_sec: float):
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
             "-i", wav_path,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "19",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
             "-c:a", "aac", "-b:a", "160k",
             "-shortest", "-pix_fmt", "yuv420p", out_path
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-        renderer = Hologram3DRenderer(out_w, out_h)
+        renderer = CCTVAnomalyRenderer(out_w, out_h)
         global_t = 0.0
-        frames_per_seg = int(seg_dur * fps)
+        frames_per_clip = int(seg_dur * fps)
 
-        for m_idx in range(num_models):
-            m_data = build_3d_model(model_keys[m_idx % len(model_keys)])
-            for f in range(frames_per_seg):
-                s_prog = f / max(1, frames_per_seg - 1)
-                raw_bytes = renderer.render_frame(m_data, s_prog, global_t)
+        for c_idx in range(num_clips):
+            scn = scenarios[c_idx % len(scenarios)]
+            for f in range(frames_per_clip):
+                s_prog = f / max(1, frames_per_clip - 1)
+                raw_bytes = renderer.render_frame(scn, s_prog, global_t)
                 proc.stdin.write(raw_bytes)
                 global_t += dt
 
-            job["progress"] = 12 + int(((m_idx + 1) / num_models) * 85)
-            job["message"] = f"Rendering 3D Hologram Morph {m_idx + 1}/{num_models}..."
+            job["progress"] = 12 + int(((c_idx + 1) / num_clips) * 85)
+            job["message"] = f"Rendering CCTV Footage {c_idx + 1}/{num_clips}..."
 
         proc.stdin.close()
         proc.wait()
@@ -454,7 +371,7 @@ def run_hologram_job(job_id: str, ratio: str, duration_sec: float):
         job["progress"] = 100
         job["file_path"] = out_path
         job["file_name"] = out_name
-        job["message"] = f"Completed! 3D Hologram Blueprint Video Ready ({out_name})"
+        job["message"] = f"Completed! Night-Vision CCTV Footage Ready ({out_name})"
 
     except Exception as exc:
         job["status"] = "error"
@@ -478,9 +395,9 @@ def api_start():
     ratio = data.get("ratio", "9:16")
     duration_sec = max(9.0, min(600.0, float(data.get("duration", "18"))))
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing 3D Wireframe Projection Engine..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Hacking Night-Vision Security Feeds..."}
     threading.Thread(
-        target=run_hologram_job,
+        target=run_cctv_job,
         args=(job_id, ratio, duration_sec),
         daemon=True
     ).start()
