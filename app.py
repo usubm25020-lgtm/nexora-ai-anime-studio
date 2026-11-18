@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import math
 import uuid
@@ -31,93 +32,234 @@ FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
 # ===========================================================================
-# 1. CLASSIFIED CCTV SCENARIOS & ANOMALY LOGS
+# 1. ULTRA-GAMING VISUAL THEMES & AUTO-DIRECTOR ANALYZER
 # ===========================================================================
-CCTV_SCENARIOS = [
-    {
-        "cam": "CAM-04 • SUBWAY TUNNEL B",
-        "env": "tunnel",
-        "log1": "[03:14:02] MOTION SENSOR TRIGGERED IN SECTOR 4...",
-        "log2": "[WARNING] UNKNOWN ENTITY DETECTED — DO NOT APPROACH",
-        "anomaly": "shadow_walker"
+GAMING_THEMES = {
+    "cyber": {
+        "name": "CYBER ARENA",
+        "bg_top": (10, 18, 44),
+        "bg_bot": (4, 7, 18),
+        "grid": (22, 44, 86),
+        "primary": (34, 211, 238),    # Neon Cyan
+        "secondary": (168, 85, 247),  # Electric Purple
+        "accent": (250, 204, 21)      # Cyber Gold
     },
-    {
-        "cam": "CAM-09 • BLACKWOOD FOREST",
-        "env": "forest",
-        "log1": "[02:47:19] THERMAL SIGNATURE SPIKE NEAR PERIMETER...",
-        "log2": "[ALERT] SUBJECT IS STARING DIRECTLY AT CAMERA",
-        "anomaly": "twin_eyes"
+    "royal": {
+        "name": "ROYAL GOLD",
+        "bg_top": (30, 22, 10),
+        "bg_bot": (6, 5, 4),
+        "grid": (62, 44, 18),
+        "primary": (250, 204, 21),    # Pure Gold
+        "secondary": (249, 115, 22),  # Amber Blaze
+        "accent": (56, 189, 248)      # Sky Highlight
     },
-    {
-        "cam": "CAM-02 • ABANDONED WARD 7",
-        "env": "corridor",
-        "log1": "[04:01:55] SIGNAL INTERFERENCE — FREQUENCY 19.4 HZ...",
-        "log2": "[CRITICAL] CONTAINMENT BREACH — FEED COMPROMISED",
-        "anomaly": "glitch_phantom"
+    "crimson": {
+        "name": "BOSS RUSH",
+        "bg_top": (36, 10, 24),
+        "bg_bot": (6, 3, 10),
+        "grid": (68, 18, 44),
+        "primary": (244, 63, 94),     # Neon Crimson
+        "secondary": (232, 121, 249), # Plasma Magenta
+        "accent": (250, 204, 21)      # Gold
     },
-    {
-        "cam": "CAM-11 • ARCTIC OUTPOST 9",
-        "env": "outpost",
-        "log1": "[01:12:40] BLIZZARD VISIBILITY 12% — RADAR PING...",
-        "log2": "[DANGER] MASSIVE SILHOUETTE APPROACHING GATE",
-        "anomaly": "tall_stalker"
+    "emerald": {
+        "name": "MATRIX PRO",
+        "bg_top": (8, 30, 24),
+        "bg_bot": (3, 9, 8),
+        "grid": (16, 60, 48),
+        "primary": (16, 185, 129),    # Neon Emerald
+        "secondary": (34, 211, 238),  # Aqua
+        "accent": (250, 204, 21)      # Gold
     }
+}
+
+DEFAULT_SAMPLE_QUESTIONS = [
+    {"q": "Which planet rotates clockwise so the Sun rises in the west?", "opts": ["Mercury", "Venus", "Mars", "Uranus"], "ans": 1, "fact": "Venus spins backward compared to almost every other planet!"},
+    {"q": "What is the SI unit of electrical resistance?", "opts": ["Ampere", "Volt", "Ohm", "Watt"], "ans": 2, "fact": "Named after German physicist Georg Simon Ohm."},
+    {"q": "I speak without a mouth and hear without ears. What am I?", "opts": ["A Shadow", "An Echo", "The Wind", "A Dream"], "ans": 1, "fact": "Sound waves bouncing off hard surfaces create an echo!"},
+    {"q": "If a train runs at 90 km/h, how far does it go in 10 seconds?", "opts": ["150 m", "200 m", "250 m", "300 m"], "ans": 2, "fact": "90 km/h = 25 m/s, so 25 x 10 = 250 meters."},
+    {"q": "What has 13 hearts, but no lungs or stomach?", "opts": ["An Octopus", "A Deck of Cards", "A Starfish", "A Jellyfish"], "ans": 1, "fact": "Every standard deck has 13 cards in the Hearts suit!"}
 ]
 
+def smart_parse_and_direct(raw_text: str, is_vertical: bool):
+    """
+    Parses pasted ChatGPT/Gemini questions and builds a high-retention director plan:
+    - Reserves the final question as an UNANSWERED PSYCHOLOGICAL COMMENT TRAP!
+    - For 9:16 Shorts/Reels, auto-selects top 3 punchy questions + 1 Locked Bonus Trap (~20s total).
+    - Auto-assigns 3D hologram widget type (atom, globe, cube) & dynamic gaming themes.
+    """
+    items = []
+    for ln in str(raw_text or "").splitlines():
+        ln = ln.strip()
+        if not ln or "|" not in ln:
+            continue
+        parts = [p.strip() for p in ln.split("|")]
+        if len(parts) >= 6:
+            q_txt = re.sub(r"^Q\d*\s*[:.\-]\s*", "", parts[0], flags=re.I).strip()
+            opts = parts[1:5]
+            try:
+                ans_idx = max(0, min(3, int(re.sub(r"[^0-9]", "", parts[5])) - 1))
+            except Exception:
+                ans_idx = 0
+            fact_txt = parts[6].strip() if len(parts) >= 7 else ""
+            items.append({"q": q_txt, "opts": opts, "ans": ans_idx, "fact": fact_txt})
+
+    if not items:
+        items = [dict(x) for x in DEFAULT_SAMPLE_QUESTIONS]
+
+    # For 9:16 Shorts/Reels, keep it ultra-fast (3 main + 1 secret comment-trap bonus = 4 total)
+    if is_vertical and len(items) > 4:
+        items = items[:4]
+    elif len(items) < 2:
+        items.append(dict(DEFAULT_SAMPLE_QUESTIONS[-1]))
+
+    directed = []
+    theme_keys = list(GAMING_THEMES.keys())
+    total_n = len(items)
+
+    for idx, item in enumerate(items):
+        q_low = item["q"].lower()
+        word_cnt = len(item["q"].split())
+        is_secret_trap = (idx == total_n - 1)
+        is_boss = ((idx + 1) % 5 == 0) and not is_secret_trap
+
+        # Auto-timer pacing (faster on Shorts to trigger re-watches)
+        has_math = bool(re.search(r"[0-9%+\-*/=]|calculate|solve|how many|equation|ratio", q_low))
+        if is_vertical:
+            think_sec = 4.2 if has_math else 3.4
+            read_sec = 1.3
+            reveal_sec = 2.6 if is_secret_trap else 2.1
+        else:
+            if has_math or word_cnt >= 15:
+                think_sec = 7.0
+            elif word_cnt >= 10:
+                think_sec = 5.2
+            else:
+                think_sec = 4.2
+            read_sec = max(1.5, min(2.8, word_cnt * 0.14))
+            reveal_sec = 3.2 if is_secret_trap else (2.9 if item["fact"] else 2.3)
+
+        # Auto-select 3D Hologram Widget & Color Theme
+        if is_secret_trap:
+            t_key = "crimson"
+            holo_type = "cube"
+        elif is_boss:
+            t_key = "crimson"
+            holo_type = "atom"
+        elif any(k in q_low for k in ["space", "planet", "atom", "physics", "science", "chem", "bio", "energy", "light", "si unit", "gas", "vitamin"]):
+            t_key = "cyber"
+            holo_type = "atom"
+        elif any(k in q_low for k in ["history", "king", "india", "world", "capital", "country", "war", "earth", "coffee"]):
+            t_key = "royal"
+            holo_type = "globe"
+        elif any(k in q_low for k in ["riddle", "brain", "logic", "number", "math", "train", "father", "hearts"]):
+            t_key = "emerald"
+            holo_type = "cube"
+        else:
+            t_key = theme_keys[(idx // 3) % len(theme_keys)]
+            holo_type = ["atom", "globe", "cube"][idx % 3]
+
+        directed.append({
+            **item,
+            "is_boss": is_boss,
+            "is_secret_trap": is_secret_trap,
+            "theme_key": t_key,
+            "holo_type": holo_type,
+            "read_sec": read_sec,
+            "think_sec": think_sec,
+            "reveal_sec": reveal_sec,
+            "level": (idx // 5) + 1
+        })
+
+    return directed
+
+
 # ===========================================================================
-# 2. CCTV STATIC, HEARTBEAT, GLITCH & ANOMALY ALARM AUDIO SYNTHESIZER
+# 2. HIGH-ENERGY GAMING SYNTHWAVE + HOOK IMPACT, TICKS & MYSTERY LOCK AUDIO
 # ===========================================================================
-def build_cctv_audio_wav(events: list, total_dur: float, out_wav: str):
-    """Synthesizes eerie night-vision hum, static bursts, heartbeat, and anomaly alarm."""
+def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, total_dur: float, out_wav: str):
     rate = 22050
     n = int(total_dur * rate)
     t = np.linspace(0, total_dur, n, endpoint=False, dtype=np.float32)
 
-    rng = np.random.default_rng(666)
-    # 60Hz electrical camera hum + low eerie wind
-    hum = 0.045 * np.sin(2.0 * np.pi * 60.0 * t) + 0.035 * np.sin(2.0 * np.pi * 42.0 * t)
-    wind = rng.uniform(-1.0, 1.0, n).astype(np.float32)
-    # Simple low-pass smoothing for eerie wind
-    wind = np.convolve(wind, np.ones(45, dtype=np.float32) / 45.0, mode="same") * 0.14
+    bpm = 128.0
+    beat_dur = 60.0 / bpm
+    beat_pos = (t % beat_dur) / beat_dur
 
-    audio = hum + wind
+    # Driving cyber-gaming kick & sub-bass pulse
+    kick = np.sin(2.0 * np.pi * (54.0 + 60.0 * np.exp(-beat_pos * 18.0)) * (t % beat_dur)) * np.exp(-beat_pos * 8.5) * 0.25
+    bass_notes = [110.0, 110.0, 130.81, 146.83, 98.0, 98.0, 130.81, 164.81]
+    b_idx = (t / (beat_dur * 2.0)).astype(np.int32)
+    b_freq = np.array([bass_notes[i % len(bass_notes)] for i in b_idx], dtype=np.float32)
+    bass = np.sin(2.0 * np.pi * b_freq * t) * 0.11
 
-    for t_start, t_detect, t_end in events:
-        # 1. Subtle mechanical camera zoom whir at t_start
+    audio = kick + bass
+    rng = np.random.default_rng(2026)
+
+    # 0. Shock-wave Impact Boom at 0.05s for instant Scroll-Stop!
+    imp_len = min(n, int(0.65 * rate))
+    if imp_len > 0:
+        ti = np.linspace(0, imp_len / float(rate), imp_len, endpoint=False, dtype=np.float32)
+        boom = np.sin(2.0 * np.pi * (130.0 * np.exp(-ti * 8.0) + 40.0) * ti) * np.exp(-ti * 5.0) * 0.55
+        audio[:imp_len] += boom
+
+    for q_obj, t_start, t_think_start, t_reveal_start, t_end in timeline:
+        # Card Slide-In Whoosh
         s0 = int(t_start * rate)
-        w_len = min(n - s0, int(0.45 * rate))
-        if w_len > 0:
-            tw = np.linspace(0, w_len / float(rate), w_len, endpoint=False, dtype=np.float32)
-            whir = np.sin(2.0 * np.pi * (240.0 + 180.0 * tw) * tw) * np.sin(np.pi * tw / 0.45) * 0.12
-            audio[s0:s0 + w_len] += whir
+        w_len = int(0.26 * rate)
+        if s0 + w_len < n:
+            tw = np.linspace(0, 0.26, w_len, endpoint=False, dtype=np.float32)
+            noise = rng.uniform(-1.0, 1.0, w_len).astype(np.float32)
+            env = np.sin(np.pi * (tw / 0.26)) ** 1.5
+            audio[s0:s0 + w_len] += noise * env * 0.18
 
-        # 2. Intense heartbeat + static glitch + radar warning beep when anomaly appears!
-        sd = int(t_detect * rate)
-        d_len = min(n - sd, int((t_end - t_detect) * rate))
-        if d_len > 0:
-            td = np.linspace(0, d_len / float(rate), d_len, endpoint=False, dtype=np.float32)
-            # Fast heartbeat thump (lub-dub every 0.65s)
-            hb_cycle = td % 0.65
-            lub = np.sin(2.0 * np.pi * 48.0 * hb_cycle) * np.exp(-hb_cycle * 22.0) * 0.48
-            dub_t = np.maximum(0.0, hb_cycle - 0.16)
-            dub = np.sin(2.0 * np.pi * 44.0 * dub_t) * np.exp(-dub_t * 25.0) * (hb_cycle > 0.16) * 0.38
+        # Accelerating Digital Countdown Ticks
+        cur_t = t_think_start + 0.15
+        tick_i = 0
+        while cur_t < t_reveal_start - 0.10:
+            rem = t_reveal_start - cur_t
+            step = 0.22 if rem <= 1.8 else 0.45
+            st = int(cur_t * rate)
+            t_len = int(0.05 * rate)
+            if st + t_len < n:
+                tt = np.linspace(0, 0.05, t_len, endpoint=False, dtype=np.float32)
+                freq = 1560.0 if rem <= 1.8 else (1140.0 if tick_i % 2 == 0 else 940.0)
+                tk = np.sin(2.0 * np.pi * freq * tt) * np.exp(-tt * 78.0) * 0.36
+                audio[st:st + t_len] += tk
+            cur_t += step
+            tick_i += 1
 
-            # Radar alert ping at detection start
-            ping_len = min(d_len, int(0.85 * rate))
-            tp = td[:ping_len]
-            beep = np.sin(2.0 * np.pi * 960.0 * tp) * ((tp % 0.22) < 0.09) * 0.22
+        # Reveal Sound: Mystery Lock Alarm for final trap question vs Victory XP Chord for normal questions!
+        sr = int(t_reveal_start * rate)
+        r_len = int(0.75 * rate)
+        if sr + r_len < n:
+            tr = np.linspace(0, 0.75, r_len, endpoint=False, dtype=np.float32)
+            if q_obj["is_secret_trap"]:
+                # Suspenseful double-lock ping!
+                p1 = np.sin(2.0 * np.pi * 622.25 * tr) * np.exp(-tr * 8.0)
+                p2 = np.sin(2.0 * np.pi * 587.33 * np.maximum(0, tr - 0.16)) * np.exp(-np.maximum(0, tr - 0.16) * 7.0)
+                audio[sr:sr + r_len] += (p1 + p2) * 0.34
+            else:
+                c1 = np.sin(2.0 * np.pi * 1046.50 * tr) * np.exp(-tr * 6.0)
+                c2 = np.sin(2.0 * np.pi * 1318.51 * np.maximum(0, tr - 0.06)) * np.exp(-np.maximum(0, tr - 0.06) * 5.5)
+                c3 = np.sin(2.0 * np.pi * 1567.98 * np.maximum(0, tr - 0.12)) * np.exp(-np.maximum(0, tr - 0.12) * 5.0)
+                c4 = np.sin(2.0 * np.pi * 2093.00 * np.maximum(0, tr - 0.18)) * np.exp(-np.maximum(0, tr - 0.18) * 4.2)
+                audio[sr:sr + r_len] += (c1 + c2 + c3 + c4) * 0.24
 
-            # Static burst
-            st_len = min(d_len, int(0.25 * rate))
-            static_burst = rng.uniform(-1.0, 1.0, st_len).astype(np.float32) * np.exp(-td[:st_len] * 10.0) * 0.32
+    # Outro Rank Claim Fanfare
+    so = int((total_dur - outro_dur) * rate)
+    o_len = min(n - so, int(0.9 * rate))
+    if o_len > 0:
+        to = np.linspace(0, o_len / float(rate), o_len, endpoint=False, dtype=np.float32)
+        fanfare = (
+            np.sin(2.0 * np.pi * 523.25 * to) +
+            np.sin(2.0 * np.pi * 783.99 * to) +
+            np.sin(2.0 * np.pi * 1046.50 * to)
+        ) * np.exp(-to * 3.5) * 0.22
+        audio[so:so + o_len] += fanfare
 
-            audio[sd:sd + d_len] += (lub + dub)
-            audio[sd:sd + ping_len] += beep
-            audio[sd:sd + st_len] += static_burst
-
-    fade_s = min(int(0.6 * rate), n // 4)
+    fade_s = min(int(0.4 * rate), n // 6)
     if fade_s > 0:
-        audio[:fade_s] *= np.linspace(0, 1, fade_s)
         audio[-fade_s:] *= np.linspace(1, 0, fade_s)
 
     pcm = (np.clip(audio, -0.95, 0.95) * 32767.0).astype(np.int16)
@@ -129,16 +271,15 @@ def build_cctv_audio_wav(events: list, total_dur: float, out_wav: str):
 
 
 # ===========================================================================
-# 3. NIGHT-VISION CCTV SCENE, ANOMALY ENTITY & GLITCH RENDERER
+# 3. ULTRA-GAMING RENDERER (HOOK INTRO + 3D HOLOGRAM WIDGET + COMMENT TRAP)
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
     if size in _FONT_CACHE:
         return _FONT_CACHE[size]
     for p in [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf"
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     ]:
         if os.path.exists(p):
             try:
@@ -149,160 +290,381 @@ def get_font(size: int):
                 pass
     return ImageFont.load_default()
 
-class CCTVAnomalyRenderer:
-    def __init__(self, w: int, h: int):
+def ease_out_back(x: float) -> float:
+    x = max(0.0, min(1.0, x))
+    c1 = 1.70158
+    c3 = c1 + 1.0
+    return 1.0 + c3 * ((x - 1.0) ** 3) + c1 * ((x - 1.0) ** 2)
+
+def wrap_lines(draw: ImageDraw.Draw, text: str, font, max_w: int) -> list:
+    words = text.split()
+    lines, cur = [], ""
+    for wd in words:
+        test = (cur + " " + wd).strip()
+        bbox = draw.textbbox((0, 0), test, font=font)
+        if bbox[2] - bbox[0] <= max_w or not cur:
+            cur = test
+        else:
+            lines.append(cur)
+            cur = wd
+    if cur:
+        lines.append(cur)
+    return lines
+
+class UltraGamingQuizV2Renderer:
+    def __init__(self, w: int, h: int, total_q: int):
         self.w = w
         self.h = h
+        self.total_q = total_q
         self.is_vertical = (h > w)
-        self.rng = np.random.default_rng(1337)
+        self.rng = random.Random(999)
 
-        # Precompute radial IR flashlight vignette (brighter center, dark corners)
-        yy, xx = np.ogrid[0:h, 0:w]
-        nx = (xx - w * 0.5) / (w * 0.52)
-        ny = (yy - h * 0.48) / (h * 0.52)
-        dist2 = nx * nx + ny * ny
-        self.vignette = np.clip(1.15 - 0.65 * dist2, 0.18, 1.0).astype(np.float32)
+        self.ambient_orbs = [
+            [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(22, 55), self.rng.uniform(2, 4.5)]
+            for _ in range(30)
+        ]
+        self.confetti = []
+        self.last_confetti_q = -1
 
-        # Precompute horizontal CRT scanlines
-        self.scanlines = np.ones((h, 1, 1), dtype=np.float32)
-        self.scanlines[1::2, 0, 0] = 0.80
+    def _draw_cyber_bg(self, theme: dict, global_t: float, sc: float) -> tuple:
+        grad = np.zeros((self.h, self.w, 3), dtype=np.uint8)
+        for ch in range(3):
+            col_line = np.linspace(theme["bg_top"][ch], theme["bg_bot"][ch], self.h, dtype=np.uint8)[:, None]
+            grad[:, :, ch] = np.repeat(col_line, self.w, axis=1)
+        frame = Image.fromarray(grad, mode="RGB")
+        draw = ImageDraw.Draw(frame)
 
-    def _draw_environment(self, draw: ImageDraw.Draw, env: str, sc: float):
-        cx, cy = self.w * 0.5, self.h * 0.46
-        if env == "tunnel":
-            # Perspective subway tunnel rings & tracks
-            for r in range(1, 9):
-                rad_x = int(r * 68 * sc)
-                rad_y = int(r * 58 * sc)
-                shade = max(16, 48 - r * 4)
-                draw.ellipse([cx - rad_x, cy - rad_y, cx + rad_x, cy + rad_y], outline=(10, shade, 18), width=3)
-            draw.line([(cx - 40 * sc, cy + 30 * sc), (self.w * 0.18, self.h)], fill=(22, 68, 32), width=3)
-            draw.line([(cx + 40 * sc, cy + 30 * sc), (self.w * 0.82, self.h)], fill=(22, 68, 32), width=3)
+        grid_step = int(48 * sc)
+        gx_off = int((global_t * 40) % grid_step)
+        gy_off = int((global_t * 28) % grid_step)
+        for gx in range(-grid_step, self.w + grid_step, grid_step):
+            draw.line([(gx + gx_off, 0), (gx + gx_off, self.h)], fill=theme["grid"], width=1)
+        for gy in range(-grid_step, self.h + grid_step, grid_step):
+            draw.line([(0, gy + gy_off), (self.w, gy + gy_off)], fill=theme["grid"], width=1)
 
-        elif env == "forest":
-            # Dark silhouettes of twisted trees & fog horizon
-            draw.rectangle([0, int(cy), self.w, self.h], fill=(8, 26, 14))
-            for tx_frac, tw in [(0.08, 28), (0.22, 18), (0.76, 22), (0.91, 32), (0.38, 12), (0.64, 14)]:
-                tx = int(self.w * tx_frac)
-                draw.rectangle([tx - int(tw * sc * 0.5), 0, tx + int(tw * sc * 0.5), self.h], fill=(4, 14, 8))
+        for orb in self.ambient_orbs:
+            ox = (orb[0] + math.sin(global_t * 0.9 + orb[1]) * 18) % self.w
+            oy = (orb[1] - global_t * orb[2]) % self.h
+            r_o = orb[3] * sc
+            draw.ellipse([ox - r_o, oy - r_o, ox + r_o, oy + r_o], fill=theme["primary"])
 
-        elif env == "corridor":
-            # Hospital/facility perspective hallway walls & doors
-            box_w, box_h = int(130 * sc), int(160 * sc)
-            x0, y0 = int(cx - box_w * 0.5), int(cy - box_h * 0.5)
-            x1, y1 = int(cx + box_w * 0.5), int(cy + box_h * 0.5)
-            draw.rectangle([x0, y0, x1, y1], outline=(18, 64, 30), width=2)
-            draw.line([(0, 0), (x0, y0)], fill=(16, 56, 26), width=2)
-            draw.line([(self.w, 0), (x1, y0)], fill=(16, 56, 26), width=2)
-            draw.line([(0, self.h), (x0, y1)], fill=(16, 56, 26), width=2)
-            draw.line([(self.w, self.h), (x1, y1)], fill=(16, 56, 26), width=2)
+        return frame, draw
 
+    def _draw_3d_holo_badge(self, draw: ImageDraw.Draw, cx: float, cy: float, radius: float, holo_type: str, global_t: float, col: tuple):
+        """Draws a live rotating 3D wireframe hologram icon in the corner of the question card."""
+        ang = global_t * 2.2
+        if holo_type == "atom":
+            # 3 tilted rotating orbital rings + glowing nucleus
+            draw.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(255, 255, 255))
+            for tilt in [0.0, math.pi / 3.0, -math.pi / 3.0]:
+                pts = []
+                for s in range(16):
+                    a = (2.0 * math.pi * s / 16.0) + ang
+                    lx = radius * math.cos(a)
+                    ly = radius * 0.36 * math.sin(a)
+                    rx = lx * math.cos(tilt) - ly * math.sin(tilt)
+                    ry = lx * math.sin(tilt) + ly * math.cos(tilt)
+                    pts.append((cx + rx, cy + ry))
+                draw.polygon(pts, outline=col)
+        elif holo_type == "globe":
+            draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=col, width=2)
+            # Rotating longitude meridian
+            mer_w = abs(math.cos(ang)) * radius
+            draw.ellipse([cx - mer_w, cy - radius, cx + mer_w, cy + radius], outline=col, width=1)
+            draw.line([(cx - radius, cy), (cx + radius, cy)], fill=col, width=1)
         else:
-            # Outpost fence & radar tower silhouette
-            draw.rectangle([0, int(self.h * 0.65), self.w, self.h], fill=(10, 30, 18))
-            for fx in range(0, self.w, int(45 * sc)):
-                draw.line([(fx, int(self.h * 0.45)), (fx, int(self.h * 0.72))], fill=(18, 64, 32), width=2)
-            draw.line([(0, int(self.h * 0.52)), (self.w, int(self.h * 0.52))], fill=(18, 64, 32), width=2)
+            # Rotating 3D Wireframe Cube
+            r = radius * 0.65
+            verts = [(-r, -r, -r), (r, -r, -r), (r, r, -r), (-r, r, -r),
+                     (-r, -r, r), (r, -r, r), (r, r, r), (-r, r, r)]
+            ca, sa = math.cos(ang), math.sin(ang)
+            proj = []
+            for vx, vy, vz in verts:
+                rx = vx * ca + vz * sa
+                rz = -vx * sa + vz * ca
+                ry = vy * 0.85 - rz * 0.35
+                proj.append((cx + rx, cy + ry))
+            for a, b in [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(0,4),(1,5),(2,6),(3,7)]:
+                draw.line([proj[a], proj[b]], fill=col, width=2)
 
-    def render_frame(self, scenario: dict, seg_prog: float, global_t: float) -> bytes:
+    def _spawn_confetti(self, cx: float, cy: float):
+        cols = [(34, 211, 238), (250, 204, 21), (52, 211, 153), (244, 63, 94), (168, 85, 247), (255, 255, 255)]
+        self.confetti = []
+        for _ in range(70):
+            ang = self.rng.uniform(0, 2.0 * math.pi)
+            spd = self.rng.uniform(160.0, 560.0)
+            self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 180.0, 1.0, self.rng.choice(cols)])
+
+    def render_intro_hook(self, intro_prog: float, global_t: float) -> bytes:
+        """0.0 - 1.5s High-Voltage Scroll-Stop Intro Frame."""
         sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
-        # Slight handheld/wind camera micro-shake
-        shake_x = int(math.sin(global_t * 17.0) * 2.0 * sc)
-        shake_y = int(math.cos(global_t * 13.0) * 2.0 * sc)
+        theme = GAMING_THEMES["cyber"]
+        frame, draw = self._draw_cyber_bg(theme, global_t, sc)
 
-        frame = Image.new("RGB", (self.w, self.h), (5, 16, 9))
-        draw = ImageDraw.Draw(frame)
+        cx, cy = self.w * 0.5, self.h * 0.48
+        # Expanding neon shockwave rings
+        for r_i in range(3):
+            ring_r = ((intro_prog * 1.4 + r_i * 0.33) % 1.0) * max(self.w, self.h) * 0.65
+            draw.ellipse([cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r], outline=theme["primary"], width=3)
 
-        self._draw_environment(draw, scenario["env"], sc)
+        pop = ease_out_back(min(1.0, intro_prog * 2.4))
+        font_big = get_font(max(26, int(38 * sc * pop)))
+        font_sub = get_font(max(16, int(21 * sc)))
 
-        # Anomaly emerges at 38% of the clip and lunges/moves closer!
-        detected = (seg_prog >= 0.38)
-        cx = int(self.w * 0.5 + math.sin(global_t * 1.4) * 35 * sc) + shake_x
-        cy = int(self.h * 0.48) + shake_y
+        hook_l1 = "ONLY 1% GENIUS" if self.is_vertical else "ONLY 1% GENIUS CAN SCORE 100%"
+        hook_l2 = "CAN PASS THIS!" if self.is_vertical else "BEAT THE LASER TIMER • CLAIM YOUR IQ RANK"
 
-        if detected:
-            d_prog = (seg_prog - 0.38) / 0.62
-            scale_ent = 0.65 + d_prog * 0.95
-            ent_h = int(150 * sc * scale_ent)
-            ent_w = int(56 * sc * scale_ent)
+        b1 = draw.textbbox((0, 0), hook_l1, font=font_big)
+        draw.text(((self.w - (b1[2] - b1[0])) // 2, int(cy - 65 * sc)), hook_l1, font=font_big, fill=(250, 204, 21), stroke_width=3, stroke_fill=(0, 0, 0))
 
-            # Dark shadowy humanoid silhouette
-            ex0, ey0 = cx - ent_w // 2, cy - ent_h // 2
-            ex1, ey1 = cx + ent_w // 2, cy + ent_h // 2
-            draw.ellipse([cx - int(20 * sc * scale_ent), ey0, cx + int(20 * sc * scale_ent), ey0 + int(38 * sc * scale_ent)], fill=(2, 6, 4))
-            draw.polygon([(ex0, ey1), (ex0 + int(10 * sc), ey0 + int(36 * sc * scale_ent)), (ex1 - int(10 * sc), ey0 + int(36 * sc * scale_ent)), (ex1, ey1)], fill=(2, 6, 4))
+        b2 = draw.textbbox((0, 0), hook_l2, font=font_sub)
+        draw.text(((self.w - (b2[2] - b2[0])) // 2, int(cy + 10 * sc)), hook_l2, font=font_sub, fill=(34, 211, 238))
 
-            # Piercing glowing white/red anomaly eyes
-            eye_y = ey0 + int(18 * sc * scale_ent)
-            eye_sep = max(4, int(8 * sc * scale_ent))
-            eye_r = max(2, int(3.0 * sc * scale_ent))
-            eye_col = (255, 60, 60) if d_prog > 0.55 else (220, 255, 230)
-            draw.ellipse([cx - eye_sep - eye_r, eye_y - eye_r, cx - eye_sep + eye_r, eye_y + eye_r], fill=eye_col)
-            draw.ellipse([cx + eye_sep - eye_r, eye_y - eye_r, cx + eye_sep + eye_r, eye_y + eye_r], fill=eye_col)
+        # Ready countdown pill
+        cd_num = max(1, 3 - int(intro_prog * 3))
+        pill_txt = f"STARTING IN {cd_num}..."
+        bp = draw.textbbox((0, 0), pill_txt, font=font_sub)
+        pw = bp[2] - bp[0] + 36
+        px0 = (self.w - pw) // 2
+        py0 = int(cy + 65 * sc)
+        draw.rounded_rectangle([px0, py0, px0 + pw, py0 + int(42 * sc)], radius=12, fill=(244, 63, 94))
+        draw.text((px0 + 18, py0 + int(9 * sc)), pill_txt, font=font_sub, fill=(255, 255, 255))
 
-            # Red Target-Lock Tracking Brackets around Anomaly!
-            pad = int(18 * sc)
-            bx0, by0, bx1, by1 = ex0 - pad, ey0 - pad, ex1 + pad, ey1 + pad
-            br_len = int(18 * sc)
-            b_col = (244, 63, 94)
-            for (px, py, dx, dy) in [(bx0, by0, 1, 1), (bx1, by0, -1, 1), (bx0, by1, 1, -1), (bx1, by1, -1, -1)]:
-                draw.line([(px, py), (px + dx * br_len, py)], fill=b_col, width=3)
-                draw.line([(px, py), (px, py + dy * br_len)], fill=b_col, width=3)
+        return frame.tobytes()
 
-            font_lock = get_font(max(12, int(14 * sc)))
-            draw.text((bx0, by0 - int(20 * sc)), f"ANOMALY LOCK [{int(d_prog * 99)}%]", font=font_lock, fill=b_col)
+    def render_question_frame(self, q_idx: int, q_obj: dict, phase: str, phase_prog: float,
+                              phase_elapsed: float, global_t: float, dt: float) -> bytes:
+        theme = GAMING_THEMES[q_obj["theme_key"]]
+        sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
+        frame, draw = self._draw_cyber_bg(theme, global_t, sc)
 
-        # Apply Night-Vision IR Vignette, CRT Scanlines & Sensor Grain via NumPy
-        arr = np.asarray(frame, dtype=np.float32)
-        arr *= self.vignette[:, :, None]
-        arr *= self.scanlines
+        # Micro-shake in final 1.8s of countdown for intense gaming tension
+        rem_sec = q_obj["think_sec"] * (1.0 - phase_prog) if phase == "think" else 99.0
+        shake_x = int(math.sin(global_t * 45.0) * 3.0 * sc) if (phase == "think" and rem_sec <= 1.8) else 0
 
-        # Add live sensor ISO grain
-        noise = self.rng.integers(-14, 15, size=(self.h, self.w, 1), dtype=np.int16)
-        arr = np.clip(arr + noise, 0, 255).astype(np.uint8)
+        # Top Gaming HUD Bar
+        font_hud = get_font(max(13, int(16 * sc)))
+        margin = int(self.w * 0.055)
+        hud_y = int(self.h * 0.032)
 
-        # Glitch horizontal slice shift right when anomaly is first detected!
-        if 0.38 <= seg_prog <= 0.44 or (detected and int(global_t * 14) % 9 == 0):
-            for _ in range(4):
-                gy = int(self.rng.integers(0, max(1, self.h - 24)))
-                gh = int(self.rng.integers(6, 22))
-                shift = int(self.rng.integers(-28, 29))
-                arr[gy:gy + gh] = np.roll(arr[gy:gy + gh], shift, axis=1)
+        if q_obj["is_secret_trap"]:
+            lvl_txt = "🔒 FINAL SECRET CHALLENGE (NO ANSWER!)"
+        elif q_obj["is_boss"]:
+            lvl_txt = f"👑 BOSS ROUND • 2X XP"
+        else:
+            lvl_txt = f"LVL {q_obj['level']} • STREAK {q_idx + 1}x 🔥"
 
-        frame = Image.fromarray(arr, mode="RGB")
-        draw = ImageDraw.Draw(frame)
+        xp_val = min(q_idx, self.total_q - 1) * 100 + (100 if (phase == "reveal" and not q_obj["is_secret_trap"]) else 0)
+        xp_txt = f"Q {q_idx + 1}/{self.total_q} • {xp_val} XP"
 
-        # CCTV HUD Overlays (REC dot, Live Timestamp, Camera ID, Typewriter Log)
-        margin = int(self.w * 0.045)
-        font_hud = get_font(max(14, int(18 * sc)))
-        font_log = get_font(max(13, int(16 * sc)))
+        draw.rounded_rectangle([margin, hud_y, margin + int(275 * sc), hud_y + int(32 * sc)], radius=8, fill=(15, 23, 42), outline=theme["primary"], width=2)
+        draw.text((margin + 10, hud_y + int(6 * sc)), lvl_txt, font=font_hud, fill=theme["primary"])
 
-        # Blinking Red REC Indicator
-        rec_y = int(self.h * 0.035)
-        if int(global_t * 2.5) % 2 == 0:
-            draw.ellipse([margin, rec_y + 3, margin + int(14 * sc), rec_y + int(17 * sc)], fill=(239, 68, 68))
-        draw.text((margin + int(22 * sc), rec_y), "REC  •  NIGHT VISION IR", font=font_hud, fill=(220, 252, 231))
+        xb = draw.textbbox((0, 0), xp_txt, font=font_hud)
+        xw = xb[2] - xb[0] + 22
+        draw.rounded_rectangle([self.w - margin - xw, hud_y, self.w - margin, hud_y + int(32 * sc)], radius=8, fill=(15, 23, 42), outline=theme["accent"], width=2)
+        draw.text((self.w - margin - xw + 11, hud_y + int(6 * sc)), xp_txt, font=font_hud, fill=theme["accent"])
 
-        # Running Millisecond Timecode
-        ms = int((global_t % 1.0) * 100)
-        secs = int(global_t) % 60
-        mins = (int(global_t) // 60) % 60
-        tc_txt = f"03:{14 + mins:02d}:{secs:02d}:{ms:02d}"
-        tb = draw.textbbox((0, 0), tc_txt, font=font_hud)
-        draw.text((self.w - margin - (tb[2] - tb[0]), rec_y), tc_txt, font=font_hud, fill=(134, 239, 172))
+        # Elastic Slide-In Question Card
+        slide_t = ease_out_back(min(1.0, phase_elapsed / 0.38)) if phase == "read" else 1.0
+        y_shift = int((1.0 - slide_t) * -130 * sc)
 
-        # Camera Sector Label
-        draw.text((margin, int(self.h * 0.082)), scenario["cam"], font=font_log, fill=(74, 222, 128))
+        q_top = int(self.h * 0.11) + y_shift
+        q_h = int(self.h * (0.23 if self.is_vertical else 0.25))
+        card_w = self.w - margin * 2
 
-        # Bottom Classified Typewriter Terminal Log
-        active_log = scenario["log2"] if detected else scenario["log1"]
-        local_p = (seg_prog - 0.38) / 0.25 if detected else (seg_prog / 0.25)
-        char_cnt = max(1, int(len(active_log) * min(1.0, local_p)))
-        shown_log = active_log[:char_cnt] + ("_" if int(global_t * 6) % 2 == 0 else "")
+        if phase == "think" and rem_sec <= 1.8 and int(global_t * 10) % 2 == 0:
+            q_border = (244, 63, 94)
+        elif q_obj["is_secret_trap"] or q_obj["is_boss"]:
+            q_border = (250, 204, 21)
+        else:
+            q_border = theme["primary"]
 
-        log_y = int(self.h * 0.87)
-        draw.rectangle([margin - 6, log_y - 6, self.w - margin + 6, log_y + int(34 * sc)], fill=(3, 10, 6), outline=(244, 63, 94) if detected else (34, 197, 94), width=2)
-        draw.text((margin + 4, log_y + int(4 * sc)), shown_log, font=font_log, fill=(254, 202, 202) if detected else (187, 247, 208))
+        draw.rounded_rectangle([margin + shake_x, q_top, margin + card_w + shake_x, q_top + q_h], radius=16, fill=(11, 17, 32), outline=q_border, width=3)
+
+        # Live Rotating 3D Hologram Widget in Top-Right of Question Card
+        holo_r = 16 * sc
+        self._draw_3d_holo_badge(draw, margin + card_w - holo_r - 14 * sc + shake_x, q_top + holo_r + 12 * sc, holo_r, q_obj["holo_type"], global_t, theme["primary"])
+
+        font_q = get_font(max(19, int(25 * sc)))
+        q_lines = wrap_lines(draw, q_obj["q"], font_q, card_w - int(68 * sc))
+        lh = int(font_q.size * 1.32)
+        ty_start = q_top + (q_h - len(q_lines) * lh) // 2
+        for li, ln in enumerate(q_lines):
+            lb = draw.textbbox((0, 0), ln, font=font_q)
+            draw.text(((self.w - (lb[2] - lb[0])) // 2 + shake_x, ty_start + li * lh), ln, font=font_q, fill=(248, 250, 252))
+
+        # Neon Laser Countdown Bar
+        timer_y = q_top + q_h + int(self.h * 0.024)
+        timer_h = max(14, int(18 * sc))
+        draw.rounded_rectangle([margin, timer_y, margin + card_w, timer_y + timer_h], radius=timer_h // 2, fill=(22, 30, 52))
+
+        if phase == "read":
+            frac = 1.0
+            t_col = theme["primary"]
+            sec_lbl = f"{q_obj['think_sec']:.1f}s"
+        elif phase == "think":
+            frac = max(0.0, 1.0 - phase_prog)
+            t_col = (244, 63, 94) if rem_sec <= 1.8 else theme["accent"]
+            sec_lbl = f"{max(0.0, rem_sec):.1f}s"
+        else:
+            frac = 1.0
+            t_col = (244, 63, 94) if q_obj["is_secret_trap"] else (16, 185, 129)
+            sec_lbl = "LOCKED!" if q_obj["is_secret_trap"] else "SOLVED!"
+
+        fill_w = int(card_w * frac)
+        if fill_w > 10:
+            draw.rounded_rectangle([margin, timer_y, margin + fill_w, timer_y + timer_h], radius=timer_h // 2, fill=t_col)
+            draw.ellipse([margin + fill_w - 8, timer_y - 2, margin + fill_w + 4, timer_y + timer_h + 2], fill=(255, 255, 255))
+
+        font_tm = get_font(max(12, int(14 * sc)))
+        sb = draw.textbbox((0, 0), sec_lbl, font=font_tm)
+        draw.text(((self.w - (sb[2] - sb[0])) // 2, timer_y - 1), sec_lbl, font=font_tm, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0))
+
+        # Staggered Option Cards (A, B, C, D)
+        opts = q_obj["opts"]
+        ans_idx = q_obj["ans"]
+        labels = ["A", "B", "C", "D"]
+        font_opt = get_font(max(17, int(21 * sc)))
+        font_lbl = get_font(max(16, int(19 * sc)))
+
+        opts_top = timer_y + timer_h + int(self.h * 0.03)
+        opts_area_h = int(self.h * (0.44 if self.is_vertical else 0.42))
+
+        if self.is_vertical:
+            gap = int(12 * sc)
+            box_h = (opts_area_h - gap * 3) // 4
+            for i in range(4):
+                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.32))) if phase == "read" else 1.0
+                x_off = int((1.0 - stagger) * (170 if i % 2 == 0 else -170) * sc)
+                oy0 = opts_top + i * (box_h + gap)
+                self._draw_option(draw, margin + x_off, oy0, margin + card_w + x_off, oy0 + box_h,
+                                  labels[i], opts[i], i == ans_idx, q_obj["is_secret_trap"], phase, theme, font_lbl, font_opt, sc)
+        else:
+            gap_x = int(18 * sc)
+            gap_y = int(16 * sc)
+            box_w = (card_w - gap_x) // 2
+            box_h = (opts_area_h - gap_y) // 2
+            for i in range(4):
+                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.32))) if phase == "read" else 1.0
+                y_off = int((1.0 - stagger) * 85 * sc)
+                col_i, row_i = i % 2, i // 2
+                ox0 = margin + col_i * (box_w + gap_x)
+                oy0 = opts_top + row_i * (box_h + gap_y) + y_off
+                self._draw_option(draw, ox0, oy0, ox0 + box_w, oy0 + box_h,
+                                  labels[i], opts[i], i == ans_idx, q_obj["is_secret_trap"], phase, theme, font_lbl, font_opt, sc)
+
+        # Reveal Phase: Either Psychological Comment Trap Overlay OR Confetti + XP + Fact!
+        if phase == "reveal":
+            if q_obj["is_secret_trap"]:
+                # PSYCHOLOGICAL COMMENT TRAP BANNER OVER OPTIONS!
+                trap_h = int(86 * sc)
+                trap_y = opts_top + (opts_area_h - trap_h) // 2
+                draw.rounded_rectangle([margin + 12, trap_y, margin + card_w - 12, trap_y + trap_h], radius=16, fill=(15, 23, 42), outline=(250, 204, 21), width=4)
+                font_tr1 = get_font(max(17, int(22 * sc)))
+                font_tr2 = get_font(max(13, int(16 * sc)))
+                t1 = "🔒 ANSWER HIDDEN!"
+                t2 = "COMMENT A, B, C OR D TO PROVE YOUR IQ! 👇"
+                b_t1 = draw.textbbox((0, 0), t1, font=font_tr1)
+                b_t2 = draw.textbbox((0, 0), t2, font=font_tr2)
+                draw.text(((self.w - (b_t1[2] - b_t1[0])) // 2, trap_y + int(12 * sc)), t1, font=font_tr1, fill=(250, 204, 21))
+                draw.text(((self.w - (b_t2[2] - b_t2[0])) // 2, trap_y + int(48 * sc)), t2, font=font_tr2, fill=(255, 255, 255))
+            else:
+                if self.last_confetti_q != q_idx:
+                    self.last_confetti_q = q_idx
+                    self._spawn_confetti(self.w * 0.5, opts_top + opts_area_h * 0.5)
+
+                for p in self.confetti:
+                    p[0] += p[2] * dt
+                    p[1] += p[3] * dt
+                    p[3] += 500.0 * dt
+                    p[4] -= dt * 0.85
+                    if p[4] > 0:
+                        pr = max(2.0, 5.0 * sc * p[4])
+                        draw.rectangle([p[0] - pr, p[1] - pr, p[0] + pr, p[1] + pr], fill=p[5])
+
+                xp_pop = "+200 XP BOSS CLEAR!" if q_obj["is_boss"] else "+100 XP CORRECT!"
+                font_xp = get_font(max(16, int(20 * sc)))
+                xb2 = draw.textbbox((0, 0), xp_pop, font=font_xp)
+                float_y = int(opts_top - 12 * sc - min(22 * sc, phase_elapsed * 30 * sc))
+                draw.text(((self.w - (xb2[2] - xb2[0])) // 2, float_y), xp_pop, font=font_xp, fill=(52, 211, 153), stroke_width=3, stroke_fill=(0, 0, 0))
+
+                if q_obj["fact"]:
+                    fact_y = opts_top + opts_area_h + int(self.h * 0.024)
+                    font_fc = get_font(max(13, int(16 * sc)))
+                    fc_txt = f"💡 {q_obj['fact']}"
+                    fb = draw.textbbox((0, 0), fc_txt, font=font_fc)
+                    fw = min(card_w, fb[2] - fb[0] + 28)
+                    fx0 = (self.w - fw) // 2
+                    draw.rounded_rectangle([fx0, fact_y, fx0 + fw, fact_y + int(34 * sc)], radius=10, fill=(15, 23, 42), outline=(52, 211, 153), width=2)
+                    draw.text((fx0 + 14, fact_y + int(7 * sc)), fc_txt[:68], font=font_fc, fill=(248, 250, 252))
+
+        return frame.tobytes()
+
+    def _draw_option(self, draw, x0, y0, x1, y1, letter, text, is_correct, is_secret_trap, phase, theme, font_lbl, font_opt, sc):
+        if phase == "reveal" and not is_secret_trap:
+            if is_correct:
+                bg_col, border_col, txt_col, pill_col = (6, 78, 59), (52, 211, 153), (255, 255, 255), (16, 185, 129)
+            else:
+                bg_col, border_col, txt_col, pill_col = (12, 16, 28), (30, 41, 59), (71, 85, 105), (30, 41, 59)
+        else:
+            bg_col, border_col, txt_col, pill_col = (15, 23, 42), theme["secondary"], (241, 245, 249), theme["secondary"]
+
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=14, fill=bg_col, outline=border_col, width=3)
+
+        bh = y1 - y0
+        cr = int(min(bh * 0.34, 21 * sc))
+        cx = x0 + cr + int(15 * sc)
+        cy = y0 + bh // 2
+        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=pill_col)
+
+        lb = draw.textbbox((0, 0), letter, font=font_lbl)
+        draw.text((cx - (lb[2] - lb[0]) // 2, cy - (lb[3] - lb[1]) // 2 - 2), letter, font=font_lbl, fill=(255, 255, 255))
+
+        tb = draw.textbbox((0, 0), text, font=font_opt)
+        draw.text((cx + cr + int(14 * sc), cy - (tb[3] - tb[1]) // 2 - 2), text, font=font_opt, fill=txt_col)
+
+    def render_outro_comment_trap(self, outro_prog: float, global_t: float) -> bytes:
+        """Final 2.8s Psychological Status & Comment Call-To-Action Screen."""
+        sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
+        theme = GAMING_THEMES["royal"]
+        frame, draw = self._draw_cyber_bg(theme, global_t, sc)
+
+        margin = int(self.w * 0.07)
+        box_w = self.w - margin * 2
+        box_y = int(self.h * 0.16)
+        box_h = int(self.h * 0.66)
+
+        draw.rounded_rectangle([margin, box_y, margin + box_w, box_y + box_h], radius=20, fill=(11, 17, 32), outline=(250, 204, 21), width=4)
+
+        font_hdr = get_font(max(20, int(28 * sc)))
+        font_row = get_font(max(15, int(20 * sc)))
+        font_cta = get_font(max(16, int(21 * sc)))
+
+        hdr = "CLAIM YOUR IQ RANK BELOW! 👇"
+        bh = draw.textbbox((0, 0), hdr, font=font_hdr)
+        draw.text(((self.w - (bh[2] - bh[0])) // 2, box_y + int(28 * sc)), hdr, font=font_hdr, fill=(250, 204, 21))
+
+        max_xp = (self.total_q - 1) * 100
+        ranks = [
+            (f"0 - {int(max_xp * 0.4)} XP  →  🌱 ROOKIE BRAIN", (148, 163, 184)),
+            (f"{int(max_xp * 0.5)} - {int(max_xp * 0.8)} XP  →  ⚡ PRO CHALLENGER", (34, 211, 238)),
+            (f"{max_xp}+ XP + BONUS  →  👑 TOP 1% GENIUS", (52, 211, 153))
+        ]
+        for idx, (r_txt, r_col) in enumerate(ranks):
+            ry = box_y + int((105 + idx * 62) * sc)
+            br = draw.textbbox((0, 0), r_txt, font=font_row)
+            draw.text(((self.w - (br[2] - br[0])) // 2, ry), r_txt, font=font_row, fill=r_col)
+
+        # Pulsing Comment CTA Button
+        pulse = 1.0 + 0.04 * math.sin(global_t * 10.0)
+        cta_txt = "COMMENT YOUR XP + BONUS ANSWER!"
+        bc = draw.textbbox((0, 0), cta_txt, font=font_cta)
+        cw = int((bc[2] - bc[0] + 36) * pulse)
+        cx0 = (self.w - cw) // 2
+        cy0 = box_y + box_h - int(85 * sc)
+        draw.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + int(48 * sc)], radius=14, fill=(244, 63, 94))
+        draw.text(((self.w - (bc[2] - bc[0])) // 2, cy0 + int(12 * sc)), cta_txt, font=font_cta, fill=(255, 255, 255))
 
         return frame.tobytes()
 
@@ -310,31 +672,47 @@ class CCTVAnomalyRenderer:
 # ===========================================================================
 # 4. RENDER PIPELINE & API ROUTES
 # ===========================================================================
-def run_cctv_job(job_id: str, ratio: str, duration_sec: float):
+def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
     job = JOBS[job_id]
     try:
-        out_w, out_h = (960, 540) if ratio == "16:9" else (540, 960)
+        is_vertical = (ratio == "9:16")
+        questions = smart_parse_and_direct(custom_raw, is_vertical)
+        out_w, out_h = (540, 960) if is_vertical else (960, 540)
         fps = 24
         dt = 1.0 / float(fps)
+        total_q = len(questions)
 
-        scenarios = list(CCTV_SCENARIOS)
-        random.shuffle(scenarios)
+        intro_dur = 1.5
+        outro_dur = 2.8
 
-        seg_dur = 9.0
-        num_clips = max(1, int(round(duration_sec / seg_dur)))
-        actual_dur = num_clips * seg_dur
+        timeline = []
+        chapters = ["00:00 Shock-Wave IQ Challenge Intro"]
+        t_cursor = intro_dur
 
-        audio_events = []
-        for i in range(num_clips):
-            t0 = i * seg_dur
-            audio_events.append((t0, t0 + seg_dur * 0.38, t0 + seg_dur))
+        for idx, q_obj in enumerate(questions):
+            if idx % 5 == 0 and not q_obj["is_secret_trap"]:
+                mins = int(t_cursor // 60)
+                secs = int(t_cursor % 60)
+                chapters.append(f"{mins:02d}:{secs:02d} Level {q_obj['level']} Arena")
+            elif q_obj["is_secret_trap"]:
+                mins = int(t_cursor // 60)
+                secs = int(t_cursor % 60)
+                chapters.append(f"{mins:02d}:{secs:02d} Final Secret Bonus Question")
 
-        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_cctv_sfx.wav")
-        job["progress"] = 8
-        job["message"] = "Synthesizing Night-Vision Static, Heartbeat & Anomaly Alarm..."
-        build_cctv_audio_wav(audio_events, actual_dur, wav_path)
+            t_start = t_cursor
+            t_think = t_start + q_obj["read_sec"]
+            t_reveal = t_think + q_obj["think_sec"]
+            t_end = t_reveal + q_obj["reveal_sec"]
+            timeline.append((q_obj, t_start, t_think, t_reveal, t_end))
+            t_cursor = t_end
 
-        out_name = f"NEXORA_CCTV_ANOMALY_{int(actual_dur)}s_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        total_dur = t_cursor + outro_dur
+        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_gaming_v2_sfx.wav")
+        job["progress"] = 10
+        job["message"] = "Synthesizing Hook Impact, Countdown Ticks & Mystery Lock Audio..."
+        build_gaming_sfx_track(intro_dur, timeline, outro_dur, total_dur, wav_path)
+
+        out_name = f"NEXORA_VIRAL_QUIZ_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         ffmpeg_cmd = [
@@ -343,26 +721,40 @@ def run_cctv_job(job_id: str, ratio: str, duration_sec: float):
             "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
             "-r", str(fps), "-i", "-",
             "-i", wav_path,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "19",
             "-c:a", "aac", "-b:a", "160k",
             "-shortest", "-pix_fmt", "yuv420p", out_path
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-        renderer = CCTVAnomalyRenderer(out_w, out_h)
+        renderer = UltraGamingQuizV2Renderer(out_w, out_h, total_q)
         global_t = 0.0
-        frames_per_clip = int(seg_dur * fps)
 
-        for c_idx in range(num_clips):
-            scn = scenarios[c_idx % len(scenarios)]
-            for f in range(frames_per_clip):
-                s_prog = f / max(1, frames_per_clip - 1)
-                raw_bytes = renderer.render_frame(scn, s_prog, global_t)
-                proc.stdin.write(raw_bytes)
-                global_t += dt
+        # 1. Render 1.5s Scroll-Stop Intro
+        intro_frames = int(intro_dur * fps)
+        for f in range(intro_frames):
+            raw_bytes = renderer.render_intro_hook(f / max(1, intro_frames - 1), global_t)
+            proc.stdin.write(raw_bytes)
+            global_t += dt
 
-            job["progress"] = 12 + int(((c_idx + 1) / num_clips) * 85)
-            job["message"] = f"Rendering CCTV Footage {c_idx + 1}/{num_clips}..."
+        # 2. Render All Questions + Final Locked Bonus Trap
+        for idx, (q_obj, t_start, t_think, t_reveal, t_end) in enumerate(timeline):
+            for p_name, p_dur in [("read", q_obj["read_sec"]), ("think", q_obj["think_sec"]), ("reveal", q_obj["reveal_sec"])]:
+                n_frames = max(1, int(p_dur * fps))
+                for f in range(n_frames):
+                    raw_bytes = renderer.render_question_frame(idx, q_obj, p_name, f / max(1, n_frames - 1), f * dt, global_t, dt)
+                    proc.stdin.write(raw_bytes)
+                    global_t += dt
+
+            job["progress"] = 15 + int(((idx + 1) / total_q) * 78)
+            job["message"] = f"Rendering Ultra-Gaming Scene ({idx + 1}/{total_q})..."
+
+        # 3. Render 2.8s Psychological Rank & Comment Trap Outro
+        outro_frames = int(outro_dur * fps)
+        for f in range(outro_frames):
+            raw_bytes = renderer.render_outro_comment_trap(f / max(1, outro_frames - 1), global_t)
+            proc.stdin.write(raw_bytes)
+            global_t += dt
 
         proc.stdin.close()
         proc.wait()
@@ -371,7 +763,8 @@ def run_cctv_job(job_id: str, ratio: str, duration_sec: float):
         job["progress"] = 100
         job["file_path"] = out_path
         job["file_name"] = out_name
-        job["message"] = f"Completed! Night-Vision CCTV Footage Ready ({out_name})"
+        job["chapters"] = "\n".join(chapters)
+        job["message"] = f"Completed! High-Retention Quiz Video Ready ({out_name})"
 
     except Exception as exc:
         job["status"] = "error"
@@ -393,12 +786,12 @@ def api_start():
     job_id = uuid.uuid4().hex[:10]
     data = request.get_json(force=True) if request.is_json else request.form
     ratio = data.get("ratio", "9:16")
-    duration_sec = max(9.0, min(600.0, float(data.get("duration", "18"))))
+    custom_raw = data.get("custom_raw", "")
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Hacking Night-Vision Security Feeds..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Building Scroll-Stop Hook & 3D Hologram Quiz..."}
     threading.Thread(
-        target=run_cctv_job,
-        args=(job_id, ratio, duration_sec),
+        target=run_ultra_quiz_v2_job,
+        args=(job_id, ratio, custom_raw),
         daemon=True
     ).start()
     return jsonify({"job_id": job_id})
