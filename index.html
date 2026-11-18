@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA ULTRA-GAMING QUIZ STUDIO v2.0 — Viral Hook &amp; Comment Trap Engine</title>
+  <title>NEXORA ULTRA-GAMING QUIZ STUDIO v2.1 — Bandwidth-Saver Pro</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -39,7 +39,7 @@
     }
     .badge {
       padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 800;
-      background: rgba(250, 204, 21, 0.15); border: 1px solid rgba(250, 204, 21, 0.45); color: var(--gold);
+      background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399;
     }
     .wrap {
       max-width: 1100px; margin: 0 auto; padding: 16px;
@@ -74,10 +74,10 @@
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--purple), var(--gold)); transition: width 0.25s; }
-    video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 8px; }
+    video { width: 100%; max-height: 520px; border-radius: 12px; background: #000; margin-top: 10px; }
     .dl-btn {
-      display: block; text-align: center; padding: 14px; margin-top: 10px;
-      background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none;
+      display: block; text-align: center; padding: 15px; margin-top: 8px;
+      background: #10b981; color: #030712; font-weight: 900; border-radius: 10px; text-decoration: none; font-size: 14px;
     }
     .chap-box {
       margin-top: 12px; padding: 10px; border-radius: 10px; background: var(--bg-input);
@@ -90,20 +90,20 @@
     <div class="brand">
       <div class="logo">🎮</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA ULTRA-GAMING QUIZ STUDIO v2.0</div>
-        <div style="font-size:11px; color:var(--cyan);">Shock-Wave Intro • 3D Hologram Icons • Locked Bonus Comment Trap</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA ULTRA-GAMING QUIZ STUDIO v2.1</div>
+        <div style="font-size:11px; color:var(--cyan);">75% Smaller File Size • Auto Storage Cleanup • 30-Min Long Ready</div>
       </div>
     </div>
-    <div class="badge">🔥 Viral Engine</div>
+    <div class="badge">⚡ Eco-Compressed</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Platform Format (Hyper-Speed Shorts vs Pro Long)</div>
+        <div class="card-title">1. Platform Format</div>
         <div class="grid-2" style="margin-bottom:0;">
           <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts<br/><small>(Fast ~22s + Comment Trap)</small></div>
-          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long<br/><small>(Full Arena + Rank Outro)</small></div>
+          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long<br/><small>(15–30 Min Ready • Ultra Light)</small></div>
         </div>
       </div>
 
@@ -113,17 +113,17 @@
           <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy AI Prompt</button>
         </div>
 
-        <textarea id="custom-raw" placeholder="Paste questions from ChatGPT or Gemini here (1 per line):&#10;Question? | Option A | Option B | Option C | Option D | CorrectOptionNumber(1-4) | Short Fact&#10;&#10;Note: The last question automatically becomes a LOCKED BONUS COMMENT TRAP!&#10;Leave blank to test built-in demo questions!"></textarea>
+        <textarea id="custom-raw" placeholder="Paste questions from ChatGPT or Gemini here (1 per line):&#10;Question? | Option A | Option B | Option C | Option D | CorrectOptionNumber(1-4) | Short Fact&#10;&#10;Note: Last question automatically becomes a LOCKED BONUS COMMENT TRAP!"></textarea>
 
-        <button class="btn-primary" id="btn-generate">🔥 Render High-Retention Gaming Quiz Video</button>
+        <button class="btn-primary" id="btn-generate">🔥 Render Ultra-Light Gaming Quiz Video</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Ready-to-Upload Viral Video</div>
+        <div class="card-title">3. Ready-to-Upload Compressed Video</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Test 9:16 Reels or 16:9 Long now!
+          Ready — Generates ultra-light MP4 files to protect your 5 GB monthly Render limit!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -147,12 +147,12 @@
     });
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const promptText = `Generate 15 engaging, accurate MCQ questions on [ENTER TOPIC HERE e.g. Class 10 Science / Brain Riddles / World GK]. Make the very last question a super clever brain-teaser!
+      const promptText = `Generate 20 engaging, accurate MCQ questions on [ENTER TOPIC HERE e.g. Class 10 Science / Brain Riddles / World GK]. Make the very last question a super clever brain-teaser!
 Output ONLY plain lines in this exact pipe-separated format with NO numbering, NO markdown, and NO extra text:
 Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber(1-4) | Short 1-line fun fact`;
       navigator.clipboard.writeText(promptText).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Prompt Copied! Paste in Gemini/GPT";
+        btn.textContent = "✅ Prompt Copied!";
         setTimeout(() => btn.textContent = "📋 Copy AI Prompt", 3000);
       });
     };
@@ -185,8 +185,8 @@ Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber
               const streamUrl = `${API_BASE}/api/video/${job_id}`;
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               document.getElementById("video-area").innerHTML = `
-                <video src="${streamUrl}" controls autoplay loop playsinline></video>
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download High-Retention MP4 (${st.file_name})</a>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">⬇ Download MP4 (${st.size_mb} MB) — Saves Bandwidth!</a>
+                <video src="${streamUrl}" controls preload="metadata" playsinline></video>
                 <div class="chap-box"><strong>Auto YouTube Chapters:</strong>\n${st.chapters}</div>
               `;
             } else if (st.status === "error") {
