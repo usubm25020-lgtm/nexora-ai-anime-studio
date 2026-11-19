@@ -1,4 +1,5 @@
 import os
+import gc
 import re
 import time
 import math
@@ -31,8 +32,7 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
 
-def cleanup_old_files(max_age_sec: int = 1200):
-    """Deletes all old MP4 & WAV files older than 20 mins to keep Render storage completely clean."""
+def cleanup_old_files(max_age_sec: int = 900):
     now = time.time()
     for folder in (OUTPUT_DIR, AUDIO_DIR):
         try:
@@ -173,96 +173,96 @@ def smart_parse_and_direct(raw_text: str, is_vertical: bool):
 
 
 # ===========================================================================
-# 2. HIGH-ENERGY GAMING SYNTHWAVE + HOOK IMPACT, TICKS & MYSTERY LOCK AUDIO
+# 2. LOW-RAM STREAMING WAV AUDIO SYNTHESIZER (PREVENTS 512MB OOM CRASHES)
 # ===========================================================================
 def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, total_dur: float, out_wav: str):
-    rate = 22050
-    n = int(total_dur * rate)
-    t = np.linspace(0, total_dur, n, endpoint=False, dtype=np.float32)
-
+    """Writes audio in 30-second chunks directly to disk so even 30-min videos use <15MB RAM."""
+    rate = 16000
     bpm = 128.0
     beat_dur = 60.0 / bpm
-    beat_pos = (t % beat_dur) / beat_dur
-
-    kick = np.sin(2.0 * np.pi * (54.0 + 60.0 * np.exp(-beat_pos * 18.0)) * (t % beat_dur)) * np.exp(-beat_pos * 8.5) * 0.25
     bass_notes = [110.0, 110.0, 130.81, 146.83, 98.0, 98.0, 130.81, 164.81]
-    b_idx = (t / (beat_dur * 2.0)).astype(np.int32)
-    b_freq = np.array([bass_notes[i % len(bass_notes)] for i in b_idx], dtype=np.float32)
-    bass = np.sin(2.0 * np.pi * b_freq * t) * 0.11
-
-    audio = kick + bass
     rng = np.random.default_rng(2026)
 
-    imp_len = min(n, int(0.65 * rate))
-    if imp_len > 0:
-        ti = np.linspace(0, imp_len / float(rate), imp_len, endpoint=False, dtype=np.float32)
-        boom = np.sin(2.0 * np.pi * (130.0 * np.exp(-ti * 8.0) + 40.0) * ti) * np.exp(-ti * 5.0) * 0.55
-        audio[:imp_len] += boom
-
-    for q_obj, t_start, t_think_start, t_reveal_start, t_end in timeline:
-        s0 = int(t_start * rate)
-        w_len = int(0.26 * rate)
-        if s0 + w_len < n:
-            tw = np.linspace(0, 0.26, w_len, endpoint=False, dtype=np.float32)
-            noise = rng.uniform(-1.0, 1.0, w_len).astype(np.float32)
-            env = np.sin(np.pi * (tw / 0.26)) ** 1.5
-            audio[s0:s0 + w_len] += noise * env * 0.18
-
-        cur_t = t_think_start + 0.15
-        tick_i = 0
-        while cur_t < t_reveal_start - 0.10:
-            rem = t_reveal_start - cur_t
-            step = 0.22 if rem <= 1.8 else 0.45
-            st = int(cur_t * rate)
-            t_len = int(0.05 * rate)
-            if st + t_len < n:
-                tt = np.linspace(0, 0.05, t_len, endpoint=False, dtype=np.float32)
-                freq = 1560.0 if rem <= 1.8 else (1140.0 if tick_i % 2 == 0 else 940.0)
-                tk = np.sin(2.0 * np.pi * freq * tt) * np.exp(-tt * 78.0) * 0.36
-                audio[st:st + t_len] += tk
-            cur_t += step
-            tick_i += 1
-
-        sr = int(t_reveal_start * rate)
-        r_len = int(0.75 * rate)
-        if sr + r_len < n:
-            tr = np.linspace(0, 0.75, r_len, endpoint=False, dtype=np.float32)
-            if q_obj["is_secret_trap"]:
-                p1 = np.sin(2.0 * np.pi * 622.25 * tr) * np.exp(-tr * 8.0)
-                p2 = np.sin(2.0 * np.pi * 587.33 * np.maximum(0, tr - 0.16)) * np.exp(-np.maximum(0, tr - 0.16) * 7.0)
-                audio[sr:sr + r_len] += (p1 + p2) * 0.34
-            else:
-                c1 = np.sin(2.0 * np.pi * 1046.50 * tr) * np.exp(-tr * 6.0)
-                c2 = np.sin(2.0 * np.pi * 1318.51 * np.maximum(0, tr - 0.06)) * np.exp(-np.maximum(0, tr - 0.06) * 5.5)
-                c3 = np.sin(2.0 * np.pi * 1567.98 * np.maximum(0, tr - 0.12)) * np.exp(-np.maximum(0, tr - 0.12) * 5.0)
-                c4 = np.sin(2.0 * np.pi * 2093.00 * np.maximum(0, tr - 0.18)) * np.exp(-np.maximum(0, tr - 0.18) * 4.2)
-                audio[sr:sr + r_len] += (c1 + c2 + c3 + c4) * 0.24
-
-    so = int((total_dur - outro_dur) * rate)
-    o_len = min(n - so, int(0.9 * rate))
-    if o_len > 0:
-        to = np.linspace(0, o_len / float(rate), o_len, endpoint=False, dtype=np.float32)
-        fanfare = (
-            np.sin(2.0 * np.pi * 523.25 * to) +
-            np.sin(2.0 * np.pi * 783.99 * to) +
-            np.sin(2.0 * np.pi * 1046.50 * to)
-        ) * np.exp(-to * 3.5) * 0.22
-        audio[so:so + o_len] += fanfare
-
-    fade_s = min(int(0.4 * rate), n // 6)
-    if fade_s > 0:
-        audio[-fade_s:] *= np.linspace(1, 0, fade_s)
-
-    pcm = (np.clip(audio, -0.95, 0.95) * 32767.0).astype(np.int16)
     with wave.open(out_wav, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(rate)
-        wf.writeframes(pcm.tobytes())
+
+        chunk_sec = 30.0
+        cur_start = 0.0
+        while cur_start < total_dur:
+            c_dur = min(chunk_sec, total_dur - cur_start)
+            n = int(round(c_dur * rate))
+            if n <= 0:
+                break
+            t = np.linspace(cur_start, cur_start + c_dur, n, endpoint=False, dtype=np.float32)
+
+            beat_pos = (t % beat_dur) / beat_dur
+            kick = np.sin(2.0 * np.pi * (54.0 + 60.0 * np.exp(-beat_pos * 18.0)) * (t % beat_dur)) * np.exp(-beat_pos * 8.5) * 0.25
+            b_idx = (t / (beat_dur * 2.0)).astype(np.int32) % len(bass_notes)
+            b_freq = np.take(np.array(bass_notes, dtype=np.float32), b_idx)
+            audio = kick + np.sin(2.0 * np.pi * b_freq * t) * 0.11
+
+            # Intro boom
+            if cur_start < 0.65:
+                imp_end = min(n, int((0.65 - cur_start) * rate))
+                ti = t[:imp_end]
+                audio[:imp_end] += np.sin(2.0 * np.pi * (130.0 * np.exp(-ti * 8.0) + 40.0) * ti) * np.exp(-ti * 5.0) * 0.55
+
+            # Overlay question SFX overlapping this chunk
+            for q_obj, t_start, t_think_start, t_reveal_start, t_end in timeline:
+                if t_end < cur_start or t_start > cur_start + c_dur:
+                    continue
+
+                # Card slide whoosh
+                if cur_start <= t_start < cur_start + c_dur:
+                    s0 = int((t_start - cur_start) * rate)
+                    w_len = min(n - s0, int(0.24 * rate))
+                    if w_len > 0:
+                        tw = np.linspace(0, w_len / float(rate), w_len, endpoint=False, dtype=np.float32)
+                        noise = rng.uniform(-1.0, 1.0, w_len).astype(np.float32)
+                        audio[s0:s0 + w_len] += noise * (np.sin(np.pi * (tw / 0.24)) ** 1.5) * 0.18
+
+                # Countdown ticks
+                cur_t = t_think_start + 0.15
+                tick_i = 0
+                while cur_t < t_reveal_start - 0.10:
+                    rem = t_reveal_start - cur_t
+                    step = 0.24 if rem <= 1.8 else 0.48
+                    if cur_start <= cur_t < cur_start + c_dur:
+                        st = int((cur_t - cur_start) * rate)
+                        t_len = min(n - st, int(0.045 * rate))
+                        if t_len > 0:
+                            tt = np.linspace(0, t_len / float(rate), t_len, endpoint=False, dtype=np.float32)
+                            freq = 1560.0 if rem <= 1.8 else (1140.0 if tick_i % 2 == 0 else 940.0)
+                            audio[st:st + t_len] += np.sin(2.0 * np.pi * freq * tt) * np.exp(-tt * 78.0) * 0.35
+                    cur_t += step
+                    tick_i += 1
+
+                # Reveal chord or Mystery lock alarm
+                if cur_start <= t_reveal_start < cur_start + c_dur:
+                    sr = int((t_reveal_start - cur_start) * rate)
+                    r_len = min(n - sr, int(0.70 * rate))
+                    if r_len > 0:
+                        tr = np.linspace(0, r_len / float(rate), r_len, endpoint=False, dtype=np.float32)
+                        if q_obj["is_secret_trap"]:
+                            p1 = np.sin(2.0 * np.pi * 622.25 * tr) * np.exp(-tr * 8.0)
+                            p2 = np.sin(2.0 * np.pi * 587.33 * np.maximum(0, tr - 0.16)) * np.exp(-np.maximum(0, tr - 0.16) * 7.0)
+                            audio[sr:sr + r_len] += (p1 + p2) * 0.34
+                        else:
+                            c1 = np.sin(2.0 * np.pi * 1046.50 * tr) * np.exp(-tr * 6.0)
+                            c2 = np.sin(2.0 * np.pi * 1318.51 * np.maximum(0, tr - 0.06)) * np.exp(-np.maximum(0, tr - 0.06) * 5.5)
+                            c3 = np.sin(2.0 * np.pi * 1567.98 * np.maximum(0, tr - 0.12)) * np.exp(-np.maximum(0, tr - 0.12) * 5.0)
+                            audio[sr:sr + r_len] += (c1 + c2 + c3) * 0.25
+
+            pcm = (np.clip(audio, -0.95, 0.95) * 32767.0).astype(np.int16)
+            wf.writeframes(pcm.tobytes())
+            cur_start += c_dur
+            gc.collect()
 
 
 # ===========================================================================
-# 3. TURBO-CACHED ULTRA-GAMING RENDERER (5X FASTER CPU PERFORMANCE)
+# 3. TURBO-CACHED ULTRA-GAMING RENDERER
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
@@ -311,7 +311,6 @@ class UltraGamingQuizTurboRenderer:
         self.rng = random.Random(999)
         self.sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
 
-        # Pre-render static theme backgrounds once (eliminates per-frame numpy & grid loops!)
         self.bg_cache = {}
         grid_step = int(48 * self.sc)
         for t_key, theme in GAMING_THEMES.items():
@@ -329,7 +328,7 @@ class UltraGamingQuizTurboRenderer:
 
         self.ambient_orbs = [
             [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(22, 55), self.rng.uniform(2, 4.0)]
-            for _ in range(18)
+            for _ in range(16)
         ]
         self.confetti = []
         self.last_confetti_q = -1
@@ -380,7 +379,7 @@ class UltraGamingQuizTurboRenderer:
     def _spawn_confetti(self, cx: float, cy: float):
         cols = [(34, 211, 238), (250, 204, 21), (52, 211, 153), (244, 63, 94), (168, 85, 247), (255, 255, 255)]
         self.confetti = []
-        for _ in range(45):
+        for _ in range(40):
             ang = self.rng.uniform(0, 2.0 * math.pi)
             spd = self.rng.uniform(160.0, 520.0)
             self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 170.0, 1.0, self.rng.choice(cols)])
@@ -646,17 +645,17 @@ class UltraGamingQuizTurboRenderer:
 
 
 # ===========================================================================
-# 4. RENDER PIPELINE & API ROUTES (5X SPEED + AUTO-CLEANUP)
+# 4. LOW-RAM LONG-VIDEO RENDER PIPELINE
 # ===========================================================================
 def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
     job = JOBS[job_id]
     wav_path = None
     try:
-        cleanup_old_files(1200)
+        cleanup_old_files(900)
         is_vertical = (ratio == "9:16")
         questions = smart_parse_and_direct(custom_raw, is_vertical)
         out_w, out_h = (540, 960) if is_vertical else (960, 540)
-        fps = 18
+        fps = 14
         dt = 1.0 / float(fps)
         total_q = len(questions)
 
@@ -686,9 +685,10 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
 
         total_dur = t_cursor + outro_dur
         wav_path = os.path.join(AUDIO_DIR, f"{job_id}_gaming_v2_sfx.wav")
-        job["progress"] = 10
-        job["message"] = "Synthesizing Hook Impact, Countdown Ticks & Mystery Lock Audio..."
+        job["progress"] = 8
+        job["message"] = f"Streaming Audio Engine ({total_q} Questions, Low-RAM Mode)..."
         build_gaming_sfx_track(intro_dur, timeline, outro_dur, total_dur, wav_path)
+        gc.collect()
 
         out_name = f"NEXORA_VIRAL_QUIZ_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
@@ -723,8 +723,10 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
                     proc.stdin.write(raw_bytes)
                     global_t += dt
 
-            job["progress"] = 15 + int(((idx + 1) / total_q) * 78)
-            job["message"] = f"Turbo-Rendering Ultra-Gaming Scene ({idx + 1}/{total_q})..."
+            job["progress"] = 12 + int(((idx + 1) / total_q) * 82)
+            job["message"] = f"Rendering Question {idx + 1} / {total_q}..."
+            if (idx + 1) % 10 == 0:
+                gc.collect()
 
         outro_frames = int(outro_dur * fps)
         for f in range(outro_frames):
@@ -740,6 +742,7 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
                 os.remove(wav_path)
             except Exception:
                 pass
+        gc.collect()
 
         size_mb = round(os.path.getsize(out_path) / (1024.0 * 1024.0), 1)
         job["status"] = "done"
@@ -772,7 +775,7 @@ def api_start():
     ratio = data.get("ratio", "9:16")
     custom_raw = data.get("custom_raw", "")
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Initializing 5X Turbo Render Engine..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Starting Low-RAM Long Video Engine..."}
     threading.Thread(
         target=run_ultra_quiz_v2_job,
         args=(job_id, ratio, custom_raw),
