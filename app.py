@@ -6,6 +6,7 @@ import math
 import uuid
 import wave
 import random
+import urllib.request
 import subprocess
 import threading
 import numpy as np
@@ -26,11 +27,43 @@ def add_cors(resp):
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "rendered_videos")
 AUDIO_DIR = os.path.join(BASE_DIR, "audio_assets")
+FONT_DIR = os.path.join(BASE_DIR, "fonts")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(AUDIO_DIR, exist_ok=True)
+os.makedirs(FONT_DIR, exist_ok=True)
 
 FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
 JOBS = {}
+
+def ensure_bengali_font() -> str:
+    """Downloads Noto Sans Bengali Bold once so all Bengali conjuncts (যুক্তাক্ষর) render crisply."""
+    local_ttf = os.path.join(FONT_DIR, "NotoSansBengali-Bold.ttf")
+    if os.path.exists(local_ttf) and os.path.getsize(local_ttf) > 30000:
+        return local_ttf
+
+    for sys_p in [
+        "/usr/share/fonts/truetype/noto/NotoSansBengali-Bold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansBengali-Regular.ttf",
+        "/usr/share/fonts/truetype/lohit-bengali/Lohit-Bengali.ttf"
+    ]:
+        if os.path.exists(sys_p):
+            return sys_p
+
+    urls = [
+        "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansBengali/NotoSansBengali-Bold.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansbengali/NotoSansBengali%5Bwdth%2Cwght%5D.ttf"
+    ]
+    for u in urls:
+        try:
+            urllib.request.urlretrieve(u, local_ttf)
+            if os.path.exists(local_ttf) and os.path.getsize(local_ttf) > 30000:
+                return local_ttf
+        except Exception:
+            pass
+
+    return "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+BENGALI_FONT_PATH = ensure_bengali_font()
 
 def cleanup_old_files(max_age_sec: int = 900):
     now = time.time()
@@ -44,7 +77,7 @@ def cleanup_old_files(max_age_sec: int = 900):
             pass
 
 # ===========================================================================
-# 1. ULTRA-GAMING VISUAL THEMES & AUTO-DIRECTOR ANALYZER
+# 1. ULTRA-GAMING VISUAL THEMES & BENGALI MADHYAMIK AUTO-DIRECTOR
 # ===========================================================================
 GAMING_THEMES = {
     "cyber": {
@@ -85,12 +118,11 @@ GAMING_THEMES = {
     }
 }
 
-DEFAULT_SAMPLE_QUESTIONS = [
-    {"q": "Which planet rotates clockwise so the Sun rises in the west?", "opts": ["Mercury", "Venus", "Mars", "Uranus"], "ans": 1, "fact": "Venus spins backward compared to almost every other planet!"},
-    {"q": "What is the SI unit of electrical resistance?", "opts": ["Ampere", "Volt", "Ohm", "Watt"], "ans": 2, "fact": "Named after German physicist Georg Simon Ohm."},
-    {"q": "I speak without a mouth and hear without ears. What am I?", "opts": ["A Shadow", "An Echo", "The Wind", "A Dream"], "ans": 1, "fact": "Sound waves bouncing off hard surfaces create an echo!"},
-    {"q": "If a train runs at 90 km/h, how far does it go in 10 seconds?", "opts": ["150 m", "200 m", "250 m", "300 m"], "ans": 2, "fact": "90 km/h = 25 m/s, so 25 x 10 = 250 meters."},
-    {"q": "What has 13 hearts, but no lungs or stomach?", "opts": ["An Octopus", "A Deck of Cards", "A Starfish", "A Jellyfish"], "ans": 1, "fact": "Every standard deck has 13 cards in the Hearts suit!"}
+DEFAULT_BENGALI_QUESTIONS = [
+    {"q": "বায়ুমণ্ডলের কোন স্তরটি সূর্যের ক্ষতিকারক অতিবেগুনি রশ্মি শোষণ করে?", "opts": ["ট্রপোস্ফিয়ার", "স্ট্র্যাটোস্ফিয়ার", "মেসোস্ফিয়ার", "থার্মোস্ফিয়ার"], "ans": 1, "fact": "স্ট্র্যাটোস্ফিয়ারে থাকা ওজোন স্তর পৃথিবীর রক্ষাকবচ হিসেবে কাজ করে!"},
+    {"q": "রোধের এসআই (SI) একক কী?", "opts": ["অ্যাম্পিয়ার", "ভোল্ট", "ওহম", "কুলম্ব"], "ans": 2, "fact": "বিজ্ঞানী জর্জ সাইমন ওহমের নামানুসারে এই একক রাখা হয়েছে।"},
+    {"q": "১৮২৮ সালে কলকাতায় 'ব্রাহ্মসমাজ' কে প্রতিষ্ঠা করেন?", "opts": ["স্বামী বিবেকানন্দ", "ঈশ্বরচন্দ্র বিদ্যাসাগর", "রাজা রামমোহন রায়", "কেশবচন্দ্র সেন"], "ans": 2, "fact": "রামমোহন রায় ১৮২৯ সালে সতীদাহ প্রথা রদে প্রধান ভূমিকা নেন!"},
+    {"q": "পশ্চিমবঙ্গের কোন নদীকে 'বাংলার দুঃখ' বলা হয়?", "opts": ["তিস্তা", "দামোদর", "সুবর্ণরেখা", "মহানন্দা"], "ans": 1, "fact": "অতীতে ভয়াবহ বন্যার কারণে দামোদর নদকে বাংলার দুঃখ বলা হতো।"}
 ]
 
 def smart_parse_and_direct(raw_text: str, is_vertical: bool):
@@ -101,7 +133,7 @@ def smart_parse_and_direct(raw_text: str, is_vertical: bool):
             continue
         parts = [p.strip() for p in ln.split("|")]
         if len(parts) >= 6:
-            q_txt = re.sub(r"^Q\d*\s*[:.\-]\s*", "", parts[0], flags=re.I).strip()
+            q_txt = re.sub(r"^(Q?\d+|প্রশ্ন\s*\d*)\s*[:.\-]\s*", "", parts[0], flags=re.I).strip()
             opts = parts[1:5]
             try:
                 ans_idx = max(0, min(3, int(re.sub(r"[^0-9]", "", parts[5])) - 1))
@@ -111,47 +143,49 @@ def smart_parse_and_direct(raw_text: str, is_vertical: bool):
             items.append({"q": q_txt, "opts": opts, "ans": ans_idx, "fact": fact_txt})
 
     if not items:
-        items = [dict(x) for x in DEFAULT_SAMPLE_QUESTIONS]
+        items = [dict(x) for x in DEFAULT_BENGALI_QUESTIONS]
 
+    # For 9:16 Shorts/Reels, select 3 punchy questions + 1 Locked Comment Trap (~22s)
     if is_vertical and len(items) > 4:
         items = items[:4]
     elif len(items) < 2:
-        items.append(dict(DEFAULT_SAMPLE_QUESTIONS[-1]))
+        items.append(dict(DEFAULT_BENGALI_QUESTIONS[-1]))
 
     directed = []
     theme_keys = list(GAMING_THEMES.keys())
     total_n = len(items)
 
     for idx, item in enumerate(items):
-        q_low = item["q"].lower()
-        word_cnt = len(item["q"].split())
+        q_txt = item["q"]
+        word_cnt = len(q_txt.split())
         is_secret_trap = (idx == total_n - 1)
         is_boss = ((idx + 1) % 5 == 0) and not is_secret_trap
 
-        has_math = bool(re.search(r"[0-9%+\-*/=]|calculate|solve|how many|equation|ratio", q_low))
+        has_math = bool(re.search(r"[0-9০-৯%+\-*/=]|হিসাব|মান কত|সমীকরণ|অনুপাত|সুদ", q_txt))
         if is_vertical:
-            think_sec = 4.2 if has_math else 3.4
-            read_sec = 1.3
-            reveal_sec = 2.6 if is_secret_trap else 2.1
+            think_sec = 4.5 if has_math else 3.6
+            read_sec = 1.2
+            reveal_sec = 2.6 if is_secret_trap else 2.0
         else:
-            if has_math or word_cnt >= 15:
-                think_sec = 7.0
-            elif word_cnt >= 10:
+            if has_math or word_cnt >= 14:
+                think_sec = 6.8
+            elif word_cnt >= 9:
                 think_sec = 5.2
             else:
                 think_sec = 4.2
-            read_sec = max(1.5, min(2.8, word_cnt * 0.14))
+            read_sec = max(1.6, min(2.8, word_cnt * 0.16))
             reveal_sec = 3.2 if is_secret_trap else (2.9 if item["fact"] else 2.3)
 
+        # Auto-assign Bengali subject theme & 3D hologram badge
         if is_secret_trap:
             t_key, holo_type = "crimson", "cube"
         elif is_boss:
             t_key, holo_type = "crimson", "atom"
-        elif any(k in q_low for k in ["space", "planet", "atom", "physics", "science", "chem", "bio", "energy", "light", "si unit", "gas", "vitamin"]):
+        elif any(k in q_txt for k in ["বিজ্ঞান", "ভৌত", "রসায়ন", "গ্যাস", "আলো", "লেন্স", "দর্পণ", "তড়িৎ", "রোধ", "একক", "হরমোন", "কোষ", "ক্রোমোজোম", "ওজোন", "অ্যাসিড", "ধাতু"]):
             t_key, holo_type = "cyber", "atom"
-        elif any(k in q_low for k in ["history", "king", "india", "world", "capital", "country", "war", "earth", "coffee"]):
+        elif any(k in q_txt for k in ["ইতিহাস", "ভূগোল", "বিদ্রোহ", "আন্দোলন", "সাল", "নদী", "পর্বত", "মৃত্তিকা", "ভারত", "বাংলা", "গান্ধী", "সুভাষ", "বঙ্কিম", "রামমোহন", "প্রতিষ্ঠা"]):
             t_key, holo_type = "royal", "globe"
-        elif any(k in q_low for k in ["riddle", "brain", "logic", "number", "math", "train", "father", "hearts"]):
+        elif any(k in q_txt for k in ["গণিত", "সমীকরণ", "বৃত্ত", "গোলক", "গড়", "মধ্যমা", "মান", "সুদ", "ত্রিকোণমিতি"]) or has_math:
             t_key, holo_type = "emerald", "cube"
         else:
             t_key = theme_keys[(idx // 3) % len(theme_keys)]
@@ -173,15 +207,14 @@ def smart_parse_and_direct(raw_text: str, is_vertical: bool):
 
 
 # ===========================================================================
-# 2. LOW-RAM STREAMING WAV AUDIO SYNTHESIZER (PREVENTS 512MB OOM CRASHES)
+# 2. LOW-RAM STREAMING GAMING AUDIO SYNTHESIZER (NO VOICEOVER)
 # ===========================================================================
 def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, total_dur: float, out_wav: str):
-    """Writes audio in 30-second chunks directly to disk so even 30-min videos use <15MB RAM."""
     rate = 16000
     bpm = 128.0
     beat_dur = 60.0 / bpm
     bass_notes = [110.0, 110.0, 130.81, 146.83, 98.0, 98.0, 130.81, 164.81]
-    rng = np.random.default_rng(2026)
+    rng = np.random.default_rng(2027)
 
     with wave.open(out_wav, "wb") as wf:
         wf.setnchannels(1)
@@ -203,18 +236,16 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
             b_freq = np.take(np.array(bass_notes, dtype=np.float32), b_idx)
             audio = kick + np.sin(2.0 * np.pi * b_freq * t) * 0.11
 
-            # Intro boom
+            # Instant Frame-1 Scroll-Stop Sub-Bass Boom
             if cur_start < 0.65:
                 imp_end = min(n, int((0.65 - cur_start) * rate))
                 ti = t[:imp_end]
                 audio[:imp_end] += np.sin(2.0 * np.pi * (130.0 * np.exp(-ti * 8.0) + 40.0) * ti) * np.exp(-ti * 5.0) * 0.55
 
-            # Overlay question SFX overlapping this chunk
             for q_obj, t_start, t_think_start, t_reveal_start, t_end in timeline:
                 if t_end < cur_start or t_start > cur_start + c_dur:
                     continue
 
-                # Card slide whoosh
                 if cur_start <= t_start < cur_start + c_dur:
                     s0 = int((t_start - cur_start) * rate)
                     w_len = min(n - s0, int(0.24 * rate))
@@ -223,7 +254,6 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
                         noise = rng.uniform(-1.0, 1.0, w_len).astype(np.float32)
                         audio[s0:s0 + w_len] += noise * (np.sin(np.pi * (tw / 0.24)) ** 1.5) * 0.18
 
-                # Countdown ticks
                 cur_t = t_think_start + 0.15
                 tick_i = 0
                 while cur_t < t_reveal_start - 0.10:
@@ -239,7 +269,6 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
                     cur_t += step
                     tick_i += 1
 
-                # Reveal chord or Mystery lock alarm
                 if cur_start <= t_reveal_start < cur_start + c_dur:
                     sr = int((t_reveal_start - cur_start) * rate)
                     r_len = min(n - sr, int(0.70 * rate))
@@ -262,24 +291,24 @@ def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, t
 
 
 # ===========================================================================
-# 3. TURBO-CACHED ULTRA-GAMING RENDERER
+# 3. BENGALI RAQM SHAPED ULTRA-GAMING RENDERER (ZERO-INTRO SHORTS MODE)
 # ===========================================================================
 _FONT_CACHE = {}
 def get_font(size: int):
     if size in _FONT_CACHE:
         return _FONT_CACHE[size]
-    for p in [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
-    ]:
-        if os.path.exists(p):
-            try:
-                f = ImageFont.truetype(p, size)
-                _FONT_CACHE[size] = f
-                return f
-            except Exception:
-                pass
-    return ImageFont.load_default()
+    try:
+        # Use RAQM layout engine if libraqm is installed so Bengali conjuncts join cleanly
+        f = ImageFont.truetype(BENGALI_FONT_PATH, size, layout_engine=ImageFont.Layout.RAQM)
+        _FONT_CACHE[size] = f
+        return f
+    except Exception:
+        try:
+            f = ImageFont.truetype(BENGALI_FONT_PATH, size)
+            _FONT_CACHE[size] = f
+            return f
+        except Exception:
+            return ImageFont.load_default()
 
 def ease_out_back(x: float) -> float:
     x = max(0.0, min(1.0, x))
@@ -302,13 +331,13 @@ def wrap_lines(draw: ImageDraw.Draw, text: str, font, max_w: int) -> list:
         lines.append(cur)
     return lines
 
-class UltraGamingQuizTurboRenderer:
+class BengaliMadhyamikQuizRenderer:
     def __init__(self, w: int, h: int, total_q: int):
         self.w = w
         self.h = h
         self.total_q = total_q
         self.is_vertical = (h > w)
-        self.rng = random.Random(999)
+        self.rng = random.Random(2027)
         self.sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
 
         self.bg_cache = {}
@@ -384,7 +413,8 @@ class UltraGamingQuizTurboRenderer:
             spd = self.rng.uniform(160.0, 520.0)
             self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 170.0, 1.0, self.rng.choice(cols)])
 
-    def render_intro_hook(self, intro_prog: float, global_t: float) -> bytes:
+    def render_long_intro_hook(self, intro_prog: float, global_t: float) -> bytes:
+        """Used ONLY for 16:9 YouTube Long (9:16 Shorts jumps straight into Q1 at 0.00s!)."""
         sc = self.sc
         theme = GAMING_THEMES["cyber"]
         frame, draw = self._get_bg_frame("cyber", theme, global_t)
@@ -395,11 +425,11 @@ class UltraGamingQuizTurboRenderer:
             draw.ellipse([cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r], outline=theme["primary"], width=3)
 
         pop = ease_out_back(min(1.0, intro_prog * 2.4))
-        font_big = get_font(max(26, int(38 * sc * pop)))
+        font_big = get_font(max(26, int(36 * sc * pop)))
         font_sub = get_font(max(16, int(21 * sc)))
 
-        hook_l1 = "ONLY 1% GENIUS" if self.is_vertical else "ONLY 1% GENIUS CAN SCORE 100%"
-        hook_l2 = "CAN PASS THIS!" if self.is_vertical else "BEAT THE LASER TIMER • CLAIM YOUR IQ RANK"
+        hook_l1 = "মাধ্যমিক ২০২৭: ১০০% কমন সাজেশন টেস্ট!"
+        hook_l2 = "দেখা যাক তুমি কত স্কোর করতে পারো!"
 
         b1 = draw.textbbox((0, 0), hook_l1, font=font_big)
         draw.text(((self.w - (b1[2] - b1[0])) // 2, int(cy - 65 * sc)), hook_l1, font=font_big, fill=(250, 204, 21), stroke_width=3, stroke_fill=(0, 0, 0))
@@ -408,12 +438,12 @@ class UltraGamingQuizTurboRenderer:
         draw.text(((self.w - (b2[2] - b2[0])) // 2, int(cy + 10 * sc)), hook_l2, font=font_sub, fill=(34, 211, 238))
 
         cd_num = max(1, 3 - int(intro_prog * 3))
-        pill_txt = f"STARTING IN {cd_num}..."
+        pill_txt = f"শুরু হচ্ছে {cd_num} সেকেন্ডে..."
         bp = draw.textbbox((0, 0), pill_txt, font=font_sub)
         pw = bp[2] - bp[0] + 36
         px0 = (self.w - pw) // 2
         py0 = int(cy + 65 * sc)
-        draw.rounded_rectangle([px0, py0, px0 + pw, py0 + int(42 * sc)], radius=12, fill=(244, 63, 94))
+        draw.rounded_rectangle([px0, py0, px0 + pw, py0 + int(44 * sc)], radius=12, fill=(244, 63, 94))
         draw.text((px0 + 18, py0 + int(9 * sc)), pill_txt, font=font_sub, fill=(255, 255, 255))
 
         return frame.tobytes()
@@ -433,25 +463,31 @@ class UltraGamingQuizTurboRenderer:
         hud_y = int(self.h * 0.032)
 
         if q_obj["is_secret_trap"]:
-            lvl_txt = "FINAL SECRET CHALLENGE (NO ANSWER!)"
+            lvl_txt = "বোনাস চ্যালেঞ্জ (উত্তর লুকানো!)"
         elif q_obj["is_boss"]:
-            lvl_txt = "BOSS ROUND • 2X XP"
+            lvl_txt = "বস রাউন্ড • ডাবল XP"
+        elif self.is_vertical and q_idx == 0:
+            lvl_txt = "৯৯% ছাত্রছাত্রী ভুল করে!"
         else:
-            lvl_txt = f"LVL {q_obj['level']} • STREAK {q_idx + 1}X"
+            lvl_txt = f"মাধ্যমিক ২০২৭ • লেভেল {q_obj['level']}"
 
         xp_val = min(q_idx, self.total_q - 1) * 100 + (100 if (phase == "reveal" and not q_obj["is_secret_trap"]) else 0)
-        xp_txt = f"Q {q_idx + 1}/{self.total_q} • {xp_val} XP"
+        xp_txt = f"প্রশ্ন {q_idx + 1}/{self.total_q} • {xp_val} XP"
 
-        draw.rounded_rectangle([margin, hud_y, margin + int(275 * sc), hud_y + int(32 * sc)], radius=8, fill=(15, 23, 42), outline=theme["primary"], width=2)
+        draw.rounded_rectangle([margin, hud_y, margin + int(275 * sc), hud_y + int(34 * sc)], radius=8, fill=(15, 23, 42), outline=theme["primary"], width=2)
         draw.text((margin + 10, hud_y + int(6 * sc)), lvl_txt, font=font_hud, fill=theme["primary"])
 
         xb = draw.textbbox((0, 0), xp_txt, font=font_hud)
         xw = xb[2] - xb[0] + 22
-        draw.rounded_rectangle([self.w - margin - xw, hud_y, self.w - margin, hud_y + int(32 * sc)], radius=8, fill=(15, 23, 42), outline=theme["accent"], width=2)
+        draw.rounded_rectangle([self.w - margin - xw, hud_y, self.w - margin, hud_y + int(34 * sc)], radius=8, fill=(15, 23, 42), outline=theme["accent"], width=2)
         draw.text((self.w - margin - xw + 11, hud_y + int(6 * sc)), xp_txt, font=font_hud, fill=theme["accent"])
 
-        slide_t = ease_out_back(min(1.0, phase_elapsed / 0.38)) if phase == "read" else 1.0
-        y_shift = int((1.0 - slide_t) * -130 * sc)
+        # In 9:16 Shorts Q#1, render immediately in place (no slide delay!) so Frame 1 stops the swipe!
+        if self.is_vertical and q_idx == 0:
+            y_shift = 0
+        else:
+            slide_t = ease_out_back(min(1.0, phase_elapsed / 0.36)) if phase == "read" else 1.0
+            y_shift = int((1.0 - slide_t) * -130 * sc)
 
         q_top = int(self.h * 0.11) + y_shift
         q_h = int(self.h * (0.23 if self.is_vertical else 0.25))
@@ -469,9 +505,9 @@ class UltraGamingQuizTurboRenderer:
         holo_r = 16 * sc
         self._draw_3d_holo_badge(draw, margin + card_w - holo_r - 14 * sc + shake_x, q_top + holo_r + 12 * sc, holo_r, q_obj["holo_type"], global_t, theme["primary"])
 
-        font_q = get_font(max(19, int(25 * sc)))
+        font_q = get_font(max(19, int(24 * sc)))
         q_lines = wrap_lines(draw, q_obj["q"], font_q, card_w - int(68 * sc))
-        lh = int(font_q.size * 1.32)
+        lh = int(font_q.size * 1.38)
         ty_start = q_top + (q_h - len(q_lines) * lh) // 2
         for li, ln in enumerate(q_lines):
             lb = draw.textbbox((0, 0), ln, font=font_q)
@@ -490,7 +526,7 @@ class UltraGamingQuizTurboRenderer:
         else:
             frac = 1.0
             t_col = (244, 63, 94) if q_obj["is_secret_trap"] else (16, 185, 129)
-            sec_lbl = "LOCKED!" if q_obj["is_secret_trap"] else "SOLVED!"
+            sec_lbl = "লক করা হলো!" if q_obj["is_secret_trap"] else "সঠিক উত্তর!"
 
         fill_w = int(card_w * frac)
         if fill_w > 10:
@@ -514,8 +550,11 @@ class UltraGamingQuizTurboRenderer:
             gap = int(12 * sc)
             box_h = (opts_area_h - gap * 3) // 4
             for i in range(4):
-                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.32))) if phase == "read" else 1.0
-                x_off = int((1.0 - stagger) * (170 if i % 2 == 0 else -170) * sc)
+                if q_idx == 0:
+                    x_off = 0
+                else:
+                    stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.30))) if phase == "read" else 1.0
+                    x_off = int((1.0 - stagger) * (170 if i % 2 == 0 else -170) * sc)
                 oy0 = opts_top + i * (box_h + gap)
                 self._draw_option(draw, margin + x_off, oy0, margin + card_w + x_off, oy0 + box_h,
                                   labels[i], opts[i], i == ans_idx, q_obj["is_secret_trap"], phase, theme, font_lbl, font_opt, sc)
@@ -525,7 +564,7 @@ class UltraGamingQuizTurboRenderer:
             box_w = (card_w - gap_x) // 2
             box_h = (opts_area_h - gap_y) // 2
             for i in range(4):
-                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.32))) if phase == "read" else 1.0
+                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.30))) if phase == "read" else 1.0
                 y_off = int((1.0 - stagger) * 85 * sc)
                 col_i, row_i = i % 2, i // 2
                 ox0 = margin + col_i * (box_w + gap_x)
@@ -535,17 +574,17 @@ class UltraGamingQuizTurboRenderer:
 
         if phase == "reveal":
             if q_obj["is_secret_trap"]:
-                trap_h = int(86 * sc)
+                trap_h = int(90 * sc)
                 trap_y = opts_top + (opts_area_h - trap_h) // 2
                 draw.rounded_rectangle([margin + 12, trap_y, margin + card_w - 12, trap_y + trap_h], radius=16, fill=(15, 23, 42), outline=(250, 204, 21), width=4)
                 font_tr1 = get_font(max(17, int(22 * sc)))
                 font_tr2 = get_font(max(13, int(16 * sc)))
-                t1 = "ANSWER HIDDEN!"
-                t2 = "COMMENT A, B, C OR D TO PROVE YOUR IQ!"
+                t1 = "উত্তর লুকানো আছে!"
+                t2 = "সঠিক উত্তর (A, B, C বা D) কমেন্টে লেখো!"
                 b_t1 = draw.textbbox((0, 0), t1, font=font_tr1)
                 b_t2 = draw.textbbox((0, 0), t2, font=font_tr2)
                 draw.text(((self.w - (b_t1[2] - b_t1[0])) // 2, trap_y + int(12 * sc)), t1, font=font_tr1, fill=(250, 204, 21))
-                draw.text(((self.w - (b_t2[2] - b_t2[0])) // 2, trap_y + int(48 * sc)), t2, font=font_tr2, fill=(255, 255, 255))
+                draw.text(((self.w - (b_t2[2] - b_t2[0])) // 2, trap_y + int(50 * sc)), t2, font=font_tr2, fill=(255, 255, 255))
             else:
                 if self.last_confetti_q != q_idx:
                     self.last_confetti_q = q_idx
@@ -560,7 +599,7 @@ class UltraGamingQuizTurboRenderer:
                         pr = max(2.0, 5.0 * sc * p[4])
                         draw.rectangle([p[0] - pr, p[1] - pr, p[0] + pr, p[1] + pr], fill=p[5])
 
-                xp_pop = "+200 XP BOSS CLEAR!" if q_obj["is_boss"] else "+100 XP CORRECT!"
+                xp_pop = "+২০০ XP বস ক্লিয়ার!" if q_obj["is_boss"] else "+১০০ XP সঠিক উত্তর!"
                 font_xp = get_font(max(16, int(20 * sc)))
                 xb2 = draw.textbbox((0, 0), xp_pop, font=font_xp)
                 float_y = int(opts_top - 12 * sc - min(22 * sc, phase_elapsed * 30 * sc))
@@ -569,12 +608,12 @@ class UltraGamingQuizTurboRenderer:
                 if q_obj["fact"]:
                     fact_y = opts_top + opts_area_h + int(self.h * 0.024)
                     font_fc = get_font(max(13, int(16 * sc)))
-                    fc_txt = f"FACT: {q_obj['fact']}"
+                    fc_txt = f"তথ্য: {q_obj['fact']}"
                     fb = draw.textbbox((0, 0), fc_txt, font=font_fc)
                     fw = min(card_w, fb[2] - fb[0] + 28)
                     fx0 = (self.w - fw) // 2
-                    draw.rounded_rectangle([fx0, fact_y, fx0 + fw, fact_y + int(34 * sc)], radius=10, fill=(15, 23, 42), outline=(52, 211, 153), width=2)
-                    draw.text((fx0 + 14, fact_y + int(7 * sc)), fc_txt[:68], font=font_fc, fill=(248, 250, 252))
+                    draw.rounded_rectangle([fx0, fact_y, fx0 + fw, fact_y + int(36 * sc)], radius=10, fill=(15, 23, 42), outline=(52, 211, 153), width=2)
+                    draw.text((fx0 + 14, fact_y + int(7 * sc)), fc_txt[:65], font=font_fc, fill=(248, 250, 252))
 
         return frame.tobytes()
 
@@ -613,19 +652,19 @@ class UltraGamingQuizTurboRenderer:
 
         draw.rounded_rectangle([margin, box_y, margin + box_w, box_y + box_h], radius=20, fill=(11, 17, 32), outline=(250, 204, 21), width=4)
 
-        font_hdr = get_font(max(20, int(28 * sc)))
+        font_hdr = get_font(max(20, int(27 * sc)))
         font_row = get_font(max(15, int(20 * sc)))
-        font_cta = get_font(max(16, int(21 * sc)))
+        font_cta = get_font(max(15, int(20 * sc)))
 
-        hdr = "CLAIM YOUR IQ RANK BELOW!"
+        hdr = "কমেন্টে তোমার র‍্যাঙ্ক জানাও!"
         bh = draw.textbbox((0, 0), hdr, font=font_hdr)
         draw.text(((self.w - (bh[2] - bh[0])) // 2, box_y + int(28 * sc)), hdr, font=font_hdr, fill=(250, 204, 21))
 
         max_xp = (self.total_q - 1) * 100
         ranks = [
-            (f"0 - {int(max_xp * 0.4)} XP  ->  ROOKIE BRAIN", (148, 163, 184)),
-            (f"{int(max_xp * 0.5)} - {int(max_xp * 0.8)} XP  ->  PRO CHALLENGER", (34, 211, 238)),
-            (f"{max_xp}+ XP + BONUS  ->  TOP 1% GENIUS", (52, 211, 153))
+            (f"0 - {int(max_xp * 0.4)} XP  ->  আরও রিভিশন দরকার", (148, 163, 184)),
+            (f"{int(max_xp * 0.5)} - {int(max_xp * 0.8)} XP  ->  বোর্ড পরীক্ষার জন্য প্রস্তুত", (34, 211, 238)),
+            (f"{max_xp}+ XP + বোনাস  ->  মাধ্যমিক ২০২৭ টপার!", (52, 211, 153))
         ]
         for idx, (r_txt, r_col) in enumerate(ranks):
             ry = box_y + int((105 + idx * 62) * sc)
@@ -633,7 +672,7 @@ class UltraGamingQuizTurboRenderer:
             draw.text(((self.w - (br[2] - br[0])) // 2, ry), r_txt, font=font_row, fill=r_col)
 
         pulse = 1.0 + 0.04 * math.sin(global_t * 10.0)
-        cta_txt = "COMMENT YOUR XP + BONUS ANSWER!"
+        cta_txt = "তোমার XP ও বোনাস উত্তর কমেন্ট করো!"
         bc = draw.textbbox((0, 0), cta_txt, font=font_cta)
         cw = int((bc[2] - bc[0] + 36) * pulse)
         cx0 = (self.w - cw) // 2
@@ -659,22 +698,23 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         dt = 1.0 / float(fps)
         total_q = len(questions)
 
-        intro_dur = 1.5
-        outro_dur = 2.8
+        # Zero-intro on 9:16 Shorts so Q1 starts at 0.00s!
+        intro_dur = 0.0 if is_vertical else 1.5
+        outro_dur = 2.6
 
         timeline = []
-        chapters = ["00:00 Shock-Wave IQ Challenge Intro"]
+        chapters = ["00:00 মাধ্যমিক ২০২৭ সাজেশন কুইজ শুরু"]
         t_cursor = intro_dur
 
         for idx, q_obj in enumerate(questions):
             if idx % 5 == 0 and not q_obj["is_secret_trap"]:
                 mins = int(t_cursor // 60)
                 secs = int(t_cursor % 60)
-                chapters.append(f"{mins:02d}:{secs:02d} Level {q_obj['level']} Arena")
+                chapters.append(f"{mins:02d}:{secs:02d} লেভেল {q_obj['level']} প্রশ্নাবলি")
             elif q_obj["is_secret_trap"]:
                 mins = int(t_cursor // 60)
                 secs = int(t_cursor % 60)
-                chapters.append(f"{mins:02d}:{secs:02d} Final Secret Bonus Question")
+                chapters.append(f"{mins:02d}:{secs:02d} বোনাস চ্যালেঞ্জ প্রশ্ন")
 
             t_start = t_cursor
             t_think = t_start + q_obj["read_sec"]
@@ -684,13 +724,13 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
             t_cursor = t_end
 
         total_dur = t_cursor + outro_dur
-        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_gaming_v2_sfx.wav")
+        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_bengali_sfx.wav")
         job["progress"] = 8
-        job["message"] = f"Streaming Audio Engine ({total_q} Questions, Low-RAM Mode)..."
+        job["message"] = f"Generating Gaming Sound Effects ({total_q} Bengali Questions)..."
         build_gaming_sfx_track(intro_dur, timeline, outro_dur, total_dur, wav_path)
         gc.collect()
 
-        out_name = f"NEXORA_VIRAL_QUIZ_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
+        out_name = f"MADHYAMIK_2027_QUIZ_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         ffmpeg_cmd = [
@@ -706,14 +746,15 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-        renderer = UltraGamingQuizTurboRenderer(out_w, out_h, total_q)
+        renderer = BengaliMadhyamikQuizRenderer(out_w, out_h, total_q)
         global_t = 0.0
 
-        intro_frames = int(intro_dur * fps)
-        for f in range(intro_frames):
-            raw_bytes = renderer.render_intro_hook(f / max(1, intro_frames - 1), global_t)
-            proc.stdin.write(raw_bytes)
-            global_t += dt
+        if intro_dur > 0:
+            intro_frames = int(intro_dur * fps)
+            for f in range(intro_frames):
+                raw_bytes = renderer.render_long_intro_hook(f / max(1, intro_frames - 1), global_t)
+                proc.stdin.write(raw_bytes)
+                global_t += dt
 
         for idx, (q_obj, t_start, t_think, t_reveal, t_end) in enumerate(timeline):
             for p_name, p_dur in [("read", q_obj["read_sec"]), ("think", q_obj["think_sec"]), ("reveal", q_obj["reveal_sec"])]:
@@ -724,7 +765,7 @@ def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
                     global_t += dt
 
             job["progress"] = 12 + int(((idx + 1) / total_q) * 82)
-            job["message"] = f"Rendering Question {idx + 1} / {total_q}..."
+            job["message"] = f"Rendering Bengali Question {idx + 1} / {total_q}..."
             if (idx + 1) % 10 == 0:
                 gc.collect()
 
@@ -775,7 +816,7 @@ def api_start():
     ratio = data.get("ratio", "9:16")
     custom_raw = data.get("custom_raw", "")
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Starting Low-RAM Long Video Engine..."}
+    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Starting West Bengal Madhyamik 2027 Engine..."}
     threading.Thread(
         target=run_ultra_quiz_v2_job,
         args=(job_id, ratio, custom_raw),
