@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA ULTRA-GAMING QUIZ STUDIO v2.3 — Long-Video &amp; Auto-Retry</title>
+  <title>NEXORA MADHYAMIK 2027 STUDIO — Bengali Gaming Quiz Generator</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -87,13 +87,13 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">🎮</div>
+      <div class="logo">🎓</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA ULTRA-GAMING QUIZ STUDIO v2.3</div>
-        <div style="font-size:11px; color:var(--cyan);">Low-RAM Long-Video Engine • Auto-Retry Connection • Auto-Save</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA MADHYAMIK 2027 STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">West Bengal Class 10 Bengali Quiz • Zero-Intro Instant Hook • Auto-Save</div>
       </div>
     </div>
-    <div class="badge">🛡️ Anti-Crash Long Ready</div>
+    <div class="badge">🇮🇳 WB Board 2027</div>
   </header>
 
   <main class="wrap">
@@ -101,20 +101,20 @@
       <div class="card">
         <div class="card-title">1. Platform Format</div>
         <div class="grid-2" style="margin-bottom:0;">
-          <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts<br/><small>(Fast Auto-Save)</small></div>
-          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long<br/><small>(15–30 Min Low-RAM Safe)</small></div>
+          <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts<br/><small>(0.00s Instant Start • 4 Qs)</small></div>
+          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long<br/><small>(Full Class 10 Revision)</small></div>
         </div>
       </div>
 
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">2. Paste Questions from ChatGPT / Gemini</div>
-          <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy AI Prompt</button>
+          <div class="card-title">2. বাংলা প্রশ্ন পেস্ট করো (West Bengal Class 10)</div>
+          <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy Bengali Prompt</button>
         </div>
 
-        <textarea id="custom-raw" placeholder="Paste questions from ChatGPT or Gemini here (1 per line):&#10;Question? | Option A | Option B | Option C | Option D | CorrectOptionNumber(1-4) | Short Fact&#10;&#10;Keep screen awake while rendering long 15-min videos!"></textarea>
+        <textarea id="custom-raw" placeholder="বাংলা প্রশ্ন পেস্ট করো (প্রতি লাইনে ১টি):&#10;প্রশ্ন? | অপশন A | অপশন B | অপশন C | অপশন D | সঠিক_অপশন_নম্বর(1-4) | ছোট তথ্য&#10;&#10;ফাঁকা রাখলে বিল্ট-ইন মাধ্যমিক ২০২৭ ডেমো প্রশ্ন দিয়ে ভিডিও তৈরি হবে!"></textarea>
 
-        <button class="btn-primary" id="btn-generate">🚀 Render &amp; Auto-Download MP4</button>
+        <button class="btn-primary" id="btn-generate">🚀 Render &amp; Auto-Download Bengali MP4</button>
       </div>
     </div>
 
@@ -122,7 +122,7 @@
       <div class="card">
         <div class="card-title">3. Render Progress &amp; Auto-Save Status</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Keep screen on during long renders; MP4 will auto-download!
+          Ready — Video will automatically save to your device!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -155,13 +155,13 @@
     });
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const promptText = `Generate 20 engaging, accurate MCQ questions on [ENTER TOPIC HERE e.g. Class 10 Science / Brain Riddles / World GK]. Make the very last question a super clever brain-teaser!
-Output ONLY plain lines in this exact pipe-separated format with NO numbering, NO markdown, and NO extra text:
-Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber(1-4) | Short 1-line fun fact`;
+      const promptText = `West Bengal Board (WBBSE) Class 10 Madhyamik 2027 exam-এর জন্য [বিষয় লিখুন: যেমন ভৌতবিজ্ঞান / ইতিহাস / ভূগোল / বাংলা] থেকে ২০টি অত্যন্ত গুরুত্বপূর্ণ MCQ প্রশ্ন তৈরি করো। একদম শেষের প্রশ্নটি একটু বুদ্ধিদীপ্ত রাখবে।
+কোনো নম্বর, বুলেট বা বাড়তি লেখা ছাড়াই শুধুমাত্র এই পাইপ (|) ফরম্যাটে আউটপুট দাও:
+প্রশ্নটি? | অপশন ১ | অপশন ২ | অপশন ৩ | অপশন ৪ | সঠিক_অপশন_নম্বর(1-4) | ১ লাইনের ছোট গুরুত্বপূর্ণ তথ্য`;
       navigator.clipboard.writeText(promptText).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy AI Prompt", 3000);
+        btn.textContent = "✅ Bengali Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy Bengali Prompt", 3000);
       });
     };
 
@@ -178,7 +178,7 @@ Question text? | Option 1 | Option 2 | Option 3 | Option 4 | CorrectOptionNumber
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Starting Low-RAM Long Video Engine...";
+      document.getElementById("status-txt").textContent = "Starting West Bengal Madhyamik 2027 Engine...";
       requestWakeLock();
 
       try {
