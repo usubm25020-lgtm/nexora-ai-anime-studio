@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA MADHYAMIK 2027 STUDIO — Bengali Gaming Quiz Generator</title>
+  <title>NEXORA — Modern Esports Bengali Quiz</title>
   <style>
     :root {
       --bg-void: #04060c;
@@ -60,8 +60,8 @@
     .pill.active { border-color: var(--cyan); background: rgba(34, 211, 238, 0.14); color: var(--cyan); }
     textarea {
       width: 100%; background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--text); padding: 11px; font-size: 12px;
-      font-family: monospace; outline: none; min-height: 195px; line-height: 1.55; resize: vertical;
+      border-radius: 10px; color: var(--text); padding: 11px; font-size: 13px;
+      font-family: system-ui, sans-serif; outline: none; min-height: 195px; line-height: 1.6; resize: vertical;
     }
     .btn-copy {
       padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
@@ -70,7 +70,7 @@
     .btn-primary {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
       background: linear-gradient(135deg, var(--cyan), var(--purple));
-      color: #fff; font-size: 14px; font-weight: 900; margin-top: 10px; cursor: pointer;
+      color: #fff; font-size: 15px; font-weight: 900; margin-top: 10px; cursor: pointer;
     }
     .bar { width: 100%; height: 12px; background: var(--bg-input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--purple), var(--gold)); transition: width 0.25s; }
@@ -87,42 +87,42 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">🎓</div>
+      <div class="logo">🎮</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA MADHYAMIK 2027 STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">West Bengal Class 10 Bengali Quiz • Zero-Intro Instant Hook • Auto-Save</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA মাধ্যমিক ২০২৭ স্টুডিও v3.0</div>
+        <div style="font-size:11px; color:var(--cyan);">Modern Esports UI • ১০০% বাংলা প্রশ্ন • Auto-Download</div>
       </div>
     </div>
-    <div class="badge">🇮🇳 WB Board 2027</div>
+    <div class="badge">🇮🇳 পশ্চিমবঙ্গ বোর্ড</div>
   </header>
 
   <main class="wrap">
     <div>
       <div class="card">
-        <div class="card-title">1. Platform Format</div>
+        <div class="card-title">১. ভিডিওর সাইজ বেছে নাও</div>
         <div class="grid-2" style="margin-bottom:0;">
-          <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts<br/><small>(0.00s Instant Start • 4 Qs)</small></div>
-          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube Long<br/><small>(Full Class 10 Revision)</small></div>
+          <div class="pill active" data-group="ratio" data-val="9:16">📱 9:16 Reels / Shorts<br/><small>(০.০০s ইনস্ট্যান্ট শুরু • ৪টি প্রশ্ন)</small></div>
+          <div class="pill" data-group="ratio" data-val="16:9">📺 16:9 YouTube লং ভিডিও<br/><small>(সম্পূর্ণ অধ্যায় রিভিশন)</small></div>
         </div>
       </div>
 
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div class="card-title">2. বাংলা প্রশ্ন পেস্ট করো (West Bengal Class 10)</div>
-          <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy Bengali Prompt</button>
+          <div class="card-title">২. বাংলা প্রশ্ন পেস্ট করো (মাধ্যমিক ২০২৭)</div>
+          <button type="button" class="btn-copy" id="btn-copy-prompt">📋 বাংলা প্রম্পট কপি করো</button>
         </div>
 
-        <textarea id="custom-raw" placeholder="বাংলা প্রশ্ন পেস্ট করো (প্রতি লাইনে ১টি):&#10;প্রশ্ন? | অপশন A | অপশন B | অপশন C | অপশন D | সঠিক_অপশন_নম্বর(1-4) | ছোট তথ্য&#10;&#10;ফাঁকা রাখলে বিল্ট-ইন মাধ্যমিক ২০২৭ ডেমো প্রশ্ন দিয়ে ভিডিও তৈরি হবে!"></textarea>
+        <textarea id="custom-raw" placeholder="এখানে বাংলা প্রশ্ন পেস্ট করো (প্রতি লাইনে ১টি):&#10;প্রশ্নটি? | অপশন A | অপশন B | অপশন C | অপশন D | সঠিক_অপশন_নম্বর(1-4) | ১ লাইনের তথ্য&#10;&#10;ফাঁকা রাখলে বিল্ট-ইন মাধ্যমিক ২০২৭ ডেমো প্রশ্ন দিয়ে ভিডিও তৈরি হবে!"></textarea>
 
-        <button class="btn-primary" id="btn-generate">🚀 Render &amp; Auto-Download Bengali MP4</button>
+        <button class="btn-primary" id="btn-generate">🚀 আধুনিক বাংলা কুইজ ভিডিও তৈরি ও সেভ করো</button>
       </div>
     </div>
 
     <div>
       <div class="card">
-        <div class="card-title">3. Render Progress &amp; Auto-Save Status</div>
+        <div class="card-title">৩. ভিডিও রেন্ডার প্রোগ্রেস</div>
         <div id="status-txt" style="font-size:13px; font-weight:800; color:#22d3ee; margin-top:4px;">
-          Ready — Video will automatically save to your device!
+          প্রস্তুত — রেন্ডার শেষ হলে ভিডিওটি আপনাআপনি ফোনে সেভ হয়ে যাবে!
         </div>
         <div class="bar"><div class="fill" id="prog-bar"></div></div>
         <div id="video-area"></div>
@@ -155,13 +155,13 @@
     });
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const promptText = `West Bengal Board (WBBSE) Class 10 Madhyamik 2027 exam-এর জন্য [বিষয় লিখুন: যেমন ভৌতবিজ্ঞান / ইতিহাস / ভূগোল / বাংলা] থেকে ২০টি অত্যন্ত গুরুত্বপূর্ণ MCQ প্রশ্ন তৈরি করো। একদম শেষের প্রশ্নটি একটু বুদ্ধিদীপ্ত রাখবে।
+      const promptText = `West Bengal Board (WBBSE) Class 10 Madhyamik 2027 পরীক্ষার জন্য [বিষয় লিখুন: যেমন ভৌতবিজ্ঞান / ইতিহাস / ভূগোল / বাংলা] থেকে ২০টি অত্যন্ত গুরুত্বপূর্ণ MCQ প্রশ্ন তৈরি করো। একদম শেষের প্রশ্নটি একটু বুদ্ধিদীপ্ত রাখবে।
 কোনো নম্বর, বুলেট বা বাড়তি লেখা ছাড়াই শুধুমাত্র এই পাইপ (|) ফরম্যাটে আউটপুট দাও:
 প্রশ্নটি? | অপশন ১ | অপশন ২ | অপশন ৩ | অপশন ৪ | সঠিক_অপশন_নম্বর(1-4) | ১ লাইনের ছোট গুরুত্বপূর্ণ তথ্য`;
       navigator.clipboard.writeText(promptText).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Bengali Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy Bengali Prompt", 3000);
+        btn.textContent = "✅ প্রম্পট কপি হয়েছে!";
+        setTimeout(() => btn.textContent = "📋 বাংলা প্রম্পট কপি করো", 3000);
       });
     };
 
@@ -178,7 +178,7 @@
     document.getElementById("btn-generate").onclick = async () => {
       document.getElementById("video-area").innerHTML = "";
       document.getElementById("prog-bar").style.width = "4%";
-      document.getElementById("status-txt").textContent = "Starting West Bengal Madhyamik 2027 Engine...";
+      document.getElementById("status-txt").textContent = "আধুনিক বাংলা ইস্পোর্টস ইঞ্জিন চালু হচ্ছে...";
       requestWakeLock();
 
       try {
@@ -208,8 +208,8 @@
               const dlUrl = `${API_BASE}/api/video/${job_id}?dl=1`;
               triggerAutoDownload(dlUrl, st.file_name);
               document.getElementById("video-area").innerHTML = `
-                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">✅ Auto-Saved! (Tap here if browser blocked auto-download • ${st.size_mb} MB)</a>
-                <div class="chap-box"><strong>Auto YouTube Chapters:</strong>\n${st.chapters}</div>
+                <a class="dl-btn" href="${dlUrl}" download="${st.file_name}">✅ অটো-সেভ সম্পন্ন! (ডাউনলোড না হলে এখানে চাপ দিন • ${st.size_mb} MB)</a>
+                <div class="chap-box"><strong>YouTube Chapters (কপি করে ডেসক্রিপশনে দিন):</strong>\n${st.chapters}</div>
               `;
             } else if (st.status === "error") {
               clearInterval(poll);
@@ -217,15 +217,15 @@
           } catch (e) {
             failCount += 1;
             if (failCount <= 12) {
-              document.getElementById("status-txt").textContent = `Server rendering heavy frames... reconnecting (${failCount}/12)...`;
+              document.getElementById("status-txt").textContent = `সার্ভার ভিডিও রেন্ডার করছে... পুনঃসংযোগ হচ্ছে (${failCount}/12)...`;
             } else {
               clearInterval(poll);
-              document.getElementById("status-txt").textContent = "Connection timed out — please click Render again!";
+              document.getElementById("status-txt").textContent = "সংযোগ বিচ্ছিন্ন হয়েছে — অনুগ্রহ করে আবার চেষ্টা করুন!";
             }
           }
         }, 1800);
       } catch (err) {
-        document.getElementById("status-txt").textContent = "Server waking up — click Render again in 5 seconds!";
+        document.getElementById("status-txt").textContent = "সার্ভার জেগে উঠছে — ৫ সেকেন্ড পর আবার বাটনে চাপ দিন!";
       }
     };
   </script>
