@@ -3,15 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXUS — Reality Video Studio</title>
+  <title>NEXUS HINDI STUDIO — Pro Hindi Dubbing &amp; Reality Video Engine</title>
   <style>
     :root {
       --bg: #03050c;
-      --card: rgba(11, 18, 36, 0.88);
+      --card: rgba(11, 18, 36, 0.90);
       --input: #060a15;
-      --border: rgba(34, 211, 238, 0.24);
+      --border: rgba(34, 211, 238, 0.25);
       --cyan: #22d3ee;
       --violet: #a855f7;
+      --amber: #fbbf24;
       --emerald: #10b981;
       --crimson: #f43f5e;
       --text: #f8fafc;
@@ -19,7 +20,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #171238 0%, var(--bg) 65%);
+      background: radial-gradient(circle at top right, #1b1340 0%, var(--bg) 65%);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
@@ -29,7 +30,7 @@
       position: sticky; top: 0; z-index: 40;
       display: flex; align-items: center; justify-content: space-between;
       padding: 13px 18px;
-      background: rgba(3, 5, 12, 0.92);
+      background: rgba(3, 5, 12, 0.94);
       backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
     }
@@ -45,29 +46,25 @@
       color: #34d399;
     }
     .wrap {
-      max-width: 980px; margin: 18px auto; padding: 0 16px;
-      display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 16px;
+      max-width: 1020px; margin: 18px auto; padding: 0 16px;
+      display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 16px;
     }
-    @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
+    @media (max-width: 840px) { .wrap { grid-template-columns: 1fr; } }
     .card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; padding: 16px;
     }
-    .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--cyan); margin-bottom: 12px; }
+    .hdr-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--cyan); }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-    input[type="text"], input[type="number"], select {
+    input[type="text"], input[type="number"], select, textarea {
       width: 100%; background: var(--input); border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 13px;
-      outline: none; margin-bottom: 12px;
+      outline: none; margin-bottom: 12px; font-family: inherit;
     }
-    input:focus, select:focus { border-color: var(--cyan); }
+    textarea { min-height: 155px; resize: vertical; line-height: 1.5; font-size: 12px; }
+    input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-    .preset {
-      padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
-      background: rgba(34, 211, 238, 0.1); border: 1px solid rgba(34, 211, 238, 0.3);
-      color: var(--cyan); cursor: pointer;
-    }
     .btn {
       width: 100%; padding: 14px; border: none; border-radius: 11px;
       font-size: 14px; font-weight: 900; cursor: pointer; text-decoration: none;
@@ -75,9 +72,9 @@
     }
     .btn-primary { background: linear-gradient(135deg, var(--cyan), var(--violet)); color: #fff; }
     .btn-save { background: var(--emerald); color: #03050c; margin-top: 10px; }
-    .btn-sub {
-      padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border);
-      background: var(--input); color: var(--cyan); font-size: 12px; font-weight: 800; cursor: pointer;
+    .btn-copy {
+      padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
+      background: rgba(251, 191, 36, 0.14); color: var(--amber); font-size: 11px; font-weight: 800; cursor: pointer;
     }
     .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width 0.25s; }
@@ -94,73 +91,52 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXUS REALITY STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">3D Shaded Physics • Auto-Save • Zero Storage Bloat</div>
+        <div style="font-weight:900; font-size:15px;">NEXUS HINDI STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">Emotional Hindi Dubbing • Hinglish Captions • 10–15 Min Ready</div>
       </div>
     </div>
-    <div class="chip-live" id="sys-status">Connecting...</div>
+    <div class="chip-live" id="sys-status">Checking Engine...</div>
   </header>
 
   <main class="wrap">
     <div class="card">
-      <div class="title">1. VIDEO CONFIGURATION</div>
-
-      <label>Quick Reality Scenarios</label>
-      <div class="presets">
-        <span class="preset" onclick="setTopic('What If Earth Suddenly Stopped Rotating?')">Earth Stops Rotating</span>
-        <span class="preset" onclick="setTopic('What If the Moon Suddenly Disappeared?')">Moon Disappears</span>
-        <span class="preset" onclick="setTopic('What If a 10-Kilometer Asteroid Approached Earth?')">10-km Asteroid</span>
+      <div class="hdr-row">
+        <div class="title">1. VIDEO &amp; HINDI DUBBING SETUP</div>
+        <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy 10-Min AI Script Prompt</button>
       </div>
 
-      <label for="topic">Reality Topic</label>
-      <input type="text" id="topic" value="What If Earth Suddenly Stopped Rotating?" />
+      <label for="topic">Video Topic (Hinglish or English)</label>
+      <input type="text" id="topic" value="Agar Prithvi Achanak Ghumna Band Kar De?" placeholder="Enter any topic..." />
 
       <div class="row-2">
         <div>
-          <label for="aspect">Aspect Ratio</label>
+          <label for="aspect">Video Format</label>
           <select id="aspect">
-            <option value="16:9" selected>16:9 YouTube Landscape</option>
-            <option value="9:16">9:16 YouTube Shorts</option>
+            <option value="16:9" selected>16:9 YouTube Long (Horizontal)</option>
+            <option value="9:16">9:16 YouTube Shorts (Vertical)</option>
           </select>
         </div>
         <div>
-          <label for="duration">Target Duration (Sec)</label>
-          <input type="number" id="duration" value="40" min="25" max="600" />
-        </div>
-      </div>
-
-      <div class="row-2">
-        <div>
-          <label for="voice-mode">Voice Engine</label>
-          <select id="voice-mode" onchange="toggleUploadBox()">
-            <option value="neural_male" selected>Built-in Male Neural Voice</option>
-            <option value="uploaded">Upload ElevenLabs Audio</option>
-          </select>
-        </div>
-        <div>
-          <label for="voice-accent">Male Accent</label>
-          <select id="voice-accent">
-            <option value="en-us" selected>US Deep Male (Andrew)</option>
-            <option value="en-gb">UK Documentary (Ryan)</option>
-            <option value="en-au">AU Male (William)</option>
+          <label for="duration-min">Target Length (Minutes)</label>
+          <select id="duration-min">
+            <option value="0.8" selected>~1 Minute (Quick Test)</option>
+            <option value="5">5 Minutes (Medium Documentary)</option>
+            <option value="10">10 Minutes (Full Long Video)</option>
+            <option value="15">15 Minutes (Mega Deep-Dive)</option>
           </select>
         </div>
       </div>
 
-      <div id="upload-box" style="display:none; padding:10px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
-        <label for="audio-file">Select ElevenLabs MP3 / WAV File</label>
-        <input type="file" id="audio-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:8px; font-size:12px;" />
-        <button type="button" class="btn-sub" onclick="uploadAudio()">Upload Audio File</button>
-        <div id="upload-msg" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
-      </div>
+      <label for="custom-script">Optional: Paste Custom 10–15 Min Script (From Gemini / ChatGPT)</label>
+      <textarea id="custom-script" placeholder="Khali chhodne par app khud Hindi dubbing aur script banayega.&#10;&#10;Ya phir upar 'Copy 10-Min AI Script Prompt' dabakar Gemini/ChatGPT se 40-60 scenes ka script banwa kar yahan paste karein!"></textarea>
 
-      <button class="btn btn-primary" id="btn-render" onclick="startRender()">Generate &amp; Auto-Download MP4</button>
+      <button class="btn btn-primary" onclick="startRender()">🚀 Generate Pro Hindi Dubbed Video</button>
       <div class="err" id="err-box"></div>
     </div>
 
     <div class="card">
-      <div class="title">2. LIVE RENDER &amp; AUTO-SAVE</div>
-      <div id="scene-txt" style="font-size:13px; font-weight:700;">Ready. Rendered files auto-download and purge from server automatically.</div>
+      <div class="title">2. LIVE DUBBING &amp; STREAMING RENDER</div>
+      <div id="scene-txt" style="font-size:13px; font-weight:700;">Ready. Built-in Hindi Male Narrator (Madhur Neural) + Hybrid 3D/Photo Engine active.</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
         <span id="job-lbl">Job: —</span>
@@ -171,17 +147,7 @@
   </main>
 
   <script>
-    let uploadedAudioId = "";
     let pollTimer = null;
-
-    function setTopic(t) {
-      document.getElementById("topic").value = t;
-    }
-
-    function toggleUploadBox() {
-      const mode = document.getElementById("voice-mode").value;
-      document.getElementById("upload-box").style.display = mode === "uploaded" ? "block" : "none";
-    }
 
     function showErr(msg) {
       const el = document.getElementById("err-box");
@@ -193,27 +159,25 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.neural_tts ? "Neural Male Voice Ready" : "Upload Audio Mode";
+        document.getElementById("sys-status").textContent = d.hindi_dubbing ? "Pro Hindi Dubbing Ready" : "FFmpeg Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
     }
 
-    async function uploadAudio() {
-      const inp = document.getElementById("audio-file");
-      if (!inp.files || !inp.files[0]) return;
-      const fd = new FormData();
-      fd.append("audio", inp.files[0]);
-      document.getElementById("upload-msg").textContent = "Uploading...";
-      const r = await fetch("/api/audio/upload", { method: "POST", body: fd });
-      const d = await r.json();
-      if (r.ok) {
-        uploadedAudioId = d.audio_id;
-        document.getElementById("upload-msg").textContent = `Ready: ${d.file_name}`;
-      } else {
-        document.getElementById("upload-msg").textContent = d.error || "Upload failed";
-      }
-    }
+    document.getElementById("btn-copy-prompt").onclick = () => {
+      const topicVal = document.getElementById("topic").value.trim() || "Mystery of Bermuda Triangle";
+      const prompt = `Write a deeply engaging, emotional, high-retention 10-minute Hindi documentary script on the topic: "${topicVal}".
+Create exactly 45 scenes (each scene ~12-15 seconds of spoken Hindi).
+Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text, using this exact 8-column format:
+Stage Tag | Time/Clock | Visual Mode(choose one: photo, earth_rotation, dual_reality, consequence_map, asteroid_impact, solar_system) | English Wikimedia Photo Search Keyword | Voice Mood(choose one: intense, dramatic, calm) | Short Hinglish Headline | 2-Line Hinglish On-Screen Caption | Expressive Spoken Hindi Dubbing Paragraph in Devanagari Hindi`;
+
+      navigator.clipboard.writeText(prompt).then(() => {
+        const btn = document.getElementById("btn-copy-prompt");
+        btn.textContent = "✅ 10-Min Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy 10-Min AI Script Prompt", 3000);
+      });
+    };
 
     function autoDownload(url, filename) {
       const a = document.createElement("a");
@@ -229,15 +193,13 @@
       document.getElementById("result-box").innerHTML = "";
       document.getElementById("prog-fill").style.width = "3%";
       document.getElementById("pct-lbl").textContent = "3%";
-      document.getElementById("scene-txt").textContent = "Starting render pipeline...";
+      document.getElementById("scene-txt").textContent = "Initializing Pro Hindi Dubbing Engine...";
 
       const payload = {
         topic: document.getElementById("topic").value.trim(),
         aspect_ratio: document.getElementById("aspect").value,
-        duration_sec: parseInt(document.getElementById("duration").value || "40", 10),
-        voice_mode: document.getElementById("voice-mode").value,
-        voice_variant: document.getElementById("voice-accent").value,
-        uploaded_audio_id: uploadedAudioId
+        duration_min: parseFloat(document.getElementById("duration-min").value || "1.0"),
+        custom_script: document.getElementById("custom-script").value
       };
 
       const r = await fetch("/api/start", {
@@ -247,7 +209,7 @@
       });
       const d = await r.json();
       if (!r.ok) {
-        showErr(d.error || "Failed to start.");
+        showErr(d.error || "Failed to start render.");
         return;
       }
 
@@ -273,15 +235,15 @@
             const dlUrl = `/api/video/${jobId}?dl=1`;
             autoDownload(dlUrl, st.file_name);
             document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-save" href="${dlUrl}" download="${st.file_name}">⬇ Save MP4 (${st.size_mb} MB • ${st.audio_note})</a>
+              <a class="btn btn-save" href="${dlUrl}" download="${st.file_name}">⬇ Download Hindi MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
               <video src="/api/video/${jobId}" controls playsinline></video>
             `;
           } else if (st.status === "error") {
             clearInterval(pollTimer);
-            showErr(st.error || "Render error");
+            showErr(st.error || "Render failed");
           }
         } catch (e) {}
-      }, 1500);
+      }, 2000);
     }
 
     checkHealth();
