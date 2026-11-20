@@ -3,786 +3,288 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXUS — Worldwide Reality Video Generator</title>
+  <title>NEXUS — Reality Video Studio</title>
   <style>
     :root {
-      --bg-obsidian: #03050c;
-      --bg-surface: #0a1020;
-      --bg-glass: rgba(13, 21, 42, 0.78);
-      --bg-input: #060a14;
-      --border: rgba(56, 189, 248, 0.22);
-      --border-soft: rgba(148, 163, 184, 0.14);
+      --bg: #03050c;
+      --card: rgba(11, 18, 36, 0.88);
+      --input: #060a15;
+      --border: rgba(34, 211, 238, 0.24);
       --cyan: #22d3ee;
       --violet: #a855f7;
-      --amber: #fbbf24;
       --emerald: #10b981;
       --crimson: #f43f5e;
       --text: #f8fafc;
       --muted: #94a3b8;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background:
-        radial-gradient(circle at 15% 10%, rgba(34, 211, 238, 0.11), transparent 38%),
-        radial-gradient(circle at 85% 15%, rgba(168, 85, 247, 0.13), transparent 42%),
-        var(--bg-obsidian);
+      background: radial-gradient(circle at top right, #171238 0%, var(--bg) 65%);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
-      line-height: 1.5;
+      padding-bottom: 36px;
     }
-
-    /* TOP BAR & NAVIGATION */
     .topbar {
-      position: sticky; top: 0; z-index: 60;
+      position: sticky; top: 0; z-index: 40;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 18px;
-      background: rgba(3, 5, 12, 0.9);
-      backdrop-filter: blur(16px);
+      padding: 13px 18px;
+      background: rgba(3, 5, 12, 0.92);
+      backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
     }
-    .brand { display: flex; align-items: center; gap: 11px; }
-    .brand-icon {
-      width: 38px; height: 38px; border-radius: 10px;
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      width: 36px; height: 36px; border-radius: 10px;
       background: linear-gradient(135deg, var(--cyan), var(--violet));
-      display: grid; place-items: center;
-      font-weight: 900; font-size: 16px; color: #03050c;
-      box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+      display: grid; place-items: center; font-weight: 900; color: #03050c;
     }
-    .brand-title { font-size: 16px; font-weight: 900; letter-spacing: 0.08em; }
-    .brand-sub { font-size: 11px; color: var(--cyan); letter-spacing: 0.03em; }
-    .status-chip {
-      font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 99px;
-      background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.4);
+    .chip-live {
+      font-size: 11px; font-weight: 800; padding: 5px 11px; border-radius: 99px;
+      background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.45);
       color: #34d399;
     }
-
-    .nav-strip {
-      display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px;
-      background: rgba(7, 11, 24, 0.85);
-      border-bottom: 1px solid var(--border-soft);
-      scrollbar-width: none;
+    .wrap {
+      max-width: 980px; margin: 18px auto; padding: 0 16px;
+      display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 16px;
     }
-    .nav-strip::-webkit-scrollbar { display: none; }
-    .nav-btn {
-      white-space: nowrap; padding: 8px 14px; border-radius: 9px;
-      border: 1px solid var(--border-soft); background: var(--bg-input);
-      color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .nav-btn:hover { border-color: var(--cyan); color: var(--text); }
-    .nav-btn.active {
-      background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(168, 85, 247, 0.22));
-      border-color: var(--cyan); color: var(--cyan);
-      box-shadow: 0 0 14px rgba(34, 211, 238, 0.18);
-    }
-
-    /* LAYOUT & GLASS CARDS */
-    .container { max-width: 1180px; margin: 0 auto; padding: 16px; }
-    .view-section { display: none; }
-    .view-section.active { display: block; animation: fadeIn 0.25s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-
-    .grid-2 { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    @media (max-width: 860px) {
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    }
-
+    @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
     .card {
-      background: var(--bg-glass);
-      backdrop-filter: blur(14px);
-      border: 1px solid var(--border-soft);
-      border-radius: 14px; padding: 16px; margin-bottom: 14px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px;
     }
-    .card-hdr {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px; padding-bottom: 8px;
-      border-bottom: 1px solid var(--border-soft);
-    }
-    .card-title { font-size: 14px; font-weight: 800; letter-spacing: 0.03em; color: var(--cyan); }
-    .badge {
-      font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 6px;
-      text-transform: uppercase; letter-spacing: 0.05em;
-    }
-    .badge-hyp { background: rgba(251, 191, 36, 0.16); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.4); }
-    .badge-sci { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
-
-    /* FORM ELEMENTS */
+    .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--cyan); margin-bottom: 12px; }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-    input[type="text"], input[type="number"], select, textarea {
-      width: 100%; background: var(--bg-input); border: 1px solid var(--border-soft);
+    input[type="text"], input[type="number"], select {
+      width: 100%; background: var(--input); border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 13px;
-      outline: none; margin-bottom: 12px; transition: border-color 0.2s;
+      outline: none; margin-bottom: 12px;
     }
-    input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
-    textarea { min-height: 90px; resize: vertical; font-family: inherit; }
-
+    input:focus, select:focus { border-color: var(--cyan); }
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 600px) { .row-3 { grid-template-columns: 1fr; } }
-
-    .preset-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
-    .chip {
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .preset {
       padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
       background: rgba(34, 211, 238, 0.1); border: 1px solid rgba(34, 211, 238, 0.3);
       color: var(--cyan); cursor: pointer;
     }
-    .chip:hover { background: rgba(34, 211, 238, 0.22); }
-
-    /* BUTTONS */
     .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 12px 16px; border-radius: 10px; border: none;
-      font-size: 13px; font-weight: 800; cursor: pointer; text-decoration: none;
-      transition: transform 0.12s, opacity 0.2s;
+      width: 100%; padding: 14px; border: none; border-radius: 11px;
+      font-size: 14px; font-weight: 900; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center;
     }
-    .btn:active { transform: scale(0.98); }
-    .btn-full { width: 100%; }
-    .btn-cyan { background: linear-gradient(135deg, var(--cyan), #0284c7); color: #03050c; }
-    .btn-violet { background: linear-gradient(135deg, var(--violet), #6d28d9); color: #fff; }
-    .btn-emerald { background: linear-gradient(135deg, var(--emerald), #059669); color: #03050c; }
-    .btn-ghost { background: var(--bg-input); border: 1px solid var(--border); color: var(--text); }
-    .btn-danger { background: rgba(244, 63, 94, 0.18); border: 1px solid var(--crimson); color: #fda4af; }
-
-    /* PROGRESS & TELEMETRY */
-    .progress-track {
-      width: 100%; height: 12px; background: var(--bg-input);
-      border-radius: 99px; overflow: hidden; border: 1px solid var(--border-soft); margin: 10px 0;
+    .btn-primary { background: linear-gradient(135deg, var(--cyan), var(--violet)); color: #fff; }
+    .btn-save { background: var(--emerald); color: #03050c; margin-top: 10px; }
+    .btn-sub {
+      padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border);
+      background: var(--input); color: var(--cyan); font-size: 12px; font-weight: 800; cursor: pointer;
     }
-    .progress-fill {
-      height: 100%; width: 0%;
-      background: linear-gradient(90deg, var(--cyan), var(--violet), var(--amber));
-      transition: width 0.3s ease;
+    .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width 0.25s; }
+    .err {
+      margin-top: 10px; padding: 10px; border-radius: 9px;
+      background: rgba(244, 63, 94, 0.16); border: 1px solid var(--crimson);
+      color: #fecdd3; font-size: 12px; display: none;
     }
-    .scene-item {
-      padding: 12px; border-radius: 10px; background: var(--bg-input);
-      border: 1px solid var(--border-soft); margin-bottom: 10px;
-    }
-    .scene-item h4 { font-size: 13px; color: var(--cyan); margin-bottom: 4px; }
-    .scene-item p { font-size: 12px; color: var(--text); margin-bottom: 6px; }
-    .scene-meta { font-size: 11px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 10px; }
-
-    video { width: 100%; max-height: 460px; border-radius: 12px; background: #000; margin-top: 10px; border: 1px solid var(--border); }
-    .error-box {
-      padding: 12px; border-radius: 10px; background: rgba(244, 63, 94, 0.15);
-      border: 1px solid var(--crimson); color: #fecdd3; font-size: 12px; margin-top: 10px; display: none;
-    }
-    .stat-num { font-size: 24px; font-weight: 900; color: var(--cyan); }
-    .stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .feature-pill {
-      padding: 12px; border-radius: 10px; background: var(--bg-input);
-      border-left: 3px solid var(--violet); margin-bottom: 10px;
-    }
+    video { width: 100%; border-radius: 11px; margin-top: 10px; background: #000; border: 1px solid var(--border); }
   </style>
 </head>
 <body>
-
-  <!-- TOP HEADER -->
   <header class="topbar">
     <div class="brand">
-      <div class="brand-icon">NX</div>
+      <div class="logo">NX</div>
       <div>
-        <div class="brand-title">NEXUS</div>
-        <div class="brand-sub">WORLDWIDE REALITY VIDEO GENERATOR</div>
+        <div style="font-weight:900; font-size:15px;">NEXUS REALITY STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">3D Shaded Physics • Auto-Save • Zero Storage Bloat</div>
       </div>
     </div>
-    <div class="status-chip" id="health-badge">Checking Engine...</div>
+    <div class="chip-live" id="sys-status">Connecting...</div>
   </header>
 
-  <!-- 9-MODULE NAVIGATION -->
-  <nav class="nav-strip" id="nav-tabs">
-    <button class="nav-btn active" data-tab="tab-dashboard">1. Dashboard</button>
-    <button class="nav-btn" data-tab="tab-create">2. Create New Video</button>
-    <button class="nav-btn" data-tab="tab-script">3. Script Studio</button>
-    <button class="nav-btn" data-tab="tab-reality">4. Reality Engine</button>
-    <button class="nav-btn" data-tab="tab-voice">5. Voice Studio</button>
-    <button class="nav-btn" data-tab="tab-render">6. Render Center</button>
-    <button class="nav-btn" data-tab="tab-library">7. Video Library</button>
-    <button class="nav-btn" data-tab="tab-growth">8. YouTube Growth Studio</button>
-    <button class="nav-btn" data-tab="tab-settings">9. Settings</button>
-  </nav>
+  <main class="wrap">
+    <div class="card">
+      <div class="title">1. VIDEO CONFIGURATION</div>
 
-  <main class="container">
+      <label>Quick Reality Scenarios</label>
+      <div class="presets">
+        <span class="preset" onclick="setTopic('What If Earth Suddenly Stopped Rotating?')">Earth Stops Rotating</span>
+        <span class="preset" onclick="setTopic('What If the Moon Suddenly Disappeared?')">Moon Disappears</span>
+        <span class="preset" onclick="setTopic('What If a 10-Kilometer Asteroid Approached Earth?')">10-km Asteroid</span>
+      </div>
 
-    <!-- 1. DASHBOARD -->
-    <section id="tab-dashboard" class="view-section active">
-      <div class="grid-3">
-        <div class="card">
-          <div class="stat-lbl">Production Architecture</div>
-          <div class="stat-num">8 Engines</div>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px;">Intelligence, Consequence, Reality, Cinematic, Voice, Turbo Render, QC &amp; Growth</div>
+      <label for="topic">Reality Topic</label>
+      <input type="text" id="topic" value="What If Earth Suddenly Stopped Rotating?" />
+
+      <div class="row-2">
+        <div>
+          <label for="aspect">Aspect Ratio</label>
+          <select id="aspect">
+            <option value="16:9" selected>16:9 YouTube Landscape</option>
+            <option value="9:16">9:16 YouTube Shorts</option>
+          </select>
         </div>
-        <div class="card">
-          <div class="stat-lbl">Rendered Library</div>
-          <div class="stat-num" id="dash-lib-count">0 Videos</div>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px;">Stored locally in container output volume</div>
-        </div>
-        <div class="card">
-          <div class="stat-lbl">Target Audience &amp; Format</div>
-          <div class="stat-num">Global EN</div>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px;">USA, UK, Canada &amp; Australia • 16:9 / 9:16 / 1:1</div>
+        <div>
+          <label for="duration">Target Duration (Sec)</label>
+          <input type="number" id="duration" value="40" min="25" max="600" />
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">SIGNATURE NEXUS VISUAL STORYTELLING MODULES</span>
-          <span class="badge badge-sci">Active in Renderer</span>
+      <div class="row-2">
+        <div>
+          <label for="voice-mode">Voice Engine</label>
+          <select id="voice-mode" onchange="toggleUploadBox()">
+            <option value="neural_male" selected>Built-in Male Neural Voice</option>
+            <option value="uploaded">Upload ElevenLabs Audio</option>
+          </select>
         </div>
-        <div class="grid-2">
-          <div>
-            <div class="feature-pill"><strong>1. REALITY CLOCK</strong><br/><span style="font-size:12px; color:var(--muted);">Tracks exact time progression from T+00:00:01 through planetary millennia.</span></div>
-            <div class="feature-pill"><strong>2. DUAL REALITY</strong><br/><span style="font-size:12px; color:var(--muted);">Side-by-side split simulation comparing Normal Reality against Altered Physics.</span></div>
-            <div class="feature-pill"><strong>3. CONSEQUENCE MAP</strong><br/><span style="font-size:12px; color:var(--muted);">Visualizes regional and global cascade waves across oceans, grids, and atmosphere.</span></div>
-          </div>
-          <div>
-            <div class="feature-pill"><strong>4. REALITY REPLAY</strong><br/><span style="font-size:12px; color:var(--muted);">Revisits pivotal physical events from orbital telemetry perspectives.</span></div>
-            <div class="feature-pill"><strong>5. TWO WORLDS</strong><br/><span style="font-size:12px; color:var(--muted);">Long-term equilibrium contrast between habitable Earth and transformed worlds.</span></div>
-            <div class="feature-pill"><strong>6. HIDDEN CONSEQUENCE DETECTOR</strong><br/><span style="font-size:12px; color:var(--muted);">Dynamically reveals non-obvious secondary physics effects mid-scene.</span></div>
-          </div>
-        </div>
-        <button class="btn btn-cyan btn-full" onclick="switchTab('tab-create')">Launch Create New Video Studio →</button>
-      </div>
-    </section>
-
-    <!-- 2. CREATE NEW VIDEO -->
-    <section id="tab-create" class="view-section">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-hdr">
-            <span class="card-title">PRODUCTION CONFIGURATION</span>
-            <span class="badge badge-sci">Zero-API-Key Ready</span>
-          </div>
-
-          <label>Quick Reality Scenario Presets</label>
-          <div class="preset-chips">
-            <span class="chip" onclick="setTopic('What If Earth Suddenly Stopped Rotating?')">Earth Stops Rotating</span>
-            <span class="chip" onclick="setTopic('What If the Moon Suddenly Disappeared?')">Moon Disappears</span>
-            <span class="chip" onclick="setTopic('What If the Sun Suddenly Disappeared?')">Sun Disappears</span>
-            <span class="chip" onclick="setTopic('What If Earth\'s Atmosphere Vanished Instantly?')">Atmosphere Vanishes</span>
-            <span class="chip" onclick="setTopic('What If a 10-Kilometer Asteroid Approached Earth?')">10-km Asteroid</span>
-          </div>
-
-          <label for="inp-topic">Video Topic / Hypothetical Question</label>
-          <input type="text" id="inp-topic" value="What If Earth Suddenly Stopped Rotating?" placeholder="Enter any reality or scientific question..." />
-
-          <div class="row-2">
-            <div>
-              <label for="inp-language">Video Language</label>
-              <select id="inp-language">
-                <option value="en-us" selected>English (Worldwide / US)</option>
-                <option value="en-gb">English (UK)</option>
-                <option value="en-au">English (Australia / CA)</option>
-              </select>
-            </div>
-            <div>
-              <label for="inp-category">Video Category</label>
-              <select id="inp-category">
-                <option value="Auto-Detect" selected>Auto-Detect Scientific Domain</option>
-                <option value="Planetary Physics">Planetary Physics</option>
-                <option value="Astrophysics & Space">Astrophysics &amp; Space</option>
-                <option value="Earth & Climate Systems">Earth &amp; Climate Systems</option>
-                <option value="Human & Biosphere Impact">Human &amp; Biosphere Impact</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="row-3">
-            <div>
-              <label for="inp-ratio">Aspect Ratio</label>
-              <select id="inp-ratio">
-                <option value="16:9" selected>16:9 YouTube Landscape</option>
-                <option value="9:16">9:16 YouTube Shorts</option>
-                <option value="1:1">1:1 Square</option>
-              </select>
-            </div>
-            <div>
-              <label for="inp-resolution">Resolution</label>
-              <select id="inp-resolution">
-                <option value="720p" selected>720p HD (Fast / Low-RAM)</option>
-                <option value="1080p">1080p Full HD</option>
-              </select>
-            </div>
-            <div>
-              <label for="inp-duration">Duration (Seconds)</label>
-              <input type="number" id="inp-duration" value="45" min="30" max="180" />
-            </div>
-          </div>
-
-          <div class="row-2">
-            <div>
-              <label for="inp-style">Visual Identity Style</label>
-              <select id="inp-style">
-                <option value="nexus_obsidian" selected>NEXUS Obsidian &amp; Cyan HUD</option>
-                <option value="deep_cosmos">Deep Cosmos Violet</option>
-                <option value="solar_telemetry">Solar Telemetry Amber</option>
-              </select>
-            </div>
-            <div>
-              <label for="inp-voice-mode">Narration &amp; Audio Mode</label>
-              <select id="inp-voice-mode">
-                <option value="offline_tts" selected>Offline English TTS + Ambient</option>
-                <option value="uploaded">Custom Uploaded Audio</option>
-                <option value="ambient_only">Ambient Telemetry Score Only</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="row-2" style="margin-top:6px;">
-            <button class="btn btn-ghost btn-full" id="btn-gen-script">1. Generate &amp; Preview Script</button>
-            <button class="btn btn-cyan btn-full" id="btn-start-render">2. Start Rendering MP4</button>
-          </div>
-          <div class="error-box" id="create-error"></div>
-        </div>
-
-        <!-- LIVE RENDER & PREVIEW MONITOR -->
-        <div class="card">
-          <div class="card-hdr">
-            <span class="card-title">LIVE PRODUCTION MONITOR</span>
-            <span class="badge badge-sci" id="job-status-badge">Idle</span>
-          </div>
-
-          <div style="font-size:13px; font-weight:700; color:var(--text);" id="job-scene-label">
-            Configure your topic and click Generate Script or Start Rendering.
-          </div>
-          <div class="progress-track">
-            <div class="progress-fill" id="job-progress-bar"></div>
-          </div>
-          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
-            <span id="job-id-label">Job ID: —</span>
-            <span id="job-pct-label">0%</span>
-          </div>
-
-          <div id="final-output-box" style="margin-top:14px;"></div>
-
-          <div id="quick-script-preview" style="margin-top:14px;"></div>
+        <div>
+          <label for="voice-accent">Male Accent</label>
+          <select id="voice-accent">
+            <option value="en-us" selected>US Deep Male (Andrew)</option>
+            <option value="en-gb">UK Documentary (Ryan)</option>
+            <option value="en-au">AU Male (William)</option>
+          </select>
         </div>
       </div>
-    </section>
 
-    <!-- 3. SCRIPT STUDIO -->
-    <section id="tab-script" class="view-section">
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">INTELLIGENCE &amp; CONSEQUENCE SCRIPT STUDIO</span>
-          <button class="btn btn-cyan" style="padding:7px 12px; font-size:12px;" onclick="generateScript()">Regenerate Script</button>
-        </div>
-
-        <label for="inp-sources">Optional Reference Sources / Peer-Reviewed URLs (Appended to Script Credits)</label>
-        <textarea id="inp-sources" placeholder="Paste verified reference notes or URLs here (NEXUS never fabricates citations)..."></textarea>
-
-        <div id="script-studio-content">
-          <p style="font-size:13px; color:var(--muted);">No script generated yet. Click "Generate &amp; Preview Script" to inspect all 6 scientific consequence stages.</p>
-        </div>
+      <div id="upload-box" style="display:none; padding:10px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
+        <label for="audio-file">Select ElevenLabs MP3 / WAV File</label>
+        <input type="file" id="audio-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:8px; font-size:12px;" />
+        <button type="button" class="btn-sub" onclick="uploadAudio()">Upload Audio File</button>
+        <div id="upload-msg" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
       </div>
-    </section>
 
-    <!-- 4. REALITY ENGINE -->
-    <section id="tab-reality" class="view-section">
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">PROCEDURAL REALITY &amp; SIMULATION ENGINE</span>
-          <span class="badge badge-sci">NumPy + Pillow Vector Physics</span>
-        </div>
-        <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">
-          Every scene renders frame-by-frame mathematical simulations without stock video dependencies. Hypothetical states are tagged separately from verified physical models.
-        </p>
-        <div class="grid-3">
-          <div class="scene-item">
-            <h4>Planetary &amp; Axial Dynamics</h4>
-            <p>Simulates equatorial rotational speed, axial obliquity wobble, and day-night terminator shifts.</p>
-          </div>
-          <div class="scene-item">
-            <h4>Orbital &amp; Trajectory Mechanics</h4>
-            <p>Computes multi-body orbital ellipses, light-speed lag intervals, and asteroid impact corridors.</p>
-          </div>
-          <div class="scene-item">
-            <h4>Atmosphere, Ocean &amp; Biosphere</h4>
-            <p>Visualizes supersonic wind shear, polar ocean migration, and physiological telemetry waveforms.</p>
-          </div>
-        </div>
+      <button class="btn btn-primary" id="btn-render" onclick="startRender()">Generate &amp; Auto-Download MP4</button>
+      <div class="err" id="err-box"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">2. LIVE RENDER &amp; AUTO-SAVE</div>
+      <div id="scene-txt" style="font-size:13px; font-weight:700;">Ready. Rendered files auto-download and purge from server automatically.</div>
+      <div class="bar"><div class="fill" id="prog-fill"></div></div>
+      <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
+        <span id="job-lbl">Job: —</span>
+        <span id="pct-lbl">0%</span>
       </div>
-    </section>
-
-    <!-- 5. VOICE STUDIO -->
-    <section id="tab-voice" class="view-section">
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">VOICE &amp; AUDIO SYNTHESIS STUDIO</span>
-          <span class="badge badge-sci" id="tts-status-pill">Checking TTS...</span>
-        </div>
-
-        <div class="row-2">
-          <div>
-            <label for="inp-speaking-speed">Speaking Speed (Words Per Minute)</label>
-            <input type="number" id="inp-speaking-speed" value="155" min="110" max="210" />
-          </div>
-          <div>
-            <label for="inp-music-vol">Ambient Telemetry Score Volume (0.0 – 1.0)</label>
-            <input type="number" id="inp-music-vol" value="0.25" step="0.05" min="0" max="1" />
-          </div>
-        </div>
-
-        <label for="inp-audio-file">Upload Custom Narration Audio (WAV / MP3 / M4A / OGG)</label>
-        <input type="file" id="inp-audio-file" accept=".wav,.mp3,.m4a,.ogg" />
-        <button class="btn btn-violet" id="btn-upload-audio">Upload Custom Voiceover</button>
-        <div id="upload-status" style="font-size:12px; color:var(--cyan); margin-top:8px;"></div>
-      </div>
-    </section>
-
-    <!-- 6. RENDER CENTER -->
-    <section id="tab-render" class="view-section">
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">TURBO CHUNK RENDER CENTER</span>
-          <span class="badge badge-sci">FFmpeg libx264 + QC Engine</span>
-        </div>
-        <div class="row-2">
-          <div>
-            <label for="inp-fps">Frame Rate (FPS)</label>
-            <select id="inp-fps">
-              <option value="16">16 FPS (Ultra-Fast Cloud Render)</option>
-              <option value="20" selected>20 FPS (Balanced Cinematic)</option>
-              <option value="24">24 FPS (Film Standard)</option>
-            </select>
-          </div>
-          <div>
-            <label>Memory Protection Mode</label>
-            <input type="text" value="Chunked Scene Streaming + Auto Temp Cleanup (Active)" readonly />
-          </div>
-        </div>
-        <button class="btn btn-cyan btn-full" onclick="startRender()">Start Render Pipeline Now</button>
-      </div>
-    </section>
-
-    <!-- 7. VIDEO LIBRARY -->
-    <section id="tab-library" class="view-section">
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">RENDERED VIDEO LIBRARY</span>
-          <button class="btn btn-ghost" style="padding:6px 12px; font-size:12px;" onclick="loadLibrary()">Refresh Library</button>
-        </div>
-        <div id="library-list">
-          <p style="font-size:13px; color:var(--muted);">Loading library...</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 8. YOUTUBE GROWTH STUDIO -->
-    <section id="tab-growth" class="view-section">
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">YOUTUBE GROWTH &amp; PACKAGING STUDIO</span>
-          <span class="badge badge-sci">International SEO Pack</span>
-        </div>
-        <div id="growth-content">
-          <p style="font-size:13px; color:var(--muted);">Generate a script first to unlock 5 high-CTR title angles, thumbnail concepts, chapter timestamps, and keywords.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 9. SETTINGS -->
-    <section id="tab-settings" class="view-section">
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title">SYSTEM DIAGNOSTICS &amp; RUNTIME LIMITS</span>
-        </div>
-        <pre id="health-json" style="background:var(--bg-input); padding:12px; border-radius:10px; font-size:12px; color:var(--cyan); overflow-x:auto;">Loading system diagnostics...</pre>
-      </div>
-    </section>
-
+      <div id="result-box"></div>
+    </div>
   </main>
 
   <script>
-    let currentScript = null;
     let uploadedAudioId = "";
-    let activePollTimer = null;
+    let pollTimer = null;
 
-    // Navigation Tabs
-    function switchTab(tabId) {
-      document.querySelectorAll(".nav-btn").forEach(b => {
-        b.classList.toggle("active", b.dataset.tab === tabId);
-      });
-      document.querySelectorAll(".view-section").forEach(sec => {
-        sec.classList.toggle("active", sec.id === tabId);
-      });
-      if (tabId === "tab-library") loadLibrary();
+    function setTopic(t) {
+      document.getElementById("topic").value = t;
     }
 
-    document.querySelectorAll(".nav-btn").forEach(btn => {
-      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
-    });
-
-    function setTopic(txt) {
-      document.getElementById("inp-topic").value = txt;
-      generateScript();
+    function toggleUploadBox() {
+      const mode = document.getElementById("voice-mode").value;
+      document.getElementById("upload-box").style.display = mode === "uploaded" ? "block" : "none";
     }
 
-    function showError(msg) {
-      const box = document.getElementById("create-error");
-      if (!msg) {
-        box.style.display = "none";
-        box.textContent = "";
-      } else {
-        box.style.display = "block";
-        box.textContent = msg;
-      }
+    function showErr(msg) {
+      const el = document.getElementById("err-box");
+      el.style.display = msg ? "block" : "none";
+      el.textContent = msg || "";
     }
 
     async function checkHealth() {
       try {
-        const res = await fetch("/api/health");
-        const data = await res.json();
-        document.getElementById("health-badge").textContent = data.ffmpeg ? "Engine Online • FFmpeg Ready" : "FFmpeg Missing";
-        document.getElementById("tts-status-pill").textContent = data.offline_tts ? `TTS Ready (${data.tts_engine})` : "Ambient Fallback Mode";
-        document.getElementById("health-json").textContent = JSON.stringify(data, null, 2);
+        const r = await fetch("/api/health");
+        const d = await r.json();
+        document.getElementById("sys-status").textContent = d.neural_tts ? "Neural Male Voice Ready" : "Upload Audio Mode";
       } catch (e) {
-        document.getElementById("health-badge").textContent = "Server Reconnecting...";
+        document.getElementById("sys-status").textContent = "Waking Server...";
       }
     }
 
-    async function generateScript() {
-      showError("");
-      const topic = document.getElementById("inp-topic").value.trim();
-      const category = document.getElementById("inp-category").value;
-      const duration_sec = parseInt(document.getElementById("inp-duration").value || "45", 10);
-      const user_sources = document.getElementById("inp-sources").value;
-
-      document.getElementById("job-scene-label").textContent = "Intelligence Engine structuring scientific timeline...";
-      try {
-        const res = await fetch("/api/script/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic, category, duration_sec, user_sources })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          showError(data.error || "Failed to generate script.");
-          return null;
-        }
-        currentScript = data.script;
-        renderScriptViews(currentScript);
-        document.getElementById("job-scene-label").textContent = `Script Ready: ${currentScript.scenes.length} Scenes (${currentScript.category})`;
-        return currentScript;
-      } catch (err) {
-        showError("Network error while generating script.");
-        return null;
+    async function uploadAudio() {
+      const inp = document.getElementById("audio-file");
+      if (!inp.files || !inp.files[0]) return;
+      const fd = new FormData();
+      fd.append("audio", inp.files[0]);
+      document.getElementById("upload-msg").textContent = "Uploading...";
+      const r = await fetch("/api/audio/upload", { method: "POST", body: fd });
+      const d = await r.json();
+      if (r.ok) {
+        uploadedAudioId = d.audio_id;
+        document.getElementById("upload-msg").textContent = `Ready: ${d.file_name}`;
+      } else {
+        document.getElementById("upload-msg").textContent = d.error || "Upload failed";
       }
     }
 
-    function renderScriptViews(sc) {
-      const scenesHtml = sc.scenes.map(s => `
-        <div class="scene-item">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <h4>${s.stage}: ${s.headline}</h4>
-            <span class="badge ${s.is_hypothetical ? 'badge-hyp' : 'badge-sci'}">${s.is_hypothetical ? 'Hypothetical' : 'Verified Science'}</span>
-          </div>
-          <p>${s.narration}</p>
-          <div class="scene-meta">
-            <span>⏱ ${s.clock}</span>
-            <span>🎬 Mode: ${s.visual_mode}</span>
-            <span>✨ Feature: ${s.feature}</span>
-            <span>⏳ ${s.duration_sec}s</span>
-          </div>
-        </div>
-      `).join("");
-
-      const sourcesHtml = sc.sources.map(src => `<li>${src}</li>`).join("");
-
-      document.getElementById("quick-script-preview").innerHTML = `
-        <div style="font-size:12px; font-weight:800; color:var(--amber); margin-bottom:6px;">OPENING HOOK</div>
-        <div class="scene-item"><p>${sc.hook}</p></div>
-        <div style="font-size:12px; font-weight:800; color:var(--cyan); margin-bottom:6px;">SCENE TIMELINE (${sc.scenes.length} STAGES)</div>
-        ${scenesHtml}
-      `;
-
-      document.getElementById("script-studio-content").innerHTML = `
-        <div class="scene-item">
-          <h4>${sc.topic} (${sc.category})</h4>
-          <p><strong>Scientific Basis:</strong> ${sc.scientific_basis}</p>
-          <p style="color:var(--amber); font-size:11px;">${sc.disclaimer}</p>
-          <ul style="margin-left:18px; font-size:11px; color:var(--muted);">${sourcesHtml}</ul>
-        </div>
-        ${scenesHtml}
-      `;
-
-      const g = sc.growth;
-      document.getElementById("growth-content").innerHTML = `
-        <div class="scene-item">
-          <h4>5 High-CTR Title Suggestions</h4>
-          <ul style="margin-left:18px; font-size:13px;">${g.titles.map(t => `<li style="margin-bottom:4px;">${t}</li>`).join("")}</ul>
-        </div>
-        <div class="scene-item">
-          <h4>Thumbnail Concept &amp; Text Overlays</h4>
-          <p>${g.thumbnail_concept}</p>
-          <div class="preset-chips">${g.thumbnail_texts.map(t => `<span class="chip">${t}</span>`).join("")}</div>
-        </div>
-        <div class="scene-item">
-          <h4>YouTube Description &amp; Chapters</h4>
-          <textarea readonly style="min-height:160px;">${g.description}</textarea>
-          <p style="font-size:12px; color:var(--cyan);"><strong>Keywords:</strong> ${g.keywords.join(", ")}</p>
-          <p style="font-size:12px; color:var(--violet); margin-top:4px;"><strong>Hashtags:</strong> ${g.hashtags.join(" ")}</p>
-        </div>
-      `;
+    function autoDownload(url, filename) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
     async function startRender() {
-      showError("");
-      if (!currentScript) {
-        const generated = await generateScript();
-        if (!generated) return;
-      }
+      showErr("");
+      document.getElementById("result-box").innerHTML = "";
+      document.getElementById("prog-fill").style.width = "3%";
+      document.getElementById("pct-lbl").textContent = "3%";
+      document.getElementById("scene-txt").textContent = "Starting render pipeline...";
 
       const payload = {
-        script: currentScript,
-        aspect_ratio: document.getElementById("inp-ratio").value,
-        resolution: document.getElementById("inp-resolution").value,
-        fps: parseInt(document.getElementById("inp-fps").value || "20", 10),
-        visual_style: document.getElementById("inp-style").value,
-        voice_mode: document.getElementById("inp-voice-mode").value,
-        voice_variant: document.getElementById("inp-language").value,
-        speaking_speed: parseInt(document.getElementById("inp-speaking-speed").value || "155", 10),
-        music_volume: parseFloat(document.getElementById("inp-music-vol").value || "0.25"),
+        topic: document.getElementById("topic").value.trim(),
+        aspect_ratio: document.getElementById("aspect").value,
+        duration_sec: parseInt(document.getElementById("duration").value || "40", 10),
+        voice_mode: document.getElementById("voice-mode").value,
+        voice_variant: document.getElementById("voice-accent").value,
         uploaded_audio_id: uploadedAudioId
       };
 
-      document.getElementById("final-output-box").innerHTML = "";
-      document.getElementById("job-status-badge").textContent = "Starting";
-      document.getElementById("job-progress-bar").style.width = "3%";
-      document.getElementById("job-pct-label").textContent = "3%";
-
-      try {
-        const res = await fetch("/api/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          showError(data.error || "Could not start render job.");
-          document.getElementById("job-status-badge").textContent = "Error";
-          return;
-        }
-
-        const jobId = data.job_id;
-        document.getElementById("job-id-label").textContent = `Job ID: ${jobId}`;
-        pollJob(jobId);
-      } catch (err) {
-        showError("Failed to connect to render server.");
+      const r = await fetch("/api/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        showErr(d.error || "Failed to start.");
+        return;
       }
-    }
 
-    function pollJob(jobId) {
-      if (activePollTimer) clearInterval(activePollTimer);
-      let retries = 0;
+      const jobId = d.job_id;
+      document.getElementById("job-lbl").textContent = `Job: ${jobId}`;
 
-      activePollTimer = setInterval(async () => {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
         try {
-          const res = await fetch(`/api/status/${jobId}`);
-          const st = await res.json();
-          if (!res.ok) {
-            clearInterval(activePollTimer);
-            showError(st.error || "Job tracking failed.");
+          const sr = await fetch(`/api/status/${jobId}`);
+          const st = await sr.json();
+          if (!sr.ok) {
+            clearInterval(pollTimer);
+            showErr(st.error || "Status error");
             return;
           }
-          retries = 0;
-          const pct = st.progress || 0;
-          document.getElementById("job-progress-bar").style.width = `${pct}%`;
-          document.getElementById("job-pct-label").textContent = `${pct}%`;
-          document.getElementById("job-scene-label").textContent = st.current_scene || "Rendering...";
-          document.getElementById("job-status-badge").textContent = st.status.toUpperCase();
+          document.getElementById("prog-fill").style.width = `${st.progress}%`;
+          document.getElementById("pct-lbl").textContent = `${st.progress}%`;
+          document.getElementById("scene-txt").textContent = st.current_scene;
 
           if (st.status === "done") {
-            clearInterval(activePollTimer);
-            const streamUrl = `/api/video/${jobId}`;
+            clearInterval(pollTimer);
             const dlUrl = `/api/video/${jobId}?dl=1`;
-            document.getElementById("final-output-box").innerHTML = `
-              <div class="scene-item" style="border-color:var(--emerald);">
-                <h4 style="color:#34d399;">Render &amp; Quality Control Verified</h4>
-                <p style="font-size:12px;">${st.qc_message || ""} • ${st.audio_note || ""}</p>
-                <a class="btn btn-emerald btn-full" href="${dlUrl}" download="${st.file_name}">⬇ Download Final MP4 (${st.qc_meta?.size_mb || ""} MB)</a>
-                <video src="${streamUrl}" controls playsinline></video>
-              </div>
+            autoDownload(dlUrl, st.file_name);
+            document.getElementById("result-box").innerHTML = `
+              <a class="btn btn-save" href="${dlUrl}" download="${st.file_name}">⬇ Save MP4 (${st.size_mb} MB • ${st.audio_note})</a>
+              <video src="/api/video/${jobId}" controls playsinline></video>
             `;
-            loadLibrary();
           } else if (st.status === "error") {
-            clearInterval(activePollTimer);
-            showError(st.error || "Render failed.");
+            clearInterval(pollTimer);
+            showErr(st.error || "Render error");
           }
-        } catch (err) {
-          retries++;
-          if (retries > 10) {
-            clearInterval(activePollTimer);
-            showError("Connection lost during render polling.");
-          }
-        }
+        } catch (e) {}
       }, 1500);
     }
 
-    async function loadLibrary() {
-      try {
-        const res = await fetch("/api/library");
-        const data = await res.json();
-        const list = data.videos || [];
-        document.getElementById("dash-lib-count").textContent = `${list.length} Video${list.length === 1 ? "" : "s"}`;
-
-        if (!list.length) {
-          document.getElementById("library-list").innerHTML = `<p style="font-size:13px; color:var(--muted);">No rendered MP4 videos yet.</p>`;
-          return;
-        }
-
-        document.getElementById("library-list").innerHTML = list.map(v => `
-          <div class="scene-item">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <h4>${v.topic}</h4>
-              <span class="badge badge-sci">${v.aspect_ratio} • ${v.resolution}</span>
-            </div>
-            <div class="scene-meta" style="margin:6px 0;">
-              <span>📅 ${v.created_at}</span>
-              <span>📦 ${v.qc?.size_mb || "?"} MB</span>
-              <span>⏱ ${v.qc?.duration_sec || "?"}s</span>
-            </div>
-            <div style="display:flex; gap:8px; margin-top:8px;">
-              <a class="btn btn-emerald" style="padding:8px 12px; font-size:12px;" href="/api/video/${v.job_id}?dl=1" download="${v.file_name}">Download MP4</a>
-              <button class="btn btn-danger" style="padding:8px 12px; font-size:12px;" onclick="deleteVideo('${v.job_id}')">Delete</button>
-            </div>
-          </div>
-        `).join("");
-      } catch (e) {}
-    }
-
-    async function deleteVideo(jobId) {
-      await fetch(`/api/job/${jobId}`, { method: "DELETE" });
-      loadLibrary();
-    }
-
-    document.getElementById("btn-gen-script").addEventListener("click", generateScript);
-    document.getElementById("btn-start-render").addEventListener("click", startRender);
-
-    document.getElementById("btn-upload-audio").addEventListener("click", async () => {
-      const inp = document.getElementById("inp-audio-file");
-      if (!inp.files || !inp.files[0]) {
-        document.getElementById("upload-status").textContent = "Please select an audio file first.";
-        return;
-      }
-      const fd = new FormData();
-      fd.append("audio", inp.files[0]);
-      document.getElementById("upload-status").textContent = "Uploading audio...";
-      const res = await fetch("/api/audio/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (res.ok) {
-        uploadedAudioId = data.audio_id;
-        document.getElementById("inp-voice-mode").value = "uploaded";
-        document.getElementById("upload-status").textContent = `Uploaded: ${data.file_name} (Voice mode switched to Custom Uploaded Audio)`;
-      } else {
-        document.getElementById("upload-status").textContent = data.error || "Upload failed.";
-      }
-    });
-
     checkHealth();
-    loadLibrary();
   </script>
 </body>
 </html>
