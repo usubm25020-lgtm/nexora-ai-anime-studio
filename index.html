@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA STUDIO PRO v6 — Image Review, Replace &amp; Snappy Multi-Voice</title>
+  <title>NEXORA STUDIO ULTRA v7 — Pro VFX, SFX &amp; Human Voice Cinema Engine</title>
   <style>
     :root {
       --bg: #03050c;
@@ -92,14 +92,14 @@
       background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 10px;
       display: flex; flex-direction: column; justify-content: space-between;
     }
-    .sc-card.missing { border-color: var(--crimson); background: rgba(244, 63, 94, 0.08); }
+    .sc-card.missing { border-color: rgba(251, 191, 36, 0.45); }
     .sc-thumb {
       width: 100%; height: 135px; object-fit: cover; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
     }
-    .missing-box {
-      width: 100%; height: 135px; border-radius: 8px; border: 1px dashed var(--crimson);
+    .upload-slot {
+      width: 100%; height: 135px; border-radius: 8px; border: 1px dashed rgba(34, 211, 238, 0.45);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 8px; text-align: center; margin-bottom: 8px; color: #fda4af; font-size: 11px;
+      padding: 8px; text-align: center; margin-bottom: 8px; color: var(--muted); font-size: 11px;
     }
     video { width: 100%; border-radius: 11px; margin-top: 10px; background: #000; border: 1px solid var(--border); }
   </style>
@@ -109,8 +109,8 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO PRO v6</div>
-        <div style="font-size:11px; color:var(--cyan);">Step-1 Visual Review &amp; Replace • Snappy Multi-Voice • ElevenLabs Sync</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO ULTRA v7</div>
+        <div style="font-size:11px; color:var(--cyan);">Pro Camera VFX • Auto SFX • Single/Multi Human Voice • Exact Word Sync</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
@@ -120,20 +120,21 @@
     <!-- STEP 1: SCRIPT & VOICE SETUP -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: STORY SCRIPT &amp; VOICE SETUP</div>
+        <div class="title">STEP 1: STORY SCRIPT &amp; VOICE MODE</div>
         <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Storytelling AI Prompt</button>
       </div>
 
       <label for="topic">Video Title</label>
-      <input type="text" id="topic" value="Purani Haveli Ka Rahasya" placeholder="Enter your story title..." />
+      <input type="text" id="topic" value="Lift 13th Floor Ka Rahasya" placeholder="Enter your story title..." />
 
       <div class="row-3">
         <div>
-          <label for="genre">Genre &amp; Clean BGM</label>
+          <label for="genre">Genre (Auto VFX + SFX + BGM)</label>
           <select id="genre">
-            <option value="horror" selected>Horror / Mystery</option>
-            <option value="romantic">Romantic / Love Story</option>
-            <option value="documentary">Science / Documentary</option>
+            <option value="horror" selected>Horror / Mystery (Thunder, Sting, Shake)</option>
+            <option value="romantic">Romantic / Love Story (Bokeh, Piano)</option>
+            <option value="funny">Funny / Meme Story (Boing, Pop, Bounce)</option>
+            <option value="documentary">Documentary / Suspense (Whoosh, Pulse)</option>
           </select>
         </div>
         <div>
@@ -144,47 +145,47 @@
           </select>
         </div>
         <div>
-          <label for="voice-source">Voice Engine</label>
-          <select id="voice-source" onchange="toggleElBox()">
-            <option value="builtin_multi" selected>Built-in Snappy Multi-Voice</option>
-            <option value="uploaded">Upload ElevenLabs Audio (Auto-Sync)</option>
+          <label for="voice-mode">Voice Engine</label>
+          <select id="voice-mode" onchange="toggleElBox()">
+            <option value="single_storyteller" selected>Single Deep Storyteller (Human Baritone)</option>
+            <option value="builtin_multi">Multi-Character (Narrator/Male/Female/Child)</option>
+            <option value="uploaded">Upload ElevenLabs Audio (Single or Multi)</option>
           </select>
         </div>
       </div>
 
       <div id="el-upload-box" style="display:none; padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
-        <label for="el-file">Upload ElevenLabs MP3 / WAV (Visuals &amp; Captions Auto-Sync to Voice!)</label>
+        <label for="el-file">Upload ElevenLabs MP3 / WAV (Exact Word Captions &amp; Visuals Auto-Sync!)</label>
         <input type="file" id="el-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:8px; font-size:12px;" />
         <button type="button" class="btn-sm" onclick="uploadElAudio()">⬆ Upload ElevenLabs Audio</button>
         <div id="el-msg" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
       </div>
 
       <label for="custom-script">Paste 4-Column Script (Speaker | English Image Prompt | Hinglish Caption | Hindi Dub)</label>
-      <textarea id="custom-script" placeholder="Paste your 4-column script here (no dummy scripts — pure custom production)..."></textarea>
+      <textarea id="custom-script" placeholder="Paste your 4-column script here..."></textarea>
 
-      <button class="btn btn-primary" onclick="prepareVisuals()">🔍 Step 1: Prepare &amp; Review All Scene Images</button>
+      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes &amp; Upload Your Images (Instant)</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: VISUAL REVIEW & REPLACE GRID -->
+    <!-- STEP 2: INSTANT IMAGE UPLOAD SLOTS -->
     <div class="card" id="review-card" style="display:none;">
       <div class="hdr-row">
-        <div class="title">STEP 2: REVIEW, REPLACE OR UPLOAD MISSING IMAGES</div>
-        <div id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:700;">Preparing...</div>
+        <div class="title">STEP 2: UPLOAD IMAGES FOR EACH SCENE (AUTO VFX &amp; SFX ASSIGNED)</div>
+        <div id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:700;">0 Ready</div>
       </div>
-      <div class="bar"><div class="fill" id="prep-fill"></div></div>
 
       <div class="scene-grid" id="scene-grid"></div>
 
       <div style="margin-top:16px;">
-        <button class="btn btn-green" id="btn-final-render" onclick="startFinalRender()">🎬 Step 2: Render Final Video (All Images Ready)</button>
+        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Cinema Video with VFX, SFX &amp; Exact Captions</button>
       </div>
     </div>
 
     <!-- STEP 3: LIVE FINAL VIDEO RENDER -->
     <div class="card" id="render-card" style="display:none;">
-      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE FINAL VIDEO RENDER</div>
-      <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting final video render...</div>
+      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE VFX, SFX &amp; VOICE RENDER</div>
+      <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting render...</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
         <span id="job-lbl">Job: —</span>
@@ -197,11 +198,10 @@
   <script>
     let currentSessionId = "";
     let uploadedAudioId = "";
-    let prepTimer = null;
     let pollTimer = null;
 
     function toggleElBox() {
-      const v = document.getElementById("voice-source").value;
+      const v = document.getElementById("voice-mode").value;
       document.getElementById("el-upload-box").style.display = v === "uploaded" ? "block" : "none";
     }
 
@@ -215,7 +215,7 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.multi_voice ? "NEXORA v6 Ready" : "FFmpeg Ready";
+        document.getElementById("sys-status").textContent = d.voice_ready ? "NEXORA VFX v7 Ready" : "FFmpeg Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
@@ -231,17 +231,17 @@
       const d = await r.json();
       if (r.ok) {
         uploadedAudioId = d.audio_id;
-        document.getElementById("el-msg").textContent = `✅ Ready: ${d.file_name} (Auto-Sync active!)`;
+        document.getElementById("el-msg").textContent = `✅ Ready: ${d.file_name}`;
       } else {
         document.getElementById("el-msg").textContent = d.error || "Upload failed";
       }
     }
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const topicVal = document.getElementById("topic").value.trim() || "Purani Haveli Ka Rahasya";
+      const topicVal = document.getElementById("topic").value.trim() || "Lift 13th Floor Ka Rahasya";
       const genreVal = document.getElementById("genre").value;
-      const prompt = `Write a natural, engaging Hindi ${genreVal} story script on: "${topicVal}".
-IMPORTANT STORYTELLING RULE: Always use 'narrator' lines to introduce characters before they speak (for example, narrator says "Tabhi andhere se ek ladki ki awaaz aayi..." and the very next line is 'female' speaking her dialogue).
+      const prompt = `Write a gripping, natural Hindi ${genreVal} story script on: "${topicVal}".
+Use 'narrator' lines to build tension before any character dialogue.
 Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text, using this exact 4-column format:
 Speaker(choose strictly one: narrator, male, female, child) | Detailed English Cinematic Scene Image Prompt | Matching Hinglish Subtitle | Spoken Hindi Line in Devanagari Hindi`;
 
@@ -260,7 +260,7 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
       });
     }
 
-    async function uploadReplacement(idx, inputEl) {
+    async function uploadSceneImg(idx, inputEl) {
       if (!inputEl.files || !inputEl.files[0] || !currentSessionId) return;
       const fd = new FormData();
       fd.append("image", inputEl.files[0]);
@@ -278,8 +278,8 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
       if (!r.ok) return;
       const sess = await r.json();
 
-      document.getElementById("prep-fill").style.width = `${sess.prep_progress}%`;
-      document.getElementById("prep-msg").textContent = sess.prep_msg;
+      const readyCnt = sess.scenes.filter(s => s.image_ready).length;
+      document.getElementById("prep-msg").textContent = `${readyCnt}/${sess.scenes.length} Images Uploaded`;
 
       const grid = document.getElementById("scene-grid");
       grid.innerHTML = "";
@@ -291,9 +291,9 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
 
         const visualHtml = sc.image_ready
           ? `<img class="sc-thumb" src="/api/session/${currentSessionId}/image/${idx}?t=${ts}" alt="Scene ${idx + 1}" />`
-          : `<div class="missing-box">
-               <div style="font-weight:900; margin-bottom:4px;">❌ IMAGE MISSING (Scene ${idx + 1})</div>
-               <div>Copy prompt below, generate/download image &amp; upload here:</div>
+          : `<div class="upload-slot">
+               <div style="font-weight:900; color:var(--amber); margin-bottom:4px;">SCENE ${idx + 1} IMAGE SLOT</div>
+               <div>VFX: <b>${sc.anim_type}</b> • SFX: <b>${sc.sfx_type}</b></div>
              </div>`;
 
         const safePrompt = sc.visual_prompt.replace(/'/g, "\\'").replace(/"/g, "&quot;");
@@ -301,7 +301,7 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
           <div>
             <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; margin-bottom:6px;">
               <span style="color:var(--cyan);">SCENE ${idx + 1} (${sc.speaker.toUpperCase()})</span>
-              <span style="color:${sc.image_ready ? '#34d399' : '#f43f5e'};">${sc.image_ready ? 'READY' : 'MISSING'}</span>
+              <span style="color:${sc.image_ready ? '#34d399' : '#fbbf24'};">${sc.image_ready ? 'READY' : 'UPLOAD'}</span>
             </div>
             ${visualHtml}
             <div style="font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.35;">"${sc.hinglish}"</div>
@@ -309,21 +309,16 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button type="button" class="btn-sm" style="flex:1;" onclick="copyText('${safePrompt}', this)">📋 Copy Prompt</button>
             <label class="btn-up" style="flex:1; margin:0;">
-              ${sc.image_ready ? '🔄 Replace' : '⬆ Upload Image'}
-              <input type="file" accept="image/*" style="display:none;" onchange="uploadReplacement(${idx}, this)" />
+              ${sc.image_ready ? '🔄 Change' : '⬆ Upload'}
+              <input type="file" accept="image/*" style="display:none;" onchange="uploadSceneImg(${idx}, this)" />
             </label>
           </div>
         `;
         grid.appendChild(card);
       });
-
-      if (sess.prep_status === "ready" && prepTimer) {
-        clearInterval(prepTimer);
-        prepTimer = null;
-      }
     }
 
-    async function prepareVisuals() {
+    async function loadSceneSlots() {
       showErr("");
       const script = document.getElementById("custom-script").value.trim();
       if (!script) {
@@ -331,15 +326,11 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
         return;
       }
 
-      document.getElementById("review-card").style.display = "block";
-      document.getElementById("render-card").style.display = "none";
-      document.getElementById("scene-grid").innerHTML = "";
-
       const payload = {
         topic: document.getElementById("topic").value.trim(),
         genre: document.getElementById("genre").value,
         aspect_ratio: document.getElementById("aspect").value,
-        voice_source: document.getElementById("voice-source").value,
+        voice_mode: document.getElementById("voice-mode").value,
         uploaded_audio_id: uploadedAudioId,
         custom_script: script
       };
@@ -351,13 +342,13 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
       });
       const d = await r.json();
       if (!r.ok) {
-        showErr(d.error || "Failed to start visual preparation.");
+        showErr(d.error || "Failed to load scenes.");
         return;
       }
 
       currentSessionId = d.session_id;
-      if (prepTimer) clearInterval(prepTimer);
-      prepTimer = setInterval(refreshSessionGrid, 2000);
+      document.getElementById("review-card").style.display = "block";
+      document.getElementById("render-card").style.display = "none";
       refreshSessionGrid();
     }
 
@@ -412,7 +403,7 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
             const dlUrl = `/api/video/${jobId}?dl=1`;
             autoDownload(dlUrl, st.file_name);
             document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Final MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
+              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
               <video src="/api/video/${jobId}" controls playsinline></video>
             `;
           } else if (st.status === "error") {
