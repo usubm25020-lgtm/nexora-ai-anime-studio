@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA AURA — Full-Screen Hindi Story &amp; Documentary Studio</title>
+  <title>NEXORA STUDIO PRO — Multi-Character Hindi Cinema &amp; ElevenLabs Sync</title>
   <style>
     :root {
       --bg: #03050c;
@@ -54,7 +54,7 @@
       background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; padding: 16px;
     }
-    .hdr-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .hdr-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
     .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--cyan); }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
     input[type="text"], select, textarea {
@@ -64,8 +64,7 @@
     }
     textarea { min-height: 155px; resize: vertical; line-height: 1.5; font-size: 12px; }
     input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
-    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 600px) { .row-3 { grid-template-columns: 1fr; } }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .btn {
       width: 100%; padding: 14px; border: none; border-radius: 11px;
       font-size: 14px; font-weight: 900; cursor: pointer; text-decoration: none;
@@ -76,6 +75,7 @@
     .btn-copy {
       padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
       background: rgba(251, 191, 36, 0.14); color: var(--amber); font-size: 11px; font-weight: 800; cursor: pointer;
+      white-space: nowrap;
     }
     .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width 0.25s; }
@@ -92,8 +92,8 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA AURA STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">Full-Screen Cinema • Horror, Romantic &amp; Documentary</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO PRO</div>
+        <div style="font-size:11px; color:var(--cyan);">Male / Female / Child Voices • ElevenLabs Auto-Sync • Clean Cinema BGM</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
@@ -102,16 +102,16 @@
   <main class="wrap">
     <div class="card">
       <div class="hdr-row">
-        <div class="title">1. STORY &amp; VIDEO CONFIGURATION</div>
-        <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy AI Story Prompt</button>
+        <div class="title">1. MULTI-VOICE &amp; STORY SETUP</div>
+        <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy Multi-Voice AI Prompt</button>
       </div>
 
       <label for="topic">Story / Video Title</label>
-      <input type="text" id="topic" value="Raat Ke 2 Baje Purani Haveli Ka Rahasya" placeholder="Enter Horror, Romantic, or Documentary topic..." />
+      <input type="text" id="topic" value="Raat Ke 1 Baje Aakhiri Train" placeholder="Enter Horror, Romantic, or Documentary title..." />
 
-      <div class="row-3">
+      <div class="row-2">
         <div>
-          <label for="genre">Video Genre &amp; Music</label>
+          <label for="genre">Genre &amp; Clean BGM</label>
           <select id="genre">
             <option value="horror" selected>Horror / Mystery</option>
             <option value="romantic">Romantic / Love Story</option>
@@ -125,8 +125,18 @@
             <option value="9:16">9:16 YouTube Shorts</option>
           </select>
         </div>
+      </div>
+
+      <div class="row-2">
         <div>
-          <label for="duration-min">Length (Minutes)</label>
+          <label for="voice-source">Voice Engine</label>
+          <select id="voice-source" onchange="toggleElBox()">
+            <option value="builtin_multi" selected>Built-in Multi-Voice (Male/Female/Child)</option>
+            <option value="uploaded">Upload ElevenLabs Full Voiceover</option>
+          </select>
+        </div>
+        <div>
+          <label for="duration-min">Target Length (If No Script)</label>
           <select id="duration-min">
             <option value="0.7" selected>~1 Minute (Test)</option>
             <option value="5">5 Minutes</option>
@@ -136,16 +146,23 @@
         </div>
       </div>
 
-      <label for="custom-script">Optional: Paste Full Story Script (From Gemini / ChatGPT)</label>
-      <textarea id="custom-script" placeholder="Khali chhodne par app khud Horror / Romantic / Documentary video banayega.&#10;&#10;Ya phir upar 'Copy AI Story Prompt' dabakar Gemini/ChatGPT se 10-15 minute ki poori kahani banwa kar yahan paste karein!"></textarea>
+      <div id="el-upload-box" style="display:none; padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
+        <label for="el-file">Upload ElevenLabs MP3 / WAV (App Auto-Matches Visuals to Voice!)</label>
+        <input type="file" id="el-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:8px; font-size:12px;" />
+        <button type="button" class="btn-copy" onclick="uploadElAudio()">⬆ Upload ElevenLabs Audio</button>
+        <div id="el-msg" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
+      </div>
 
-      <button class="btn btn-primary" onclick="startRender()">🎬 Generate Full-Screen Cinema MP4</button>
+      <label for="custom-script">Multi-Character Script (Speaker | Image Prompt | Hinglish Caption | Hindi Dub)</label>
+      <textarea id="custom-script" placeholder="Khali chhodne par app khud Male + Female + Child voices ke saath story banayega.&#10;&#10;Ya phir 'Copy Multi-Voice AI Prompt' dabakar Gemini/ChatGPT se script banwa kar yahan paste karein!"></textarea>
+
+      <button class="btn btn-primary" onclick="startRender()">🎬 Generate Perfect Multi-Voice Cinema MP4</button>
       <div class="err" id="err-box"></div>
     </div>
 
     <div class="card">
-      <div class="title">2. LIVE RENDER &amp; AUTO-SAVE</div>
-      <div id="scene-txt" style="font-size:13px; font-weight:700;">Ready. Full-screen visuals with zero sidebar clutter + Expressive Hindi Dubbing.</div>
+      <div class="title" style="margin-bottom:12px;">2. LIVE PRODUCTION &amp; AUTO-SYNC</div>
+      <div id="scene-txt" style="font-size:13px; font-weight:700;">Ready. Multi-character voices (Narrator, Male, Female, Child) + Phrase-synced captions active.</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
         <span id="job-lbl">Job: —</span>
@@ -156,7 +173,13 @@
   </main>
 
   <script>
+    let uploadedAudioId = "";
     let pollTimer = null;
+
+    function toggleElBox() {
+      const v = document.getElementById("voice-source").value;
+      document.getElementById("el-upload-box").style.display = v === "uploaded" ? "block" : "none";
+    }
 
     function showErr(msg) {
       const el = document.getElementById("err-box");
@@ -168,24 +191,40 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.hindi_dubbing ? "NEXORA Aura Ready" : "FFmpeg Ready";
+        document.getElementById("sys-status").textContent = d.multi_voice ? "Multi-Voice Pro Ready" : "FFmpeg Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
+      }
+    }
+
+    async function uploadElAudio() {
+      const inp = document.getElementById("el-file");
+      if (!inp.files || !inp.files[0]) return;
+      const fd = new FormData();
+      fd.append("audio", inp.files[0]);
+      document.getElementById("el-msg").textContent = "Uploading ElevenLabs voiceover...";
+      const r = await fetch("/api/audio/upload", { method: "POST", body: fd });
+      const d = await r.json();
+      if (r.ok) {
+        uploadedAudioId = d.audio_id;
+        document.getElementById("el-msg").textContent = `✅ Ready: ${d.file_name} (Visuals will auto-sync to exact audio length!)`;
+      } else {
+        document.getElementById("el-msg").textContent = d.error || "Upload failed";
       }
     }
 
     document.getElementById("btn-copy-prompt").onclick = () => {
       const topicVal = document.getElementById("topic").value.trim() || "Ek Adhuri Love Story";
       const genreVal = document.getElementById("genre").value;
-      const prompt = `Write an emotional, gripping, high-retention 10-minute Hindi ${genreVal} script on: "${topicVal}".
-Create 45 scenes (each scene ~12-15 seconds of expressive spoken Hindi).
-Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text, using this exact 5-column format:
-Visual Mode(use: photo) | Detailed English Cinematic Scene Image Description | Voice Mood(choose: intense, dramatic, calm) | Crisp 2-Line Hinglish Subtitle | Expressive Spoken Hindi Dubbing Paragraph in Devanagari Hindi`;
+      const prompt = `Write a gripping, emotional, high-retention Hindi ${genreVal} script with dialogues on: "${topicVal}".
+Create 25 to 45 scenes with a strong opening hook in Scene 1.
+Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text, using this exact 4-column format:
+Speaker(choose strictly one: narrator, male, female, child) | Detailed English Cinematic Scene Image Prompt | Matching Hinglish Subtitle (same length as Hindi line) | Spoken Hindi Dialogue or Narration in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Story Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy AI Story Prompt", 3000);
+        btn.textContent = "✅ Multi-Voice Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy Multi-Voice AI Prompt", 3000);
       });
     };
 
@@ -203,12 +242,14 @@ Visual Mode(use: photo) | Detailed English Cinematic Scene Image Description | V
       document.getElementById("result-box").innerHTML = "";
       document.getElementById("prog-fill").style.width = "3%";
       document.getElementById("pct-lbl").textContent = "3%";
-      document.getElementById("scene-txt").textContent = "Starting NEXORA Full-Screen Cinema Pipeline...";
+      document.getElementById("scene-txt").textContent = "Starting NEXORA Multi-Voice Cinema Pipeline...";
 
       const payload = {
         topic: document.getElementById("topic").value.trim(),
         genre: document.getElementById("genre").value,
         aspect_ratio: document.getElementById("aspect").value,
+        voice_source: document.getElementById("voice-source").value,
+        uploaded_audio_id: uploadedAudioId,
         duration_min: parseFloat(document.getElementById("duration-min").value || "0.7"),
         custom_script: document.getElementById("custom-script").value
       };
