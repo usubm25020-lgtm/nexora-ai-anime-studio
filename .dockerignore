@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.git/
+.gitignore
+output/
+uploads/
+tmp_work/
+.env
+.venv/
+venv/
+*.mp4
+*.wav
