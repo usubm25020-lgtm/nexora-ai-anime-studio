@@ -401,7 +401,7 @@ class RealityCinematicRenderer:
         self._sphere_cache: Dict[Tuple[int, bool], Image.Image] = {}
 
     def _build_backdrop(self) -> Image.Image:
-        yy, xx = np.ogrid[0 : self.h, 0 : self.w]
+        yy, xx = np.mgrid[0 : self.h, 0 : self.w]
         nx = (xx - self.w * 0.5) / (self.w * 0.68)
         ny = (yy - self.h * 0.40) / (self.h * 0.68)
         radial = np.clip(1.0 - 0.78 * (nx * nx + ny * ny), 0.0, 1.0).astype(np.float32)
@@ -423,14 +423,14 @@ class RealityCinematicRenderer:
         return img
 
     def _get_3d_shaded_sphere(self, radius: int, perturbed: bool) -> Image.Image:
-        """Generates a 3D ray-shaded sphere with realistic sunlight diffuse + specular + limb glow."""
+        """Generates a 3D ray-shaded sphere using full 2D mgrid coordinates."""
         key = (radius, perturbed)
         if key in self._sphere_cache:
             return self._sphere_cache[key]
 
         pad = int(radius * 0.28)
         size = (radius + pad) * 2
-        y, x = np.ogrid[-radius - pad : radius + pad, -radius - pad : radius + pad]
+        y, x = np.mgrid[-radius - pad : radius + pad, -radius - pad : radius + pad]
         r2 = (x * x + y * y).astype(np.float32)
         rad_f = float(radius)
         dist = np.sqrt(r2) / rad_f
@@ -447,8 +447,8 @@ class RealityCinematicRenderer:
 
         # 3D Sphere surface normals (nx, ny, nz)
         in_mask = dist <= 1.0
-        nx = x[in_mask] / rad_f
-        ny = y[in_mask] / rad_f
+        nx = x[in_mask].astype(np.float32) / rad_f
+        ny = y[in_mask].astype(np.float32) / rad_f
         nz = np.sqrt(np.clip(1.0 - nx * nx - ny * ny, 0.0, 1.0))
 
         # Directional sunlight from top-left (-0.55, -0.45, 0.70)
@@ -479,7 +479,6 @@ class RealityCinematicRenderer:
         sw, sh = sphere.size
         frame.paste(sphere, (int(cx - sw // 2), int(cy - sh // 2)), sphere)
 
-        # Rotating continental / cloud bands clipped inside illuminated hemisphere
         band_col = (234, 88, 12) if perturbed else (34, 197, 148)
         for i in range(4):
             ang = phase * (0.25 if perturbed else 1.7) + i * 1.4
@@ -490,7 +489,6 @@ class RealityCinematicRenderer:
             if rw > 2:
                 draw.ellipse([lx - rw, ly - rh, lx + rw, ly + rh], fill=band_col)
 
-        # Axial tilt vector
         tilt = math.radians(36.0 * math.sin(phase * 2.0) if perturbed else 23.5)
         ax_len = radius * 1.32
         dx, dy = math.sin(tilt) * ax_len, -math.cos(tilt) * ax_len
@@ -559,7 +557,6 @@ class RealityCinematicRenderer:
         draw = ImageDraw.Draw(frame)
         pad = int(20 * self.sc)
 
-        # Top HUD + Reality Clock
         top_h = int(42 * self.sc)
         self._draw_panel(draw, pad, pad, self.w - pad, pad + top_h, self.pal["cyan"], (14, 116, 144))
 
@@ -574,7 +571,6 @@ class RealityCinematicRenderer:
         cb = draw.textbbox((0, 0), clock_txt, font=f_clock)
         draw.text((self.w - pad - (cb[2] - cb[0]) - 12, pad + int(12 * self.sc)), clock_txt, font=f_clock, fill=self.pal["cyan"])
 
-        # Viewport + Telemetry Sidebar
         vp_top = pad + top_h + int(10 * self.sc)
         bot_h = int(126 * self.sc) if not self.is_vertical else int(185 * self.sc)
         vp_bot = self.h - pad - bot_h - int(10 * self.sc)
@@ -615,7 +611,6 @@ class RealityCinematicRenderer:
                         draw.text((side_box[0] + 12, sy), h_ln, font=f_sv, fill=self.pal["text"])
                         sy += int(14 * self.sc)
 
-        # Bottom Narration Deck
         deck_top = vp_bot + int(10 * self.sc)
         deck_bot = self.h - pad
         self._draw_panel(draw, pad, deck_top, self.w - pad, deck_bot, self.pal["cyan"], (14, 116, 144))
@@ -641,7 +636,7 @@ class RealityCinematicRenderer:
 
 
 # ==============================================================================
-# 5. ULTRA-REALISTIC MALE NEURAL VOICE ENGINE (DEDICATED ASYNC LOOP FIX)
+# 5. ULTRA-REALISTIC MALE NEURAL VOICE ENGINE
 # ==============================================================================
 class VoiceEngine:
     VOICES = {
@@ -686,7 +681,6 @@ class VoiceEngine:
 
     @classmethod
     def synthesize_male_neural(cls, scenes: List[Dict[str, Any]], work_dir: str, voice_key: str = "en-us") -> Tuple[str, List[Dict[str, Any]], str]:
-        """Dedicated event-loop synthesis so edge-tts works reliably inside Gunicorn threads."""
         if not HAS_EDGE_TTS:
             raise RuntimeError("edge-tts package is not installed. Please upload custom ElevenLabs audio instead.")
 
@@ -714,7 +708,7 @@ class VoiceEngine:
             wav_p = os.path.join(work_dir, f"voice_sync_{idx}.wav")
             dur_s = cls._probe_dur(mp3_p)
             if dur_s <= 0.4:
-                raise RuntimeError(f"Neural TTS returned empty audio for scene {idx + 1}. Upload ElevenLabs audio instead.")
+                raise RuntimeError(f"Neural TTS returned empty audio for scene {idx + 1}.")
 
             sc_dur = round(max(float(sc["duration_sec"]), dur_s + 0.75), 2)
             subprocess.run(
