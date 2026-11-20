@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXUS HINDI STUDIO — Pro Hindi Dubbing &amp; Reality Video Engine</title>
+  <title>NEXORA AURA — Full-Screen Hindi Story &amp; Documentary Studio</title>
   <style>
     :root {
       --bg: #03050c;
-      --card: rgba(11, 18, 36, 0.90);
+      --card: rgba(11, 18, 36, 0.92);
       --input: #060a15;
       --border: rgba(34, 211, 238, 0.25);
       --cyan: #22d3ee;
@@ -20,7 +20,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #1b1340 0%, var(--bg) 65%);
+      background: radial-gradient(circle at top right, #1f123d 0%, var(--bg) 65%);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
@@ -57,14 +57,15 @@
     .hdr-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--cyan); }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-    input[type="text"], input[type="number"], select, textarea {
+    input[type="text"], select, textarea {
       width: 100%; background: var(--input); border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 13px;
       outline: none; margin-bottom: 12px; font-family: inherit;
     }
     textarea { min-height: 155px; resize: vertical; line-height: 1.5; font-size: 12px; }
     input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
-    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 600px) { .row-3 { grid-template-columns: 1fr; } }
     .btn {
       width: 100%; padding: 14px; border: none; border-radius: 11px;
       font-size: 14px; font-weight: 900; cursor: pointer; text-decoration: none;
@@ -91,8 +92,8 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXUS HINDI STUDIO</div>
-        <div style="font-size:11px; color:var(--cyan);">Emotional Hindi Dubbing • Hinglish Captions • 10–15 Min Ready</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA AURA STUDIO</div>
+        <div style="font-size:11px; color:var(--cyan);">Full-Screen Cinema • Horror, Romantic &amp; Documentary</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
@@ -101,42 +102,50 @@
   <main class="wrap">
     <div class="card">
       <div class="hdr-row">
-        <div class="title">1. VIDEO &amp; HINDI DUBBING SETUP</div>
-        <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy 10-Min AI Script Prompt</button>
+        <div class="title">1. STORY &amp; VIDEO CONFIGURATION</div>
+        <button type="button" class="btn-copy" id="btn-copy-prompt">📋 Copy AI Story Prompt</button>
       </div>
 
-      <label for="topic">Video Topic (Hinglish or English)</label>
-      <input type="text" id="topic" value="Agar Prithvi Achanak Ghumna Band Kar De?" placeholder="Enter any topic..." />
+      <label for="topic">Story / Video Title</label>
+      <input type="text" id="topic" value="Raat Ke 2 Baje Purani Haveli Ka Rahasya" placeholder="Enter Horror, Romantic, or Documentary topic..." />
 
-      <div class="row-2">
+      <div class="row-3">
         <div>
-          <label for="aspect">Video Format</label>
+          <label for="genre">Video Genre &amp; Music</label>
+          <select id="genre">
+            <option value="horror" selected>Horror / Mystery</option>
+            <option value="romantic">Romantic / Love Story</option>
+            <option value="documentary">Science / Documentary</option>
+          </select>
+        </div>
+        <div>
+          <label for="aspect">Screen Format</label>
           <select id="aspect">
-            <option value="16:9" selected>16:9 YouTube Long (Horizontal)</option>
-            <option value="9:16">9:16 YouTube Shorts (Vertical)</option>
+            <option value="16:9" selected>16:9 YouTube Long</option>
+            <option value="9:16">9:16 YouTube Shorts</option>
           </select>
         </div>
         <div>
-          <label for="duration-min">Target Length (Minutes)</label>
+          <label for="duration-min">Length (Minutes)</label>
           <select id="duration-min">
-            <option value="0.8" selected>~1 Minute (Quick Test)</option>
-            <option value="5">5 Minutes (Medium Documentary)</option>
-            <option value="10">10 Minutes (Full Long Video)</option>
-            <option value="15">15 Minutes (Mega Deep-Dive)</option>
+            <option value="0.7" selected>~1 Minute (Test)</option>
+            <option value="5">5 Minutes</option>
+            <option value="10">10 Minutes</option>
+            <option value="15">15 Minutes</option>
           </select>
         </div>
       </div>
 
-      <label for="custom-script">Optional: Paste Custom 10–15 Min Script (From Gemini / ChatGPT)</label>
-      <textarea id="custom-script" placeholder="Khali chhodne par app khud Hindi dubbing aur script banayega.&#10;&#10;Ya phir upar 'Copy 10-Min AI Script Prompt' dabakar Gemini/ChatGPT se 40-60 scenes ka script banwa kar yahan paste karein!"></textarea>
+      <label for="custom-script">Optional: Paste Full Story Script (From Gemini / ChatGPT)</label>
+      <textarea id="custom-script" placeholder="Khali chhodne par app khud Horror / Romantic / Documentary video banayega.&#10;&#10;Ya phir upar 'Copy AI Story Prompt' dabakar Gemini/ChatGPT se 10-15 minute ki poori kahani banwa kar yahan paste karein!"></textarea>
 
-      <button class="btn btn-primary" onclick="startRender()">🚀 Generate Pro Hindi Dubbed Video</button>
+      <button class="btn btn-primary" onclick="startRender()">🎬 Generate Full-Screen Cinema MP4</button>
       <div class="err" id="err-box"></div>
     </div>
 
     <div class="card">
-      <div class="title">2. LIVE DUBBING &amp; STREAMING RENDER</div>
-      <div id="scene-txt" style="font-size:13px; font-weight:700;">Ready. Built-in Hindi Male Narrator (Madhur Neural) + Hybrid 3D/Photo Engine active.</div>
+      <div class="title">2. LIVE RENDER &amp; AUTO-SAVE</div>
+      <div id="scene-txt" style="font-size:13px; font-weight:700;">Ready. Full-screen visuals with zero sidebar clutter + Expressive Hindi Dubbing.</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
         <span id="job-lbl">Job: —</span>
@@ -159,23 +168,24 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.hindi_dubbing ? "Pro Hindi Dubbing Ready" : "FFmpeg Ready";
+        document.getElementById("sys-status").textContent = d.hindi_dubbing ? "NEXORA Aura Ready" : "FFmpeg Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
     }
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const topicVal = document.getElementById("topic").value.trim() || "Mystery of Bermuda Triangle";
-      const prompt = `Write a deeply engaging, emotional, high-retention 10-minute Hindi documentary script on the topic: "${topicVal}".
-Create exactly 45 scenes (each scene ~12-15 seconds of spoken Hindi).
-Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text, using this exact 8-column format:
-Stage Tag | Time/Clock | Visual Mode(choose one: photo, earth_rotation, dual_reality, consequence_map, asteroid_impact, solar_system) | English Wikimedia Photo Search Keyword | Voice Mood(choose one: intense, dramatic, calm) | Short Hinglish Headline | 2-Line Hinglish On-Screen Caption | Expressive Spoken Hindi Dubbing Paragraph in Devanagari Hindi`;
+      const topicVal = document.getElementById("topic").value.trim() || "Ek Adhuri Love Story";
+      const genreVal = document.getElementById("genre").value;
+      const prompt = `Write an emotional, gripping, high-retention 10-minute Hindi ${genreVal} script on: "${topicVal}".
+Create 45 scenes (each scene ~12-15 seconds of expressive spoken Hindi).
+Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text, using this exact 5-column format:
+Visual Mode(use: photo) | Detailed English Cinematic Scene Image Description | Voice Mood(choose: intense, dramatic, calm) | Crisp 2-Line Hinglish Subtitle | Expressive Spoken Hindi Dubbing Paragraph in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ 10-Min Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy 10-Min AI Script Prompt", 3000);
+        btn.textContent = "✅ Story Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy AI Story Prompt", 3000);
       });
     };
 
@@ -193,12 +203,13 @@ Stage Tag | Time/Clock | Visual Mode(choose one: photo, earth_rotation, dual_rea
       document.getElementById("result-box").innerHTML = "";
       document.getElementById("prog-fill").style.width = "3%";
       document.getElementById("pct-lbl").textContent = "3%";
-      document.getElementById("scene-txt").textContent = "Initializing Pro Hindi Dubbing Engine...";
+      document.getElementById("scene-txt").textContent = "Starting NEXORA Full-Screen Cinema Pipeline...";
 
       const payload = {
         topic: document.getElementById("topic").value.trim(),
+        genre: document.getElementById("genre").value,
         aspect_ratio: document.getElementById("aspect").value,
-        duration_min: parseFloat(document.getElementById("duration-min").value || "1.0"),
+        duration_min: parseFloat(document.getElementById("duration-min").value || "0.7"),
         custom_script: document.getElementById("custom-script").value
       };
 
@@ -235,7 +246,7 @@ Stage Tag | Time/Clock | Visual Mode(choose one: photo, earth_rotation, dual_rea
             const dlUrl = `/api/video/${jobId}?dl=1`;
             autoDownload(dlUrl, st.file_name);
             document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-save" href="${dlUrl}" download="${st.file_name}">⬇ Download Hindi MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
+              <a class="btn btn-save" href="${dlUrl}" download="${st.file_name}">⬇ Download Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
               <video src="/api/video/${jobId}" controls playsinline></video>
             `;
           } else if (st.status === "error") {
