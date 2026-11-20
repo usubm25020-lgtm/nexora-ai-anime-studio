@@ -1,910 +1,1635 @@
 import os
-import gc
 import re
-import time
+import gc
+import json
 import math
+import time
 import uuid
 import wave
-import random
-import urllib.request
+import shutil
+import tempfile
 import subprocess
 import threading
+from datetime import datetime, timezone
+from typing import Dict, List, Any, Optional, Tuple
+
 import numpy as np
-
-import imageio_ffmpeg
 from PIL import Image, ImageDraw, ImageFont
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, render_template, send_file
 
-app = Flask(__name__)
-
-@app.after_request
-def add_cors(resp):
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    return resp
-
+# ==============================================================================
+# 1. APPLICATION CONFIGURATION & PATH SECURITY
+# ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(BASE_DIR, "rendered_videos")
-AUDIO_DIR = os.path.join(BASE_DIR, "audio_assets")
-FONT_DIR = os.path.join(BASE_DIR, "fonts")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-os.makedirs(AUDIO_DIR, exist_ok=True)
-os.makedirs(FONT_DIR, exist_ok=True)
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+TMP_ROOT = os.path.join(BASE_DIR, "tmp_work")
 
-FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
-JOBS = {}
+for directory in (OUTPUT_DIR, UPLOAD_DIR, TMP_ROOT):
+    os.makedirs(directory, exist_ok=True)
 
-def ensure_bengali_font() -> str:
-    """Downloads Noto Sans Bengali Bold once so all Bengali conjuncts (যুক্তাক্ষর) render crisply."""
-    local_ttf = os.path.join(FONT_DIR, "NotoSansBengali-Bold.ttf")
-    if os.path.exists(local_ttf) and os.path.getsize(local_ttf) > 30000:
-        return local_ttf
+app = Flask(__name__, template_folder="templates", static_folder="static")
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload cap
 
-    for sys_p in [
-        "/usr/share/fonts/truetype/noto/NotoSansBengali-Bold.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSansBengali-Regular.ttf",
-        "/usr/share/fonts/truetype/lohit-bengali/Lohit-Bengali.ttf"
-    ]:
-        if os.path.exists(sys_p):
-            return sys_p
+# In-memory job registry (structured for easy upgrade to Redis/Celery)
+JOBS: Dict[str, Dict[str, Any]] = {}
+JOBS_LOCK = threading.Lock()
+ACTIVE_JOB_IDS = set()
 
-    urls = [
-        "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansBengali/NotoSansBengali-Bold.ttf",
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansbengali/NotoSansBengali%5Bwdth%2Cwght%5D.ttf"
-    ]
-    for u in urls:
-        try:
-            urllib.request.urlretrieve(u, local_ttf)
-            if os.path.exists(local_ttf) and os.path.getsize(local_ttf) > 30000:
-                return local_ttf
-        except Exception:
-            pass
+SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{6,40}$")
 
-    return "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-BENGALI_FONT_PATH = ensure_bengali_font()
+def is_safe_id(val: str) -> bool:
+    return bool(val and SAFE_ID_RE.match(val))
 
-def cleanup_old_files(max_age_sec: int = 900):
-    now = time.time()
-    for folder in (OUTPUT_DIR, AUDIO_DIR):
-        try:
-            for fname in os.listdir(folder):
-                fpath = os.path.join(folder, fname)
-                if os.path.isfile(fpath) and (now - os.path.getmtime(fpath)) > max_age_sec:
-                    os.remove(fpath)
-        except Exception:
-            pass
 
-# ===========================================================================
-# 1. NEXT-GEN ESPORTS & GLASSMORPHISM PALETTES
-# ===========================================================================
-GAMING_THEMES = {
-    "cyber": {
-        "name": "NEON CYBER",
-        "bg_top": (13, 21, 52),
-        "bg_bot": (4, 6, 16),
-        "grid": (26, 48, 96),
-        "card_bg": (12, 19, 38),
-        "opt_bg": (17, 26, 50),
-        "primary": (34, 211, 238),    # Electric Cyan
-        "secondary": (168, 85, 247),  # Neon Violet
-        "accent": (250, 204, 21)      # Cyber Gold
-    },
-    "royal": {
-        "name": "SOLAR GOLD",
-        "bg_top": (34, 22, 12),
-        "bg_bot": (6, 4, 4),
-        "grid": (64, 42, 20),
-        "card_bg": (24, 17, 12),
-        "opt_bg": (32, 22, 16),
-        "primary": (250, 204, 21),    # Pure Gold
-        "secondary": (249, 115, 22),  # Blaze Orange
-        "accent": (56, 189, 248)      # Ice Blue
-    },
-    "crimson": {
-        "name": "VALKYRIE RED",
-        "bg_top": (42, 10, 26),
-        "bg_bot": (6, 3, 10),
-        "grid": (74, 18, 46),
-        "card_bg": (26, 10, 20),
-        "opt_bg": (36, 14, 28),
-        "primary": (244, 63, 94),     # Esports Crimson
-        "secondary": (232, 121, 249), # Plasma Pink
-        "accent": (250, 204, 21)      # Gold
-    },
-    "emerald": {
-        "name": "HYPER MATRIX",
-        "bg_top": (8, 34, 26),
-        "bg_bot": (3, 8, 7),
-        "grid": (16, 66, 52),
-        "card_bg": (10, 24, 20),
-        "opt_bg": (14, 34, 28),
-        "primary": (16, 185, 129),    # Emerald Neon
-        "secondary": (34, 211, 238),  # Aqua
-        "accent": (250, 204, 21)      # Gold
-    }
-}
+def check_binary(name: str) -> bool:
+    return shutil.which(name) is not None
 
-DEFAULT_BENGALI_QUESTIONS = [
-    {"q": "বায়ুমণ্ডলের কোন স্তরটি সূর্যের ক্ষতিকারক অতিবেগুনি রশ্মি শোষণ করে?", "opts": ["ট্রপোস্ফিয়ার", "স্ট্র্যাটোস্ফিয়ার", "মেসোস্ফিয়ার", "থার্মোস্ফিয়ার"], "ans": 1, "fact": "স্ট্র্যাটোস্ফিয়ারে থাকা ওজোন স্তর পৃথিবীর রক্ষাকবচ হিসেবে কাজ করে!"},
-    {"q": "রোধের এসআই (SI) একক কী?", "opts": ["অ্যাম্পিয়ার", "ভোল্ট", "ওহম", "কুলম্ব"], "ans": 2, "fact": "বিজ্ঞানী জর্জ সাইমন ওহমের নামানুসারে এই একক রাখা হয়েছে।"},
-    {"q": "১৮২৮ সালে কলকাতায় 'ব্রাহ্মসমাজ' কে প্রতিষ্ঠা করেন?", "opts": ["স্বামী বিবেকানন্দ", "ঈশ্বরচন্দ্র বিদ্যাসাগর", "রাজা রামমোহন রায়", "কেশবচন্দ্র সেন"], "ans": 2, "fact": "রামমোহন রায় ১৮২৯ সালে সতীদাহ প্রথা রদে প্রধান ভূমিকা নেন!"},
-    {"q": "পশ্চিমবঙ্গের কোন নদীকে 'বাংলার দুঃখ' বলা হয়?", "opts": ["তিস্তা", "দামোদর", "সুবর্ণরেখা", "মহানন্দা"], "ans": 1, "fact": "অতীতে ভয়াবহ বন্যার কারণে দামোদর নদকে বাংলার দুঃখ বলা হতো।"}
-]
 
-def smart_parse_and_direct(raw_text: str, is_vertical: bool):
-    items = []
-    for ln in str(raw_text or "").splitlines():
-        ln = ln.strip()
-        if not ln or "|" not in ln:
-            continue
-        parts = [p.strip() for p in ln.split("|")]
-        if len(parts) >= 6:
-            q_txt = re.sub(r"^(Q?\d+|প্রশ্ন\s*\d*)\s*[:.\-]\s*", "", parts[0], flags=re.I).strip()
-            opts = parts[1:5]
+HAS_FFMPEG = check_binary("ffmpeg")
+HAS_FFPROBE = check_binary("ffprobe")
+ESPEAK_BIN = (
+    "espeak-ng"
+    if check_binary("espeak-ng")
+    else ("espeak" if check_binary("espeak") else None)
+)
+HAS_ESPEAK = ESPEAK_BIN is not None
+
+
+# ==============================================================================
+# 2. TYPOGRAPHY & MATH HELPERS
+# ==============================================================================
+_FONT_CACHE: Dict[Tuple[str, int], ImageFont.FreeTypeFont] = {}
+
+
+def get_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
+    key = ("bold" if bold else "reg", size)
+    if key in _FONT_CACHE:
+        return _FONT_CACHE[key]
+    paths = (
+        [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        ]
+        if bold
+        else [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        ]
+    )
+    for path in paths:
+        if os.path.exists(path):
             try:
-                ans_idx = max(0, min(3, int(re.sub(r"[^0-9]", "", parts[5])) - 1))
-            except Exception:
-                ans_idx = 0
-            fact_txt = parts[6].strip() if len(parts) >= 7 else ""
-            items.append({"q": q_txt, "opts": opts, "ans": ans_idx, "fact": fact_txt})
-
-    if not items:
-        items = [dict(x) for x in DEFAULT_BENGALI_QUESTIONS]
-
-    if is_vertical and len(items) > 4:
-        items = items[:4]
-    elif len(items) < 2:
-        items.append(dict(DEFAULT_BENGALI_QUESTIONS[-1]))
-
-    directed = []
-    theme_keys = list(GAMING_THEMES.keys())
-    total_n = len(items)
-
-    for idx, item in enumerate(items):
-        q_txt = item["q"]
-        word_cnt = len(q_txt.split())
-        is_secret_trap = (idx == total_n - 1)
-        is_boss = ((idx + 1) % 5 == 0) and not is_secret_trap
-
-        has_math = bool(re.search(r"[0-9০-৯%+\-*/=]|হিসাব|মান কত|সমীকরণ|অনুপাত|সুদ", q_txt))
-        if is_vertical:
-            think_sec = 4.4 if has_math else 3.5
-            read_sec = 1.1
-            reveal_sec = 2.6 if is_secret_trap else 2.0
-        else:
-            if has_math or word_cnt >= 14:
-                think_sec = 6.5
-            elif word_cnt >= 9:
-                think_sec = 5.0
-            else:
-                think_sec = 4.0
-            read_sec = max(1.5, min(2.6, word_cnt * 0.15))
-            reveal_sec = 3.2 if is_secret_trap else (2.8 if item["fact"] else 2.2)
-
-        if is_secret_trap:
-            t_key, holo_type = "crimson", "cube"
-        elif is_boss:
-            t_key, holo_type = "crimson", "atom"
-        elif any(k in q_txt for k in ["বিজ্ঞান", "ভৌত", "রসায়ন", "গ্যাস", "আলো", "লেন্স", "দর্পণ", "তড়িৎ", "রোধ", "একক", "হরমোন", "কোষ", "ক্রোমোজোম", "ওজোন", "অ্যাসিড", "ধাতু"]):
-            t_key, holo_type = "cyber", "atom"
-        elif any(k in q_txt for k in ["ইতিহাস", "ভূগোল", "বিদ্রোহ", "আন্দোলন", "সাল", "নদী", "পর্বত", "মৃত্তিকা", "ভারত", "বাংলা", "গান্ধী", "সুভাষ", "বঙ্কিম", "রামমোহন", "প্রতিষ্ঠা"]):
-            t_key, holo_type = "royal", "globe"
-        elif any(k in q_txt for k in ["গণিত", "সমীকরণ", "বৃত্ত", "গোলক", "গড়", "মধ্যমা", "মান", "সুদ", "ত্রিকোণমিতি"]) or has_math:
-            t_key, holo_type = "emerald", "cube"
-        else:
-            t_key = theme_keys[(idx // 3) % len(theme_keys)]
-            holo_type = ["atom", "globe", "cube"][idx % 3]
-
-        directed.append({
-            **item,
-            "is_boss": is_boss,
-            "is_secret_trap": is_secret_trap,
-            "theme_key": t_key,
-            "holo_type": holo_type,
-            "read_sec": read_sec,
-            "think_sec": think_sec,
-            "reveal_sec": reveal_sec,
-            "level": (idx // 5) + 1
-        })
-
-    return directed
-
-
-# ===========================================================================
-# 2. HIGH-IMPACT ESPORTS AUDIO ENGINE (NO VOICEOVER)
-# ===========================================================================
-def build_gaming_sfx_track(intro_dur: float, timeline: list, outro_dur: float, total_dur: float, out_wav: str):
-    rate = 16000
-    bpm = 132.0
-    beat_dur = 60.0 / bpm
-    bass_notes = [110.0, 110.0, 130.81, 146.83, 98.0, 98.0, 130.81, 164.81]
-    rng = np.random.default_rng(2027)
-
-    with wave.open(out_wav, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(rate)
-
-        chunk_sec = 30.0
-        cur_start = 0.0
-        while cur_start < total_dur:
-            c_dur = min(chunk_sec, total_dur - cur_start)
-            n = int(round(c_dur * rate))
-            if n <= 0:
-                break
-            t = np.linspace(cur_start, cur_start + c_dur, n, endpoint=False, dtype=np.float32)
-
-            beat_pos = (t % beat_dur) / beat_dur
-            kick = np.sin(2.0 * np.pi * (56.0 + 65.0 * np.exp(-beat_pos * 18.0)) * (t % beat_dur)) * np.exp(-beat_pos * 8.5) * 0.26
-            b_idx = (t / (beat_dur * 2.0)).astype(np.int32) % len(bass_notes)
-            b_freq = np.take(np.array(bass_notes, dtype=np.float32), b_idx)
-            audio = kick + np.sin(2.0 * np.pi * b_freq * t) * 0.12
-
-            if cur_start < 0.65:
-                imp_end = min(n, int((0.65 - cur_start) * rate))
-                ti = t[:imp_end]
-                audio[:imp_end] += np.sin(2.0 * np.pi * (140.0 * np.exp(-ti * 8.0) + 42.0) * ti) * np.exp(-ti * 5.0) * 0.58
-
-            for q_obj, t_start, t_think_start, t_reveal_start, t_end in timeline:
-                if t_end < cur_start or t_start > cur_start + c_dur:
-                    continue
-
-                if cur_start <= t_start < cur_start + c_dur:
-                    s0 = int((t_start - cur_start) * rate)
-                    w_len = min(n - s0, int(0.24 * rate))
-                    if w_len > 0:
-                        tw = np.linspace(0, w_len / float(rate), w_len, endpoint=False, dtype=np.float32)
-                        noise = rng.uniform(-1.0, 1.0, w_len).astype(np.float32)
-                        audio[s0:s0 + w_len] += noise * (np.sin(np.pi * (tw / 0.24)) ** 1.5) * 0.19
-
-                cur_t = t_think_start + 0.15
-                tick_i = 0
-                while cur_t < t_reveal_start - 0.10:
-                    rem = t_reveal_start - cur_t
-                    step = 0.22 if rem <= 1.8 else 0.45
-                    if cur_start <= cur_t < cur_start + c_dur:
-                        st = int((cur_t - cur_start) * rate)
-                        t_len = min(n - st, int(0.045 * rate))
-                        if t_len > 0:
-                            tt = np.linspace(0, t_len / float(rate), t_len, endpoint=False, dtype=np.float32)
-                            freq = 1620.0 if rem <= 1.8 else (1180.0 if tick_i % 2 == 0 else 960.0)
-                            audio[st:st + t_len] += np.sin(2.0 * np.pi * freq * tt) * np.exp(-tt * 78.0) * 0.36
-                    cur_t += step
-                    tick_i += 1
-
-                if cur_start <= t_reveal_start < cur_start + c_dur:
-                    sr = int((t_reveal_start - cur_start) * rate)
-                    r_len = min(n - sr, int(0.72 * rate))
-                    if r_len > 0:
-                        tr = np.linspace(0, r_len / float(rate), r_len, endpoint=False, dtype=np.float32)
-                        if q_obj["is_secret_trap"]:
-                            p1 = np.sin(2.0 * np.pi * 622.25 * tr) * np.exp(-tr * 8.0)
-                            p2 = np.sin(2.0 * np.pi * 587.33 * np.maximum(0, tr - 0.16)) * np.exp(-np.maximum(0, tr - 0.16) * 7.0)
-                            audio[sr:sr + r_len] += (p1 + p2) * 0.36
-                        else:
-                            c1 = np.sin(2.0 * np.pi * 1046.50 * tr) * np.exp(-tr * 6.0)
-                            c2 = np.sin(2.0 * np.pi * 1318.51 * np.maximum(0, tr - 0.06)) * np.exp(-np.maximum(0, tr - 0.06) * 5.5)
-                            c3 = np.sin(2.0 * np.pi * 1567.98 * np.maximum(0, tr - 0.12)) * np.exp(-np.maximum(0, tr - 0.12) * 5.0)
-                            audio[sr:sr + r_len] += (c1 + c2 + c3) * 0.26
-
-            pcm = (np.clip(audio, -0.95, 0.95) * 32767.0).astype(np.int16)
-            wf.writeframes(pcm.tobytes())
-            cur_start += c_dur
-            gc.collect()
-
-
-# ===========================================================================
-# 3. NEXT-GEN MODERN ESPORTS GLASSMORPHISM RENDERER (100% BENGALI)
-# ===========================================================================
-_FONT_CACHE = {}
-def get_font(size: int):
-    if size in _FONT_CACHE:
-        return _FONT_CACHE[size]
-    try:
-        f = ImageFont.truetype(BENGALI_FONT_PATH, size, layout_engine=ImageFont.Layout.RAQM)
-        _FONT_CACHE[size] = f
-        return f
-    except Exception:
-        try:
-            f = ImageFont.truetype(BENGALI_FONT_PATH, size)
-            _FONT_CACHE[size] = f
-            return f
-        except Exception:
-            return ImageFont.load_default()
-
-def ease_out_back(x: float) -> float:
-    x = max(0.0, min(1.0, x))
-    c1 = 1.70158
-    c3 = c1 + 1.0
-    return 1.0 + c3 * ((x - 1.0) ** 3) + c1 * ((x - 1.0) ** 2)
-
-def wrap_lines(draw: ImageDraw.Draw, text: str, font, max_w: int) -> list:
-    words = text.split()
-    lines, cur = [], ""
-    for wd in words:
-        test = (cur + " " + wd).strip()
-        bbox = draw.textbbox((0, 0), test, font=font)
-        if bbox[2] - bbox[0] <= max_w or not cur:
-            cur = test
-        else:
-            lines.append(cur)
-            cur = wd
-    if cur:
-        lines.append(cur)
-    return lines
-
-def draw_modern_esports_panel(draw: ImageDraw.Draw, x0: int, y0: int, x1: int, y1: int,
-                              fill_col: tuple, border_col: tuple, glow_col: tuple, sc: float):
-    """Draws a multi-layered modern esports panel with outer aura, bevel highlight & corner tech-brackets."""
-    # Outer neon aura
-    draw.rounded_rectangle([x0 - 3, y0 - 3, x1 + 3, y1 + 3], radius=18, outline=glow_col, width=2)
-    # Main glass body
-    draw.rounded_rectangle([x0, y0, x1, y1], radius=16, fill=fill_col, outline=border_col, width=3)
-    # Top glossy glass reflection bar
-    gloss_h = max(4, int(6 * sc))
-    draw.rounded_rectangle([x0 + 12, y0 + 4, x1 - 12, y0 + 4 + gloss_h], radius=3, fill=glow_col)
-
-    # Sharp esports corner L-brackets
-    bl = int(16 * sc)
-    off = 5
-    for (cx, cy, dx, dy) in [
-        (x0 - off, y0 - off, 1, 1),
-        (x1 + off, y0 - off, -1, 1),
-        (x0 - off, y1 + off, 1, -1),
-        (x1 + off, y1 + off, -1, -1)
-    ]:
-        draw.line([(cx, cy), (cx + dx * bl, cy)], fill=(255, 255, 255), width=2)
-        draw.line([(cx, cy), (cx, cy + dy * bl)], fill=(255, 255, 255), width=2)
-
-class ModernEsportsBengaliRenderer:
-    def __init__(self, w: int, h: int, total_q: int):
-        self.w = w
-        self.h = h
-        self.total_q = total_q
-        self.is_vertical = (h > w)
-        self.rng = random.Random(2027)
-        self.sc = self.w / 960.0 if not self.is_vertical else self.w / 540.0
-
-        # Pre-render modern radial spotlight + perspective floor grid per theme
-        self.bg_cache = {}
-        for t_key, theme in GAMING_THEMES.items():
-            yy, xx = np.ogrid[0:self.h, 0:self.w]
-            nx = (xx - self.w * 0.5) / (self.w * 0.65)
-            ny = (yy - self.h * 0.35) / (self.h * 0.65)
-            radial = np.clip(1.0 - 0.72 * (nx * nx + ny * ny), 0.0, 1.0).astype(np.float32)
-
-            arr = np.zeros((self.h, self.w, 3), dtype=np.uint8)
-            for ch in range(3):
-                c_val = theme["bg_bot"][ch] + (theme["bg_top"][ch] - theme["bg_bot"][ch]) * radial
-                arr[:, :, ch] = np.clip(c_val, 0, 255).astype(np.uint8)
-
-            bg_img = Image.fromarray(arr, mode="RGB")
-            d = ImageDraw.Draw(bg_img)
-
-            # Perspective synth-arena floor lines
-            hor_y = int(self.h * 0.72)
-            cx = self.w * 0.5
-            for i in range(-10, 11):
-                xt = cx + i * int(36 * self.sc)
-                xb = cx + i * int(145 * self.sc)
-                d.line([(xt, hor_y), (xb, self.h)], fill=theme["grid"], width=1)
-            for r_i in range(1, 7):
-                ry = hor_y + int((self.h - hor_y) * ((r_i / 6.0) ** 1.5))
-                d.line([(0, ry), (self.w, ry)], fill=theme["grid"], width=1)
-
-            # Side esports accent rails
-            d.line([(8, int(self.h * 0.12)), (8, int(self.h * 0.88))], fill=theme["primary"], width=2)
-            d.line([(self.w - 8, int(self.h * 0.12)), (self.w - 8, int(self.h * 0.88))], fill=theme["secondary"], width=2)
-
-            self.bg_cache[t_key] = bg_img
-
-        self.ambient_orbs = [
-            [self.rng.uniform(0, w), self.rng.uniform(0, h), self.rng.uniform(25, 60), self.rng.uniform(2, 4.2)]
-            for _ in range(20)
-        ]
-        self.confetti = []
-        self.last_confetti_q = -1
-
-    def _get_bg_frame(self, t_key: str, theme: dict, global_t: float) -> tuple:
-        frame = self.bg_cache[t_key].copy()
-        draw = ImageDraw.Draw(frame)
-        for orb in self.ambient_orbs:
-            ox = (orb[0] + math.sin(global_t * 1.1 + orb[1]) * 18) % self.w
-            oy = (orb[1] - global_t * orb[2]) % self.h
-            r_o = orb[3] * self.sc
-            draw.ellipse([ox - r_o, oy - r_o, ox + r_o, oy + r_o], fill=theme["primary"])
-        return frame, draw
-
-    def _draw_3d_holo_badge(self, draw: ImageDraw.Draw, cx: float, cy: float, radius: float, holo_type: str, global_t: float, col: tuple):
-        ang = global_t * 2.4
-        # Outer radar ring
-        draw.ellipse([cx - radius * 1.25, cy - radius * 1.25, cx + radius * 1.25, cy + radius * 1.25], outline=(51, 65, 85), width=1)
-        if holo_type == "atom":
-            draw.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(255, 255, 255))
-            for tilt in [0.0, math.pi / 3.0, -math.pi / 3.0]:
-                pts = []
-                for s in range(12):
-                    a = (2.0 * math.pi * s / 12.0) + ang
-                    lx = radius * math.cos(a)
-                    ly = radius * 0.36 * math.sin(a)
-                    rx = lx * math.cos(tilt) - ly * math.sin(tilt)
-                    ry = lx * math.sin(tilt) + ly * math.cos(tilt)
-                    pts.append((cx + rx, cy + ry))
-                draw.polygon(pts, outline=col)
-        elif holo_type == "globe":
-            draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=col, width=2)
-            mer_w = abs(math.cos(ang)) * radius
-            draw.ellipse([cx - mer_w, cy - radius, cx + mer_w, cy + radius], outline=col, width=1)
-            draw.line([(cx - radius, cy), (cx + radius, cy)], fill=col, width=1)
-        else:
-            r = radius * 0.65
-            verts = [(-r, -r, -r), (r, -r, -r), (r, r, -r), (-r, r, -r),
-                     (-r, -r, r), (r, -r, r), (r, r, r), (-r, r, r)]
-            ca, sa = math.cos(ang), math.sin(ang)
-            proj = []
-            for vx, vy, vz in verts:
-                rx = vx * ca + vz * sa
-                rz = -vx * sa + vz * ca
-                ry = vy * 0.85 - rz * 0.35
-                proj.append((cx + rx, cy + ry))
-            for a, b in [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(0,4),(1,5),(2,6),(3,7)]:
-                draw.line([proj[a], proj[b]], fill=col, width=2)
-
-    def _spawn_confetti(self, cx: float, cy: float):
-        cols = [(34, 211, 238), (250, 204, 21), (52, 211, 153), (244, 63, 94), (168, 85, 247), (255, 255, 255)]
-        self.confetti = []
-        for _ in range(42):
-            ang = self.rng.uniform(0, 2.0 * math.pi)
-            spd = self.rng.uniform(160.0, 520.0)
-            self.confetti.append([cx, cy, math.cos(ang) * spd, math.sin(ang) * spd - 170.0, 1.0, self.rng.choice(cols)])
-
-    def render_long_intro_hook(self, intro_prog: float, global_t: float) -> bytes:
-        sc = self.sc
-        theme = GAMING_THEMES["cyber"]
-        frame, draw = self._get_bg_frame("cyber", theme, global_t)
-
-        cx, cy = self.w * 0.5, self.h * 0.48
-        for r_i in range(3):
-            ring_r = ((intro_prog * 1.4 + r_i * 0.33) % 1.0) * max(self.w, self.h) * 0.65
-            draw.ellipse([cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r], outline=theme["primary"], width=3)
-
-        pop = ease_out_back(min(1.0, intro_prog * 2.4))
-        font_big = get_font(max(26, int(36 * sc * pop)))
-        font_sub = get_font(max(16, int(21 * sc)))
-
-        hook_l1 = "মাধ্যমিক ২০২৭: ১০০% কমন সাজেশন টেস্ট!"
-        hook_l2 = "দেখা যাক তুমি কত স্কোর করতে পারো!"
-
-        b1 = draw.textbbox((0, 0), hook_l1, font=font_big)
-        draw.text(((self.w - (b1[2] - b1[0])) // 2, int(cy - 65 * sc)), hook_l1, font=font_big, fill=(250, 204, 21), stroke_width=3, stroke_fill=(0, 0, 0))
-
-        b2 = draw.textbbox((0, 0), hook_l2, font=font_sub)
-        draw.text(((self.w - (b2[2] - b2[0])) // 2, int(cy + 10 * sc)), hook_l2, font=font_sub, fill=(34, 211, 238))
-
-        cd_num = max(1, 3 - int(intro_prog * 3))
-        pill_txt = f"শুরু হচ্ছে {cd_num} সেকেন্ডে..."
-        bp = draw.textbbox((0, 0), pill_txt, font=font_sub)
-        pw = bp[2] - bp[0] + 36
-        px0 = (self.w - pw) // 2
-        py0 = int(cy + 65 * sc)
-        draw.rounded_rectangle([px0, py0, px0 + pw, py0 + int(44 * sc)], radius=12, fill=(244, 63, 94))
-        draw.text((px0 + 18, py0 + int(9 * sc)), pill_txt, font=font_sub, fill=(255, 255, 255))
-
-        return frame.tobytes()
-
-    def render_question_frame(self, q_idx: int, q_obj: dict, phase: str, phase_prog: float,
-                              phase_elapsed: float, global_t: float, dt: float) -> bytes:
-        sc = self.sc
-        t_key = q_obj["theme_key"]
-        theme = GAMING_THEMES[t_key]
-        frame, draw = self._get_bg_frame(t_key, theme, global_t)
-
-        rem_sec = q_obj["think_sec"] * (1.0 - phase_prog) if phase == "think" else 99.0
-        shake_x = int(math.sin(global_t * 45.0) * 3.0 * sc) if (phase == "think" and rem_sec <= 1.8) else 0
-
-        # 1. Top Modern Esports Telemetry Strip
-        font_hud = get_font(max(13, int(16 * sc)))
-        margin = int(self.w * 0.055)
-        hud_y = int(self.h * 0.030)
-        hud_h = int(36 * sc)
-
-        if q_obj["is_secret_trap"]:
-            lvl_txt = "বোনাস চ্যালেঞ্জ (উত্তর লুকানো!)"
-            badge_col = (244, 63, 94)
-        elif q_obj["is_boss"]:
-            lvl_txt = "বস রাউন্ড • ডাবল XP"
-            badge_col = (250, 204, 21)
-        elif self.is_vertical and q_idx == 0:
-            lvl_txt = "৯৯% ছাত্রছাত্রী ভুল করে!"
-            badge_col = (244, 63, 94)
-        else:
-            lvl_txt = f"মাধ্যমিক ২০২৭ • লেভেল {q_obj['level']}"
-            badge_col = theme["primary"]
-
-        xp_val = min(q_idx, self.total_q - 1) * 100 + (100 if (phase == "reveal" and not q_obj["is_secret_trap"]) else 0)
-        xp_txt = f"প্রশ্ন {q_idx + 1}/{self.total_q} • {xp_val} XP"
-
-        lb_hud = draw.textbbox((0, 0), lvl_txt, font=font_hud)
-        lw = lb_hud[2] - lb_hud[0] + 24
-        draw.rounded_rectangle([margin, hud_y, margin + lw, hud_y + hud_h], radius=10, fill=theme["card_bg"], outline=badge_col, width=2)
-        draw.text((margin + 12, hud_y + int(7 * sc)), lvl_txt, font=font_hud, fill=badge_col)
-
-        xb = draw.textbbox((0, 0), xp_txt, font=font_hud)
-        xw = xb[2] - xb[0] + 24
-        draw.rounded_rectangle([self.w - margin - xw, hud_y, self.w - margin, hud_y + hud_h], radius=10, fill=theme["card_bg"], outline=theme["accent"], width=2)
-        draw.text((self.w - margin - xw + 12, hud_y + int(7 * sc)), xp_txt, font=font_hud, fill=theme["accent"])
-
-        # 2. Modern Chamfered Glass Question Arena Panel
-        if self.is_vertical and q_idx == 0:
-            y_shift = 0
-        else:
-            slide_t = ease_out_back(min(1.0, phase_elapsed / 0.36)) if phase == "read" else 1.0
-            y_shift = int((1.0 - slide_t) * -130 * sc)
-
-        q_top = int(self.h * 0.105) + y_shift
-        q_h = int(self.h * (0.24 if self.is_vertical else 0.26))
-        card_w = self.w - margin * 2
-
-        if phase == "think" and rem_sec <= 1.8:
-            q_border = (244, 63, 94)
-            q_glow = (159, 18, 57)
-        elif q_obj["is_secret_trap"] or q_obj["is_boss"]:
-            q_border = (250, 204, 21)
-            q_glow = (161, 98, 7)
-        else:
-            q_border = theme["primary"]
-            q_glow = theme["secondary"]
-
-        draw_modern_esports_panel(draw, margin + shake_x, q_top, margin + card_w + shake_x, q_top + q_h,
-                                  theme["card_bg"], q_border, q_glow, sc)
-
-        holo_r = 15 * sc
-        self._draw_3d_holo_badge(draw, margin + card_w - holo_r - 16 * sc + shake_x, q_top + holo_r + 16 * sc, holo_r, q_obj["holo_type"], global_t, theme["primary"])
-
-        font_q = get_font(max(20, int(25 * sc)))
-        q_lines = wrap_lines(draw, q_obj["q"], font_q, card_w - int(72 * sc))
-        lh = int(font_q.size * 1.40)
-        ty_start = q_top + int(10 * sc) + (q_h - len(q_lines) * lh) // 2
-        for li, ln in enumerate(q_lines):
-            lb = draw.textbbox((0, 0), ln, font=font_q)
-            draw.text(((self.w - (lb[2] - lb[0])) // 2 + shake_x, ty_start + li * lh), ln, font=font_q, fill=(255, 255, 255))
-
-        # 3. Chromatic Energy Laser Timer Bar
-        timer_y = q_top + q_h + int(self.h * 0.024)
-        timer_h = max(16, int(20 * sc))
-        draw.rounded_rectangle([margin, timer_y, margin + card_w, timer_y + timer_h], radius=timer_h // 2, fill=(15, 23, 42), outline=(51, 65, 85), width=2)
-
-        if phase == "read":
-            frac, t_col, sec_lbl = 1.0, theme["primary"], f"{q_obj['think_sec']:.1f}s"
-        elif phase == "think":
-            frac = max(0.0, 1.0 - phase_prog)
-            if rem_sec <= 1.8:
-                t_col = (244, 63, 94)
-            elif frac <= 0.55:
-                t_col = (250, 204, 21)
-            else:
-                t_col = theme["primary"]
-            sec_lbl = f"{max(0.0, rem_sec):.1f}s"
-        else:
-            frac = 1.0
-            t_col = (244, 63, 94) if q_obj["is_secret_trap"] else (16, 185, 129)
-            sec_lbl = "লক করা হলো!" if q_obj["is_secret_trap"] else "সঠিক উত্তর!"
-
-        fill_w = int(card_w * frac)
-        if fill_w > 12:
-            draw.rounded_rectangle([margin + 2, timer_y + 2, margin + fill_w - 2, timer_y + timer_h - 2], radius=timer_h // 2, fill=t_col)
-            draw.ellipse([margin + fill_w - 10, timer_y - 3, margin + fill_w + 6, timer_y + timer_h + 3], fill=(255, 255, 255))
-
-        font_tm = get_font(max(12, int(14 * sc)))
-        sb = draw.textbbox((0, 0), sec_lbl, font=font_tm)
-        draw.text(((self.w - (sb[2] - sb[0])) // 2, timer_y), sec_lbl, font=font_tm, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0))
-
-        # 4. Modern Esports Option Plates (A, B, C, D)
-        opts = q_obj["opts"]
-        ans_idx = q_obj["ans"]
-        labels = ["A", "B", "C", "D"]
-        font_opt = get_font(max(18, int(22 * sc)))
-        font_lbl = get_font(max(16, int(19 * sc)))
-
-        opts_top = timer_y + timer_h + int(self.h * 0.028)
-        opts_area_h = int(self.h * (0.44 if self.is_vertical else 0.42))
-
-        if self.is_vertical:
-            gap = int(12 * sc)
-            box_h = (opts_area_h - gap * 3) // 4
-            for i in range(4):
-                if q_idx == 0:
-                    x_off = 0
-                else:
-                    stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.30))) if phase == "read" else 1.0
-                    x_off = int((1.0 - stagger) * (170 if i % 2 == 0 else -170) * sc)
-                oy0 = opts_top + i * (box_h + gap)
-                self._draw_modern_option(draw, margin + x_off, oy0, margin + card_w + x_off, oy0 + box_h,
-                                         labels[i], opts[i], i == ans_idx, q_obj["is_secret_trap"], phase, theme, font_lbl, font_opt, sc)
-        else:
-            gap_x = int(18 * sc)
-            gap_y = int(16 * sc)
-            box_w = (card_w - gap_x) // 2
-            box_h = (opts_area_h - gap_y) // 2
-            for i in range(4):
-                stagger = ease_out_back(min(1.0, max(0.0, (phase_elapsed - i * 0.07) / 0.30))) if phase == "read" else 1.0
-                y_off = int((1.0 - stagger) * 85 * sc)
-                col_i, row_i = i % 2, i // 2
-                ox0 = margin + col_i * (box_w + gap_x)
-                oy0 = opts_top + row_i * (box_h + gap_y) + y_off
-                self._draw_modern_option(draw, ox0, oy0, ox0 + box_w, oy0 + box_h,
-                                         labels[i], opts[i], i == ans_idx, q_obj["is_secret_trap"], phase, theme, font_lbl, font_opt, sc)
-
-        # 5. Reveal Phase: Psychological Comment Trap OR Confetti + XP + Fact
-        if phase == "reveal":
-            if q_obj["is_secret_trap"]:
-                trap_h = int(96 * sc)
-                trap_y = opts_top + (opts_area_h - trap_h) // 2
-                draw_modern_esports_panel(draw, margin + 10, trap_y, margin + card_w - 10, trap_y + trap_h,
-                                          (15, 23, 42), (250, 204, 21), (244, 63, 94), sc)
-                font_tr1 = get_font(max(18, int(23 * sc)))
-                font_tr2 = get_font(max(14, int(17 * sc)))
-                t1 = "উত্তর লুকানো আছে!"
-                t2 = "সঠিক উত্তর (A, B, C বা D) কমেন্টে লেখো!"
-                b_t1 = draw.textbbox((0, 0), t1, font=font_tr1)
-                b_t2 = draw.textbbox((0, 0), t2, font=font_tr2)
-                draw.text(((self.w - (b_t1[2] - b_t1[0])) // 2, trap_y + int(16 * sc)), t1, font=font_tr1, fill=(250, 204, 21))
-                draw.text(((self.w - (b_t2[2] - b_t2[0])) // 2, trap_y + int(54 * sc)), t2, font=font_tr2, fill=(255, 255, 255))
-            else:
-                if self.last_confetti_q != q_idx:
-                    self.last_confetti_q = q_idx
-                    self._spawn_confetti(self.w * 0.5, opts_top + opts_area_h * 0.5)
-
-                for p in self.confetti:
-                    p[0] += p[2] * dt
-                    p[1] += p[3] * dt
-                    p[3] += 500.0 * dt
-                    p[4] -= dt * 0.85
-                    if p[4] > 0:
-                        pr = max(2.0, 5.0 * sc * p[4])
-                        draw.rectangle([p[0] - pr, p[1] - pr, p[0] + pr, p[1] + pr], fill=p[5])
-
-                xp_pop = "+২০০ XP বস ক্লিয়ার!" if q_obj["is_boss"] else "+১০০ XP সঠিক উত্তর!"
-                font_xp = get_font(max(16, int(20 * sc)))
-                xb2 = draw.textbbox((0, 0), xp_pop, font=font_xp)
-                float_y = int(opts_top - 12 * sc - min(22 * sc, phase_elapsed * 30 * sc))
-                draw.text(((self.w - (xb2[2] - xb2[0])) // 2, float_y), xp_pop, font=font_xp, fill=(52, 211, 153), stroke_width=3, stroke_fill=(0, 0, 0))
-
-                if q_obj["fact"]:
-                    fact_y = opts_top + opts_area_h + int(self.h * 0.022)
-                    font_fc = get_font(max(13, int(16 * sc)))
-                    fc_txt = f"তথ্য: {q_obj['fact']}"
-                    fb = draw.textbbox((0, 0), fc_txt, font=font_fc)
-                    fw = min(card_w, fb[2] - fb[0] + 28)
-                    fx0 = (self.w - fw) // 2
-                    draw.rounded_rectangle([fx0, fact_y, fx0 + fw, fact_y + int(36 * sc)], radius=10, fill=theme["card_bg"], outline=(52, 211, 153), width=2)
-                    draw.text((fx0 + 14, fact_y + int(7 * sc)), fc_txt[:65], font=font_fc, fill=(248, 250, 252))
-
-        return frame.tobytes()
-
-    def _draw_modern_option(self, draw, x0, y0, x1, y1, letter, text, is_correct, is_secret_trap, phase, theme, font_lbl, font_opt, sc):
-        if phase == "reveal" and not is_secret_trap:
-            if is_correct:
-                bg_col, border_col, txt_col, pill_col = (6, 78, 59), (52, 211, 153), (255, 255, 255), (16, 185, 129)
-            else:
-                bg_col, border_col, txt_col, pill_col = (10, 14, 24), (30, 41, 59), (71, 85, 105), (30, 41, 59)
-        else:
-            bg_col, border_col, txt_col, pill_col = theme["opt_bg"], theme["secondary"], (248, 250, 252), theme["secondary"]
-
-        draw.rounded_rectangle([x0, y0, x1, y1], radius=14, fill=bg_col, outline=border_col, width=3)
-        # Left neon energy accent stripe
-        draw.rounded_rectangle([x0 + 4, y0 + 10, x0 + 8, y1 - 10], radius=2, fill=border_col)
-
-        bh = y1 - y0
-        cr = int(min(bh * 0.34, 21 * sc))
-        cx = x0 + cr + int(18 * sc)
-        cy = y0 + bh // 2
-        # Hex/diamond-style modern badge circle with white ring
-        draw.ellipse([cx - cr - 2, cy - cr - 2, cx + cr + 2, cy + cr + 2], outline=(255, 255, 255), width=1)
-        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=pill_col)
-
-        lb = draw.textbbox((0, 0), letter, font=font_lbl)
-        draw.text((cx - (lb[2] - lb[0]) // 2, cy - (lb[3] - lb[1]) // 2 - 2), letter, font=font_lbl, fill=(255, 255, 255))
-
-        tb = draw.textbbox((0, 0), text, font=font_opt)
-        draw.text((cx + cr + int(14 * sc), cy - (tb[3] - tb[1]) // 2 - 2), text, font=font_opt, fill=txt_col)
-
-    def render_outro_comment_trap(self, outro_prog: float, global_t: float) -> bytes:
-        sc = self.sc
-        theme = GAMING_THEMES["royal"]
-        frame, draw = self._get_bg_frame("royal", theme, global_t)
-
-        margin = int(self.w * 0.07)
-        box_w = self.w - margin * 2
-        box_y = int(self.h * 0.16)
-        box_h = int(self.h * 0.66)
-
-        draw_modern_esports_panel(draw, margin, box_y, margin + box_w, box_y + box_h,
-                                  theme["card_bg"], (250, 204, 21), (249, 115, 22), sc)
-
-        font_hdr = get_font(max(20, int(27 * sc)))
-        font_row = get_font(max(15, int(20 * sc)))
-        font_cta = get_font(max(15, int(20 * sc)))
-
-        hdr = "কমেন্টে তোমার র‍্যাঙ্ক জানাও!"
-        bh = draw.textbbox((0, 0), hdr, font=font_hdr)
-        draw.text(((self.w - (bh[2] - bh[0])) // 2, box_y + int(30 * sc)), hdr, font=font_hdr, fill=(250, 204, 21))
-
-        max_xp = (self.total_q - 1) * 100
-        ranks = [
-            (f"0 - {int(max_xp * 0.4)} XP  ->  আরও রিভিশন দরকার", (148, 163, 184)),
-            (f"{int(max_xp * 0.5)} - {int(max_xp * 0.8)} XP  ->  বোর্ড পরীক্ষার জন্য প্রস্তুত", (34, 211, 238)),
-            (f"{max_xp}+ XP + বোনাস  ->  মাধ্যমিক ২০২৭ টপার!", (52, 211, 153))
-        ]
-        for idx, (r_txt, r_col) in enumerate(ranks):
-            ry = box_y + int((108 + idx * 62) * sc)
-            br = draw.textbbox((0, 0), r_txt, font=font_row)
-            draw.text(((self.w - (br[2] - br[0])) // 2, ry), r_txt, font=font_row, fill=r_col)
-
-        pulse = 1.0 + 0.04 * math.sin(global_t * 10.0)
-        cta_txt = "তোমার XP ও বোনাস উত্তর কমেন্ট করো!"
-        bc = draw.textbbox((0, 0), cta_txt, font=font_cta)
-        cw = int((bc[2] - bc[0] + 36) * pulse)
-        cx0 = (self.w - cw) // 2
-        cy0 = box_y + box_h - int(85 * sc)
-        draw.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + int(48 * sc)], radius=14, fill=(244, 63, 94))
-        draw.text(((self.w - (bc[2] - bc[0])) // 2, cy0 + int(12 * sc)), cta_txt, font=font_cta, fill=(255, 255, 255))
-
-        return frame.tobytes()
-
-
-# ===========================================================================
-# 4. LOW-RAM LONG-VIDEO RENDER PIPELINE
-# ===========================================================================
-def run_ultra_quiz_v2_job(job_id: str, ratio: str, custom_raw: str):
-    job = JOBS[job_id]
-    wav_path = None
-    try:
-        cleanup_old_files(900)
-        is_vertical = (ratio == "9:16")
-        questions = smart_parse_and_direct(custom_raw, is_vertical)
-        out_w, out_h = (540, 960) if is_vertical else (960, 540)
-        fps = 14
-        dt = 1.0 / float(fps)
-        total_q = len(questions)
-
-        intro_dur = 0.0 if is_vertical else 1.5
-        outro_dur = 2.6
-
-        timeline = []
-        chapters = ["00:00 মাধ্যমিক ২০২৭ সাজেশন কুইজ শুরু"]
-        t_cursor = intro_dur
-
-        for idx, q_obj in enumerate(questions):
-            if idx % 5 == 0 and not q_obj["is_secret_trap"]:
-                mins = int(t_cursor // 60)
-                secs = int(t_cursor % 60)
-                chapters.append(f"{mins:02d}:{secs:02d} লেভেল {q_obj['level']} প্রশ্নাবলি")
-            elif q_obj["is_secret_trap"]:
-                mins = int(t_cursor // 60)
-                secs = int(t_cursor % 60)
-                chapters.append(f"{mins:02d}:{secs:02d} বোনাস চ্যালেঞ্জ প্রশ্ন")
-
-            t_start = t_cursor
-            t_think = t_start + q_obj["read_sec"]
-            t_reveal = t_think + q_obj["think_sec"]
-            t_end = t_reveal + q_obj["reveal_sec"]
-            timeline.append((q_obj, t_start, t_think, t_reveal, t_end))
-            t_cursor = t_end
-
-        total_dur = t_cursor + outro_dur
-        wav_path = os.path.join(AUDIO_DIR, f"{job_id}_bengali_sfx.wav")
-        job["progress"] = 8
-        job["message"] = f"Generating Esports Sound Effects ({total_q} Bengali Questions)..."
-        build_gaming_sfx_track(intro_dur, timeline, outro_dur, total_dur, wav_path)
-        gc.collect()
-
-        out_name = f"MADHYAMIK_2027_ESPORTS_{total_q}Q_{ratio.replace(':', 'x')}_{int(time.time())}.mp4"
-        out_path = os.path.join(OUTPUT_DIR, out_name)
-
-        ffmpeg_cmd = [
-            FFMPEG_BIN, "-y",
-            "-f", "rawvideo", "-vcodec", "rawvideo",
-            "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
-            "-r", str(fps), "-i", "-",
-            "-i", wav_path,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
-            "-c:a", "aac", "-b:a", "96k",
-            "-movflags", "+faststart",
-            "-shortest", "-pix_fmt", "yuv420p", out_path
-        ]
-        proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
-
-        renderer = ModernEsportsBengaliRenderer(out_w, out_h, total_q)
-        global_t = 0.0
-
-        if intro_dur > 0:
-            intro_frames = int(intro_dur * fps)
-            for f in range(intro_frames):
-                raw_bytes = renderer.render_long_intro_hook(f / max(1, intro_frames - 1), global_t)
-                proc.stdin.write(raw_bytes)
-                global_t += dt
-
-        for idx, (q_obj, t_start, t_think, t_reveal, t_end) in enumerate(timeline):
-            for p_name, p_dur in [("read", q_obj["read_sec"]), ("think", q_obj["think_sec"]), ("reveal", q_obj["reveal_sec"])]:
-                n_frames = max(1, int(p_dur * fps))
-                for f in range(n_frames):
-                    raw_bytes = renderer.render_question_frame(idx, q_obj, p_name, f / max(1, n_frames - 1), f * dt, global_t, dt)
-                    proc.stdin.write(raw_bytes)
-                    global_t += dt
-
-            job["progress"] = 12 + int(((idx + 1) / total_q) * 82)
-            job["message"] = f"Rendering Modern Bengali Arena ({idx + 1} / {total_q})..."
-            if (idx + 1) % 10 == 0:
-                gc.collect()
-
-        outro_frames = int(outro_dur * fps)
-        for f in range(outro_frames):
-            raw_bytes = renderer.render_outro_comment_trap(f / max(1, outro_frames - 1), global_t)
-            proc.stdin.write(raw_bytes)
-            global_t += dt
-
-        proc.stdin.close()
-        proc.wait()
-
-        if wav_path and os.path.exists(wav_path):
-            try:
-                os.remove(wav_path)
+                fnt = ImageFont.truetype(path, size)
+                _FONT_CACHE[key] = fnt
+                return fnt
             except Exception:
                 pass
-        gc.collect()
+    return ImageFont.load_default()
 
-        size_mb = round(os.path.getsize(out_path) / (1024.0 * 1024.0), 1)
-        job["status"] = "done"
-        job["progress"] = 100
-        job["file_path"] = out_path
-        job["file_name"] = out_name
-        job["size_mb"] = size_mb
-        job["chapters"] = "\n".join(chapters)
-        job["message"] = f"Completed & Auto-Downloading ({size_mb} MB)!"
+
+def wrap_text(
+    draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont, max_width: int
+) -> List[str]:
+    words = str(text or "").split()
+    lines: List[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        bbox = draw.textbbox((0, 0), candidate, font=font)
+        if (bbox[2] - bbox[0]) <= max_width or not current:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+def ease_in_out(t: float) -> float:
+    t = max(0.0, min(1.0, t))
+    return t * t * (3.0 - 2.0 * t)
+
+
+# ==============================================================================
+# 3. INTELLIGENCE ENGINE & CONSEQUENCE ENGINE (MODULES A & C)
+# ==============================================================================
+KNOWLEDGE_SCENARIOS: Dict[str, Dict[str, Any]] = {
+    "earth_stop": {
+        "match": ["stop rotating", "stopped rotating", "earth stops", "rotation stop", "spin stop"],
+        "category": "Planetary Physics",
+        "title": "What If Earth Suddenly Stopped Rotating?",
+        "hook": "At the equator, Earth's surface spins at roughly 1,670 kilometers per hour. If that motion halted in a single second, inertia would turn the atmosphere and oceans into a planetary shockwave.",
+        "scientific_basis": "Newton's First Law of Motion (inertia), conservation of angular momentum, and geophysical fluid dynamics.",
+        "stages": [
+            {
+                "stage": "1. Initial Event",
+                "clock": "T + 00:00:01",
+                "visual_mode": "earth_rotation",
+                "feature": "REALITY_CLOCK",
+                "headline": "Angular Momentum Halts at 1,670 km/h",
+                "narration": "Earth's solid crust locks abruptly, while the atmosphere and oceans retain their eastward rotational velocity of up to 465 meters per second at the equator.",
+                "telemetry": {"Equatorial Crust": "0 km/h", "Air Shear": "1,670 km/h", "Max Impact": "Equatorial Belt"},
+                "hidden_consequence": "Only observers standing within a few kilometers of the North and South Poles would initially survive the surface deceleration.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "2. Immediate Consequences",
+                "clock": "T + 00:04:00",
+                "visual_mode": "atmosphere_shock",
+                "feature": "DUAL_REALITY",
+                "headline": "Supersonic Winds Scour the Continents",
+                "narration": "Super-hurricane winds four times faster than the strongest recorded tornado strip landscapes, generating intense aerodynamic friction heat and global firestorms.",
+                "telemetry": {"Wind Speed": "> 450 m/s", "Dynamic Pressure": "130 kPa", "Surface Shear": "Extreme"},
+                "hidden_consequence": "Atmospheric friction would rapidly heat the lower troposphere and trigger continent-wide electrostatic lightning storms.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "3. Short-Term Effects",
+                "clock": "T + 12:00:00",
+                "visual_mode": "ocean_surge",
+                "feature": "CONSEQUENCE_MAP",
+                "headline": "Mega-Tsunamis & Polar Ocean Migration",
+                "narration": "Without centrifugal force bulging water around the equator, global oceans surge toward both poles, flooding northern and southern landmasses while exposing an equatorial supercontinent.",
+                "telemetry": {"Equatorial Bulge": "-21 km Drop", "Ocean Basins": "2 Polar Oceans", "Sea Level Shift": "Kilometers"},
+                "hidden_consequence": "Earth's equatorial radius is 21 kilometers wider than its polar radius; without spin, gravity pulls water directly toward the poles.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "4. Long-Term Effects",
+                "clock": "T + 180 DAYS",
+                "visual_mode": "two_worlds",
+                "feature": "TWO_WORLDS",
+                "headline": "Six Months of Daylight, Six Months of Night",
+                "narration": "A single day-night cycle now takes one full year as Earth orbits the Sun. One hemisphere bakes under continuous sunlight while the dark side plunges into deep freeze.",
+                "telemetry": {"Solar Day": "365 Earth Days", "Day Hemisphere": "> 60°C", "Night Hemisphere": "< -50°C"},
+                "hidden_consequence": "Reduced liquid outer-core convection would progressively weaken Earth's protective magnetic field over geological timescales.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "5. Human & Environmental Impact",
+                "clock": "T + 05 YEARS",
+                "visual_mode": "human_biosphere",
+                "feature": "REALITY_REPLAY",
+                "headline": "Biosphere Retreats to Polar Twilight Zones",
+                "narration": "Photosynthesis ceases across the frozen night hemisphere, collapsing food webs. Surviving human settlements would be restricted to narrow twilight bands along polar coastlines.",
+                "telemetry": {"Habitable Zone": "Polar Twilight", "Food Production": "Subsurface Only", "Cosmic Flux": "Elevated"},
+                "hidden_consequence": "Replaying the first 60 seconds from orbital altitude shows the entire global cloud deck shearing off in a single eastward spiral.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "6. Final Scientific Explanation",
+                "clock": "SCIENTIFIC REALITY",
+                "visual_mode": "timeline_science",
+                "feature": "HIDDEN_DETECTOR",
+                "headline": "Real Earth Slows by Just 1.8 ms Per Century",
+                "narration": "In reality, no physical mechanism can stop Earth instantaneously. Tidal friction with the Moon lengthens our day by roughly 1.8 milliseconds per century—keeping our planet safely spinning.",
+                "telemetry": {"Actual Slowdown": "1.8 ms / Century", "Energy Needed": "2.13 x 10^29 J", "Status": "Scientifically Safe"},
+                "hidden_consequence": "Halting Earth's spin would require absorbing 2.13 x 10^29 joules—more energy than the Sun radiates in six full days.",
+                "is_hypothetical": False,
+            },
+        ],
+    },
+    "moon_disappear": {
+        "match": ["moon disappear", "without the moon", "no moon", "moon vanished", "moon gone"],
+        "category": "Orbital & Tidal Science",
+        "title": "What If the Moon Suddenly Disappeared?",
+        "hook": "The Moon is far more than a night light—it is Earth's gravitational anchor. If it vanished tonight, our skies would darken within 1.3 seconds and Earth's climate would destabilize over millennia.",
+        "scientific_basis": "Gravitational tidal mechanics, axial obliquity stabilization, and marine circadian biology.",
+        "stages": [
+            {
+                "stage": "1. Initial Event",
+                "clock": "T + 00:00:01.3",
+                "visual_mode": "solar_system",
+                "feature": "REALITY_CLOCK",
+                "headline": "Gravitational Release & Sudden Night Darkness",
+                "narration": "Because light takes 1.28 seconds to travel from the Moon to Earth, the night sky turns pitch black 1.3 seconds after disappearance as lunar gravity releases Earth's oceans.",
+                "telemetry": {"Light Delay": "1.28 Seconds", "Night Sky Lux": "-95% Drop", "Tidal Driver": "Solar Only"},
+                "hidden_consequence": "Gravitational waves travel at the speed of light, meaning Earth's tidal bulge relaxes at the exact moment the Moon vanishes from view.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "2. Immediate & Short-Term Effects",
+                "clock": "T + 24 HOURS",
+                "visual_mode": "ocean_surge",
+                "feature": "DUAL_REALITY",
+                "headline": "Ocean Tides Drop by 75% Worldwide",
+                "narration": "Without lunar gravity, ocean tides shrink to one-quarter of their normal amplitude, driven solely by the distant Sun. Coastal intertidal zones lose their daily nutrient exchange.",
+                "telemetry": {"Tidal Height": "-75% Reduction", "Solar Tide Share": "25% Remaining", "Coastal Mixing": "Weakened"},
+                "hidden_consequence": "Lunar tides drive deep-ocean vertical mixing; weaker tides reduce nutrient upwelling essential for global phytoplankton.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "3. Environmental Impact",
+                "clock": "T + 01 YEAR",
+                "visual_mode": "consequence_map",
+                "feature": "CONSEQUENCE_MAP",
+                "headline": "Marine Spawning & Nocturnal Ecology Disrupted",
+                "narration": "Thousands of marine species—including reef corals, sea turtles, and crabs—rely on lunar cycles to synchronize reproduction. Global marine ecosystems enter sharp decline.",
+                "telemetry": {"Coral Synchrony": "Disrupted", "Predator/Prey": "Imbalanced", "Solar Eclipses": "Impossible"},
+                "hidden_consequence": "Total solar eclipses only occur because the Moon is 400 times smaller than the Sun yet 400 times closer to Earth.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "4. Long-Term Effects",
+                "clock": "T + 100,000 YEARS",
+                "visual_mode": "two_worlds",
+                "feature": "TWO_WORLDS",
+                "headline": "Chaotic Axial Tilt & Extreme Climate Swings",
+                "narration": "Without the Moon's stabilizing pull, Earth's 23.5-degree axial tilt wobbles chaotically between zero and forty-five degrees, triggering severe ice ages and extreme heat eras.",
+                "telemetry": {"Normal Tilt": "23.5° Stable", "Unanchored Tilt": "0° to 45°+ Chaos", "Seasons": "Unpredictable"},
+                "hidden_consequence": "Mars lacks a large stabilizing moon, which is why its axial tilt has swung wildly over millions of years.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "5. Human Impact & Reality Replay",
+                "clock": "T + 500,000 YEARS",
+                "visual_mode": "human_biosphere",
+                "feature": "REALITY_REPLAY",
+                "headline": "Civilization Adapts to Shifting Climate Belts",
+                "narration": "Replaying Earth's rotational pole from space shows climate zones migrating across latitudes, forcing agriculture and coastal infrastructure to relocate across centuries.",
+                "telemetry": {"Ice Sheets": "Rapid Advance/Retreat", "Sea Level": "±50m Swings", "Astronomy": "Zero Lunar Glare"},
+                "hidden_consequence": "Paradoxically, ground-based optical astronomy would improve significantly without moonlight scattering in the atmosphere.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "6. Final Scientific Explanation",
+                "clock": "SCIENTIFIC REALITY",
+                "visual_mode": "timeline_science",
+                "feature": "HIDDEN_DETECTOR",
+                "headline": "The Moon Recedes Safely at 3.8 cm Per Year",
+                "narration": "Apollo lunar laser reflectors prove the Moon drifts away by just 3.8 centimeters annually—a gradual orbital evolution that keeps Earth's climate stabilized for hundreds of millions of years.",
+                "telemetry": {"Recession Rate": "3.8 cm / Year", "Mean Distance": "384,400 km", "Orbit Status": "Stabilized"},
+                "hidden_consequence": "In roughly 600 million years, the Moon will appear too small in our sky to completely cover the Sun during an eclipse.",
+                "is_hypothetical": False,
+            },
+        ],
+    },
+    "sun_disappear": {
+        "match": ["sun disappear", "without the sun", "no sun", "sun vanished", "sun goes out"],
+        "category": "Astrophysics & Thermodynamics",
+        "title": "What If the Sun Suddenly Disappeared?",
+        "hook": "The Sun provides 99.98% of the energy warming Earth's surface and holds our planet in orbit. If it vanished instantaneously, we wouldn't even know for eight minutes and twenty seconds.",
+        "scientific_basis": "Speed of light and gravity (c = 299,792 km/s), radiative cooling laws, and geothermal heat flux.",
+        "stages": [
+            {
+                "stage": "1. Initial Event",
+                "clock": "T + 00:08:20",
+                "visual_mode": "solar_system",
+                "feature": "REALITY_CLOCK",
+                "headline": "Darkness Arrives & Earth Flies Off on a Tangent",
+                "narration": "At 8 minutes and 20 seconds, the last solar photons reach Earth. Simultaneously, the Sun's gravitational pull releases, sending Earth hurtling into interstellar space at 30 km/s.",
+                "telemetry": {"Light & Gravity Lag": "8 min 20 sec", "Escape Velocity": "29.78 km/s", "Sky Illumination": "Starlight Only"},
+                "hidden_consequence": "General relativity confirms gravitational changes propagate at the exact speed of light, not instantaneously.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "2. Immediate & Short-Term Effects",
+                "clock": "T + 07 DAYS",
+                "visual_mode": "two_worlds",
+                "feature": "DUAL_REALITY",
+                "headline": "Photosynthesis Halts & Global Temps Drop Below -17°C",
+                "narration": "Without solar radiation, small plants die within days and global average surface temperature plunges from 15°C to below -17°C within the first week.",
+                "telemetry": {"Week 1 Avg Temp": "-17°C (1°F)", "Photosynthesis": "0% Active", "Moon Visibility": "Invisible"},
+                "hidden_consequence": "The Moon would also vanish from sight because it only shines by reflecting sunlight.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "3. Environmental Cascade",
+                "clock": "T + 01 YEAR",
+                "visual_mode": "consequence_map",
+                "feature": "CONSEQUENCE_MAP",
+                "headline": "Surface Oceans Freeze While Deep Seas Stay Liquid",
+                "narration": "Within a year, global surface temperatures fall below -70°C, encasing the oceans in thick ice—yet geothermal heat from Earth's core keeps deep abyssal waters liquid.",
+                "telemetry": {"Year 1 Temp": "< -70°C", "Ice Crust": "Insulates Deep Sea", "Forests": "Frozen"},
+                "hidden_consequence": "Ice is less dense than liquid water; floating sea ice acts as an insulating blanket that prevents oceans from freezing solid for billions of years.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "4. Long-Term Planetary State",
+                "clock": "T + 10 YEARS",
+                "visual_mode": "atmosphere_shock",
+                "feature": "TWO_WORLDS",
+                "headline": "Atmosphere Liquefies & Snows Nitrogen onto the Ice",
+                "narration": "As temperatures approach -200°C over a decade, atmospheric oxygen and nitrogen condense into liquid rain and eventually freeze into snow covering the planetary ice shell.",
+                "telemetry": {"Surface Temp": "~ -200°C", "Atmosphere": "Condensed/Frozen", "Distance Traveled": "~63 AU"},
+                "hidden_consequence": "After 10 years at 30 km/s, Earth would already have drifted past the orbit of Pluto into deep interstellar darkness.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "5. Human Survival & Reality Replay",
+                "clock": "T + 50 YEARS",
+                "visual_mode": "human_biosphere",
+                "feature": "REALITY_REPLAY",
+                "headline": "Deep Geothermal & Hydrothermal Vent Refuges",
+                "narration": "Replaying Earth's thermal profile reveals that deep-sea hydrothermal vent ecosystems survive completely unbothered, while humans could only endure in nuclear- or geothermal-powered underground habitats.",
+                "telemetry": {"Vent Ecosystems": "100% Intact", "Human Power": "Geothermal/Nuclear", "Oxygen Source": "Electrolysis"},
+                "hidden_consequence": "Life around deep ocean hydrothermal vents relies on chemosynthesis rather than sunlight, making it independent of the Sun.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "6. Final Scientific Explanation",
+                "clock": "SCIENTIFIC REALITY",
+                "visual_mode": "timeline_science",
+                "feature": "HIDDEN_DETECTOR",
+                "headline": "The Sun Has 5 Billion Years of Hydrogen Fuel Left",
+                "narration": "Conservation of mass-energy makes sudden disappearance impossible. Our Sun is a stable main-sequence star with roughly 5 billion years of core hydrogen fusion remaining.",
+                "telemetry": {"Solar Age": "4.6 Billion Yrs", "Remaining Fuel": "~5 Billion Yrs", "Status": "Main-Sequence Stable"},
+                "hidden_consequence": "Every second, the Sun fuses 600 million tons of hydrogen into helium, releasing steady energy that sustains Earth.",
+                "is_hypothetical": False,
+            },
+        ],
+    },
+    "atmosphere_vanish": {
+        "match": ["atmosphere vanish", "no atmosphere", "atmosphere disappear", "air disappear", "lose atmosphere"],
+        "category": "Atmospheric Physics & Biology",
+        "title": "What If Earth's Atmosphere Vanished Instantly?",
+        "hook": "Earth's atmosphere provides the air we breathe, the pressure keeping liquid water from boiling, and our shield against solar radiation. Here is what happens second by second if it disappeared.",
+        "scientific_basis": "Ideal gas law, vapor pressure of water (Armstrong limit), acoustic wave propagation, and radiative equilibrium.",
+        "stages": [
+            {
+                "stage": "1. Initial Event",
+                "clock": "T + 00:00:01",
+                "visual_mode": "atmosphere_shock",
+                "feature": "REALITY_CLOCK",
+                "headline": "Instant Vacuum, Total Silence & Black Daytime Sky",
+                "narration": "Surface pressure drops from 101.3 kPa to zero. Without air molecules to scatter blue light or carry sound waves, the daytime sky turns pitch black and complete silence falls.",
+                "telemetry": {"Surface Pressure": "0.0 kPa (Vacuum)", "Sound Speed": "0 m/s (Silent)", "Daytime Sky": "Pitch Black"},
+                "hidden_consequence": "Even the loudest explosion or jet engine would be completely inaudible in a vacuum.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "2. Immediate Human & Biological Impact",
+                "clock": "T + 00:00:15",
+                "visual_mode": "human_biosphere",
+                "feature": "DUAL_REALITY",
+                "headline": "Rapid Ebullism & Loss of Consciousness in 15 Seconds",
+                "narration": "Below the 6.3 kPa Armstrong limit, exposed moisture on the tongue and eyes begins to boil at body temperature. Unprotected humans lose consciousness within 15 seconds due to oxygen depletion.",
+                "telemetry": {"Armstrong Limit": "6.3 kPa", "Consciousness": "~15 Seconds", "Birds & Planes": "Lose All Lift"},
+                "hidden_consequence": "Human blood does not boil immediately inside intact blood vessels because arterial pressure keeps it above the Armstrong threshold.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "3. Short-Term Ocean & Weather Effects",
+                "clock": "T + 02:00:00",
+                "visual_mode": "ocean_surge",
+                "feature": "CONSEQUENCE_MAP",
+                "headline": "Surface Oceans Boil Rapidly Until Self-Freezing",
+                "narration": "With zero atmospheric pressure holding water molecules down, the top layer of Earth's oceans boils violently, absorbing latent heat until the cooling water freezes into an ice crust.",
+                "telemetry": {"Boiling Trigger": "Zero Pressure", "Latent Cooling": "Forms Ice Cap", "Weather/Wind": "Eliminated"},
+                "hidden_consequence": "Evaporative cooling removes heat so quickly that a thick layer of ice forms over the oceans, trapping remaining liquid water underneath.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "4. Long-Term Thermal & Radiation Shift",
+                "clock": "T + 30 DAYS",
+                "visual_mode": "two_worlds",
+                "feature": "TWO_WORLDS",
+                "headline": "Greenhouse Blanket Lost & Extreme Day-Night Swings",
+                "narration": "Without greenhouse gases trapping heat or ozone blocking ultraviolet radiation, Earth's average temperature drops by 33°C while daytime surfaces suffer lethal UV bombardment.",
+                "telemetry": {"Greenhouse Loss": "-33°C Drop", "Day-Night Swing": "> 150°C", "UV Shield": "0% Remaining"},
+                "hidden_consequence": "Without atmospheric drag, millions of tiny micrometeorites strike Earth's surface every day at full orbital speed.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "5. Reality Replay & Subsurface Refuges",
+                "clock": "T + 01 YEAR",
+                "visual_mode": "reality_replay",
+                "feature": "REALITY_REPLAY",
+                "headline": "Earth Resembles a Larger, Water-Covered Moon",
+                "narration": "Replaying Earth from orbit shows a stark, airless world with sharp shadows, ice-capped oceans, and survival possible only inside pressurized, radiation-shielded habitats.",
+                "telemetry": {"Surface Life": "Extinct", "Deep Ocean Life": "Temporarily Intact", "Habitat Need": "Pressurized Domes"},
+                "hidden_consequence": "Over geological time, volcanic outgassing would slowly begin rebuilding a secondary atmosphere of carbon dioxide and water vapor.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "6. Final Scientific Explanation",
+                "clock": "SCIENTIFIC REALITY",
+                "visual_mode": "timeline_science",
+                "feature": "HIDDEN_DETECTOR",
+                "headline": "Gravity & Earth's Magnetosphere Protect Our Air",
+                "narration": "Earth's escape velocity of 11.2 km/s prevents nitrogen and oxygen from escaping to space, while our magnetic field deflects the solar wind that stripped Mars's ancient atmosphere.",
+                "telemetry": {"Escape Velocity": "11.2 km/s", "Total Air Mass": "5.15 x 10^18 kg", "Protection": "Gravity + Magnetosphere"},
+                "hidden_consequence": "Earth's entire atmosphere weighs roughly 5.15 quintillion kilograms—held firmly in place by gravity.",
+                "is_hypothetical": False,
+            },
+        ],
+    },
+    "asteroid_impact": {
+        "match": ["asteroid", "meteor", "chicxulub", "impact", "comet"],
+        "category": "Planetary Defense & Astrophysics",
+        "title": "What If a 10-Kilometer Asteroid Approached Earth?",
+        "hook": "Sixty-six million years ago, a mountain-sized asteroid traveling at 20 kilometers per second reshaped life on Earth. Here is the exact physics timeline if a similar object were detected today.",
+        "scientific_basis": "Kinetic energy equations (E = 1/2 mv²), hypervelocity impact cratering, and NASA DART planetary defense mechanics.",
+        "stages": [
+            {
+                "stage": "1. Initial Detection & Approach",
+                "clock": "T - 30 DAYS",
+                "visual_mode": "asteroid_trajectory",
+                "feature": "REALITY_CLOCK",
+                "headline": "10-km Object Locked on Earth Intersection Corridor",
+                "narration": "Deep-sky survey telescopes track a 10-kilometer carbonaceous asteroid accelerating under Earth's gravity toward a terminal entry velocity of 20 kilometers per second.",
+                "telemetry": {"Diameter": "10.0 km", "Entry Velocity": "20 km/s", "Kinetic Energy": "~100 Million MT"},
+                "hidden_consequence": "At 20 km/s, the asteroid crosses the entire thickness of Earth's breathable atmosphere in less than two seconds.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "2. Immediate Impact Event",
+                "clock": "T + 00:00:02",
+                "visual_mode": "asteroid_impact",
+                "feature": "DUAL_REALITY",
+                "headline": "Hypervelocity Flash & 100-km Transient Crater",
+                "narration": "Upon contact, kinetic energy converts instantaneously into thermal radiation and shockwaves, vaporizing rock and excavating a crater over 100 kilometers wide within seconds.",
+                "telemetry": {"Peak Temp": "> 10,000 K", "Seismic Shock": "Magnitude 11+", "Ejecta Plume": "Sub-Orbital"},
+                "hidden_consequence": "Superheated rock droplets launched into sub-orbital trajectories re-enter globally, heating the upper atmosphere intensely.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "3. Short-Term Global Effects",
+                "clock": "T + 48 HOURS",
+                "visual_mode": "consequence_map",
+                "feature": "CONSEQUENCE_MAP",
+                "headline": "Megatsunamis & Continental Wildfire Fronts",
+                "narration": "If impact occurs in an ocean basin, kilometer-high waves radiate outward while incandescent ejecta ignites wildfires across continental interiors.",
+                "telemetry": {"Tsunami Height": "100m - 1,000m", "Soot Injection": "15,000 Tg", "Sky Brightness": "Twilight at Noon"},
+                "hidden_consequence": "Sulfur aerosols vaporized from carbonate-rich crust amplify global cooling far more than dust alone.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "4. Long-Term Impact Winter",
+                "clock": "T + 02 YEARS",
+                "visual_mode": "two_worlds",
+                "feature": "TWO_WORLDS",
+                "headline": "Global Temperature Plunges by 15°C to 20°C",
+                "narration": "Stratospheric soot and sulfate aerosols block up to 90 percent of sunlight for years, halting photosynthesis and plunging continents into an extended impact winter.",
+                "telemetry": {"Sunlight Drop": "-85% to -90%", "Global Cooling": "-18°C Average", "Agriculture": "Halted"},
+                "hidden_consequence": "Acid rain from nitric and sulfuric oxides rapidly acidifies surface ocean waters, stressing marine shell-forming organisms.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "5. Human Survival & Reality Replay",
+                "clock": "T + 10 YEARS",
+                "visual_mode": "human_biosphere",
+                "feature": "REALITY_REPLAY",
+                "headline": "Subterranean Refuges & Chemosynthetic Food Systems",
+                "narration": "Replaying the atmospheric aerosol spread demonstrates why early detection decades in advance is critical: only hardened underground reserves and non-solar food systems could sustain survivors.",
+                "telemetry": {"Recovery Span": "10+ Years", "Critical Factor": "Early Warning", "Deflection Window": "Decades Prior"},
+                "hidden_consequence": "Small burrowing mammals survived the Cretaceous impact largely because soil insulated them from the initial thermal pulse.",
+                "is_hypothetical": True,
+            },
+            {
+                "stage": "6. Final Scientific Explanation",
+                "clock": "SCIENTIFIC REALITY",
+                "visual_mode": "timeline_science",
+                "feature": "HIDDEN_DETECTOR",
+                "headline": "NASA DART Proved We Can Deflect Asteroids",
+                "narration": "In September 2022, NASA's DART spacecraft altered the orbit of asteroid Dimorphos by 33 minutes—proving humanity possesses real kinetic deflection capability.",
+                "telemetry": {"DART Mission": "Sept 26, 2022", "Orbit Shift": "-33 Minutes", "10km Threats": "Zero Tracked"},
+                "hidden_consequence": "Over 95% of near-Earth asteroids larger than 1 kilometer have already been mapped, and none pose an impact threat this century.",
+                "is_hypothetical": False,
+            },
+        ],
+    },
+}
+
+
+class IntelligenceEngine:
+    """Converts any user topic into a structured, scientifically grounded multi-scene script."""
+
+    @staticmethod
+    def generate_script(
+        topic: str,
+        category: str = "Auto-Detect",
+        duration_sec: int = 60,
+        user_sources: str = "",
+    ) -> Dict[str, Any]:
+        clean_topic = (topic or "").strip() or "What If Earth Suddenly Stopped Rotating?"
+        low = clean_topic.lower()
+
+        matched_key: Optional[str] = None
+        for key, data in KNOWLEDGE_SCENARIOS.items():
+            if any(kw in low for kw in data["match"]):
+                matched_key = key
+                break
+
+        if matched_key:
+            bp = KNOWLEDGE_SCENARIOS[matched_key]
+            resolved_cat = bp["category"] if category == "Auto-Detect" else category
+            raw_stages = bp["stages"]
+            hook_text = bp["hook"]
+            sci_basis = bp["scientific_basis"]
+            source_label = "Built-in NEXUS Physics & Earth Science Knowledge Base"
+        else:
+            resolved_cat = "Reality & Systems Science" if category == "Auto-Detect" else category
+            hook_text = (
+                f"What actually happens when we analyze '{clean_topic}' using conservation laws, "
+                f"systems dynamics, and measurable physical cause and effect?"
+            )
+            sci_basis = "First-principles physics, thermodynamics, and comparative systems modeling."
+            source_label = "Built-in NEXUS First-Principles Reasoning Template (Add external references below if desired)"
+            raw_stages = [
+                {
+                    "stage": "1. Initial Event",
+                    "clock": "T + 00:00:00",
+                    "visual_mode": "solar_system",
+                    "feature": "REALITY_CLOCK",
+                    "headline": f"Baseline Equilibrium: {clean_topic[:40]}",
+                    "narration": f"Every natural system maintains balance until a boundary condition changes. To examine {clean_topic}, we first measure the baseline forces holding reality steady.",
+                    "telemetry": {"System State": "Equilibrium", "Primary Driver": "Energy & Mass", "Observation": "Baseline"},
+                    "hidden_consequence": "Small shifts in initial boundary conditions often amplify non-linearly across coupled physical systems.",
+                    "is_hypothetical": True,
+                },
+                {
+                    "stage": "2. Immediate Consequences",
+                    "clock": "T + 00:05:00",
+                    "visual_mode": "atmosphere_shock",
+                    "feature": "DUAL_REALITY",
+                    "headline": "Primary Physical Reaction & Energy Transfer",
+                    "narration": "Within the opening moments, conservation of energy and momentum govern how pressure, heat, and motion redistribute across the immediate environment.",
+                    "telemetry": {"Response Speed": "Instantaneous", "Energy State": "Disrupted", "Comparison": "Dual View"},
+                    "hidden_consequence": "Secondary pressure waves frequently propagate faster through dense media than visible surface changes.",
+                    "is_hypothetical": True,
+                },
+                {
+                    "stage": "3. Short-Term Effects",
+                    "clock": "T + 24 HOURS",
+                    "visual_mode": "consequence_map",
+                    "feature": "CONSEQUENCE_MAP",
+                    "headline": "Regional & Global Cascade Propagation",
+                    "narration": "Over the following hours, localized disruptions propagate through atmospheric circulation, ocean currents, and interconnected infrastructure networks.",
+                    "telemetry": {"Propagation": "Global Scale", "Feedback Loop": "Active", "Stability": "Low"},
+                    "hidden_consequence": "Interconnected power and communication grids experience cascading latency before physical waves arrive.",
+                    "is_hypothetical": True,
+                },
+                {
+                    "stage": "4. Long-Term Effects",
+                    "clock": "T + 10 YEARS",
+                    "visual_mode": "two_worlds",
+                    "feature": "TWO_WORLDS",
+                    "headline": "Altered Equilibrium vs. Normal Earth",
+                    "narration": "Comparing normal reality side by side with the altered scenario reveals how planetary cycles settle into a dramatically different long-term state.",
+                    "telemetry": {"Normal World": "Balanced", "Altered World": "Reconfigured", "Timescale": "Decadal"},
+                    "hidden_consequence": "Long-term stability depends on whether chemical and thermal cycles can re-establish closed feedback loops.",
+                    "is_hypothetical": True,
+                },
+                {
+                    "stage": "5. Human & Environmental Impact",
+                    "clock": "T + 50 YEARS",
+                    "visual_mode": "human_biosphere",
+                    "feature": "REALITY_REPLAY",
+                    "headline": "Biosphere Resilience & Engineering Adaptation",
+                    "narration": "Replaying the critical transition reveals how biological organisms and human engineering must adapt to survive resource and climate shifts.",
+                    "telemetry": {"Biosphere": "High Stress", "Human Tech": "Adaptation Mode", "Perspective": "Orbital Replay"},
+                    "hidden_consequence": "Microbial and subterranean ecosystems consistently demonstrate the highest resilience to surface disruptions.",
+                    "is_hypothetical": True,
+                },
+                {
+                    "stage": "6. Final Scientific Explanation",
+                    "clock": "SCIENTIFIC REALITY",
+                    "visual_mode": "timeline_science",
+                    "feature": "HIDDEN_DETECTOR",
+                    "headline": "What Verified Science Confirms Today",
+                    "narration": "Separating hypothetical modeling from established physical laws shows how finely balanced constants keep our environment habitable.",
+                    "telemetry": {"Verification": "First Principles", "Speculation": "Clearly Labeled", "Status": "Verified"},
+                    "hidden_consequence": "Controlled scientific simulations allow researchers to test extreme scenarios safely without real-world risk.",
+                    "is_hypothetical": False,
+                },
+            ]
+
+        duration_sec = max(30, min(180, int(duration_sec)))
+        n_scenes = len(raw_stages)
+        base_dur = round(duration_sec / float(n_scenes), 2)
+
+        scenes: List[Dict[str, Any]] = []
+        cursor = 0.0
+        for idx, st in enumerate(raw_stages):
+            sc_dur = round(duration_sec - cursor, 2) if idx == n_scenes - 1 else base_dur
+            scenes.append({
+                "index": idx + 1,
+                "stage": st["stage"],
+                "clock": st["clock"],
+                "visual_mode": st["visual_mode"],
+                "feature": st["feature"],
+                "headline": st["headline"],
+                "narration": st["narration"],
+                "telemetry": st["telemetry"],
+                "hidden_consequence": st["hidden_consequence"],
+                "is_hypothetical": st["is_hypothetical"],
+                "start_sec": round(cursor, 2),
+                "duration_sec": max(4.0, sc_dur),
+            })
+            cursor += sc_dur
+
+        sources = [source_label]
+        if user_sources and user_sources.strip():
+            for line in user_sources.strip().splitlines():
+                if line.strip():
+                    sources.append(f"User Reference: {line.strip()}")
+        else:
+            sources.append("No external live URLs fetched; add source URLs or reference text in Script Studio.")
+
+        growth = YouTubeGrowthEngine.generate_metadata(clean_topic, resolved_cat, hook_text, scenes)
+
+        return {
+            "topic": clean_topic,
+            "category": resolved_cat,
+            "hook": hook_text,
+            "scientific_basis": sci_basis,
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "disclaimer": "Hypothetical visualizations are explicitly tagged [HYPOTHETICAL SIMULATION] and separated from verified physical measurements.",
+            "sources": sources,
+            "scenes": scenes,
+            "growth": growth,
+        }
+
+
+# ==============================================================================
+# 4. YOUTUBE GROWTH ENGINE (MODULE H)
+# ==============================================================================
+class YouTubeGrowthEngine:
+    @staticmethod
+    def generate_metadata(
+        topic: str, category: str, hook: str, scenes: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        clean = topic.rstrip("?.!")
+        titles = [
+            f"{clean}? Here Is What Physics Actually Says",
+            f"The Real Science Behind: {clean}",
+            f"{clean} — Second-by-Second Reality Simulation",
+            f"What Nobody Tells You About: {clean}",
+            f"{clean}: Normal Earth vs. Altered Reality",
+        ]
+
+        chapters = []
+        for sc in scenes:
+            m = int(sc["start_sec"] // 60)
+            s = int(sc["start_sec"] % 60)
+            chapters.append(f"{m:02d}:{s:02d} — {sc['stage']}: {sc['headline']}")
+
+        description = (
+            f"{hook}\n\n"
+            f"In this NEXUS Reality Explainer ({category}), we break down the physical timeline, "
+            f"environmental cascades, and verified science behind: {topic}.\n\n"
+            f"CHAPTERS:\n" + "\n".join(chapters) + "\n\n"
+            f"SCIENTIFIC NOTE:\n"
+            f"Hypothetical segments illustrate theoretical physics models; final conclusions reflect established scientific measurements."
+        )
+
+        keywords = [
+            clean.lower(),
+            f"{clean.lower()} explained",
+            "what if science",
+            "reality simulation",
+            "astrophysics explainer",
+            "earth science documentary",
+            "physics visualization",
+            "nexus reality",
+        ]
+        hashtags = ["#ScienceExplained", "#WhatIf", "#Physics", "#SpaceScience", "#NEXUSReality"]
+
+        return {
+            "titles": titles,
+            "hook": hook,
+            "description": description,
+            "keywords": keywords,
+            "hashtags": hashtags,
+            "chapters": chapters,
+            "thumbnail_concept": (
+                f"High-contrast orbital split-screen: Left hemisphere shows sunlit Earth ('NORMAL REALITY'), "
+                f"right hemisphere shows physical simulation for '{clean}' with glowing cyan Reality Clock."
+            ),
+            "thumbnail_texts": [
+                "WHAT HAPPENS NEXT?",
+                "REALITY vs SIMULATION",
+                "SECOND BY SECOND",
+            ],
+        }
+
+
+# ==============================================================================
+# 5. REALITY ENGINE & CINEMATIC ENGINE (MODULES B & D)
+# ==============================================================================
+class RealityCinematicRenderer:
+    """Procedural NumPy + Pillow scientific visualization and NEXUS HUD engine."""
+
+    PALETTES = {
+        "nexus_obsidian": {
+            "bg_top": (8, 15, 32),
+            "bg_bot": (3, 5, 12),
+            "cyan": (34, 211, 238),
+            "violet": (168, 85, 247),
+            "amber": (251, 191, 36),
+            "crimson": (244, 63, 94),
+            "emerald": (16, 185, 129),
+            "panel": (11, 18, 36),
+            "text": (241, 245, 249),
+            "muted": (148, 163, 184),
+        },
+        "deep_cosmos": {
+            "bg_top": (15, 10, 36),
+            "bg_bot": (2, 3, 9),
+            "cyan": (56, 189, 248),
+            "violet": (192, 132, 252),
+            "amber": (250, 204, 21),
+            "crimson": (251, 113, 133),
+            "emerald": (52, 211, 153),
+            "panel": (15, 13, 38),
+            "text": (248, 250, 252),
+            "muted": (148, 163, 184),
+        },
+        "solar_telemetry": {
+            "bg_top": (24, 15, 30),
+            "bg_bot": (4, 6, 14),
+            "cyan": (34, 211, 238),
+            "violet": (139, 92, 246),
+            "amber": (245, 158, 11),
+            "crimson": (239, 68, 68),
+            "emerald": (16, 185, 129),
+            "panel": (18, 16, 32),
+            "text": (248, 250, 252),
+            "muted": (156, 163, 175),
+        },
+    }
+
+    def __init__(self, width: int, height: int, style_key: str = "nexus_obsidian"):
+        self.w = width
+        self.h = height
+        self.is_vertical = height > width
+        self.sc = min(width, height) / 720.0
+        self.pal = self.PALETTES.get(style_key, self.PALETTES["nexus_obsidian"])
+
+        rng = np.random.default_rng(42)
+        self.stars = np.column_stack([
+            rng.uniform(0, width, 110),
+            rng.uniform(0, height, 110),
+            rng.uniform(0.6, 2.4, 110),
+            rng.uniform(0.3, 1.0, 110),
+        ])
+        self._bg_cache = self._build_base_backdrop()
+
+    def _build_base_backdrop(self) -> Image.Image:
+        yy, xx = np.ogrid[0 : self.h, 0 : self.w]
+        nx = (xx - self.w * 0.5) / (self.w * 0.72)
+        ny = (yy - self.h * 0.42) / (self.h * 0.72)
+        radial = np.clip(1.0 - 0.78 * (nx * nx + ny * ny), 0.0, 1.0).astype(np.float32)
+
+        arr = np.zeros((self.h, self.w, 3), dtype=np.uint8)
+        for c in range(3):
+            vals = self.pal["bg_bot"][c] + (self.pal["bg_top"][c] - self.pal["bg_bot"][c]) * radial
+            arr[:, :, c] = np.clip(vals, 0, 255).astype(np.uint8)
+
+        img = Image.fromarray(arr, mode="RGB")
+        draw = ImageDraw.Draw(img)
+
+        step = max(36, int(64 * self.sc))
+        grid_col = (18, 28, 52)
+        for gx in range(0, self.w, step):
+            draw.line([(gx, 0), (gx, self.h)], fill=grid_col, width=1)
+        for gy in range(0, self.h, step):
+            draw.line([(0, gy), (self.w, gy)], fill=grid_col, width=1)
+        return img
+
+    def _draw_planet(
+        self,
+        draw: ImageDraw.Draw,
+        cx: float,
+        cy: float,
+        radius: float,
+        phase: float,
+        perturbed: bool = False,
+        label: str = "",
+    ):
+        halo_col = self.pal["crimson"] if perturbed else self.pal["cyan"]
+        for ring in range(3, 0, -1):
+            rr = radius + ring * 5 * self.sc
+            draw.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=halo_col, width=1)
+
+        ocean_col = (48, 20, 44) if perturbed else (14, 62, 118)
+        draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], fill=ocean_col, outline=halo_col, width=2)
+
+        land_col = (185, 85, 12) if perturbed else (20, 148, 118)
+        for i in range(5):
+            ang = phase * (0.2 if perturbed else 1.8) + i * 1.25
+            lx = cx + math.sin(ang) * radius * 0.48
+            ly = cy + math.cos(i * 1.1) * radius * 0.44
+            rw = radius * (0.34 - 0.03 * i) * abs(math.cos(ang * 0.7))
+            rh = radius * 0.22
+            if rw > 3:
+                draw.ellipse([lx - rw, ly - rh, lx + rw, ly + rh], fill=land_col)
+
+        draw.pieslice(
+            [cx - radius, cy - radius, cx + radius, cy + radius],
+            start=285,
+            end=75,
+            fill=(5, 9, 20),
+        )
+        draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=halo_col, width=2)
+
+        tilt = math.radians(38.0 * math.sin(phase * 2.0) if perturbed else 23.5)
+        ax_len = radius * 1.38
+        dx = math.sin(tilt) * ax_len
+        dy = -math.cos(tilt) * ax_len
+        draw.line([(cx - dx, cy - dy), (cx + dx, cy + dy)], fill=self.pal["amber"], width=2)
+
+        if label:
+            f_lbl = get_font(max(12, int(15 * self.sc)), bold=True)
+            bb = draw.textbbox((0, 0), label, font=f_lbl)
+            draw.text((cx - (bb[2] - bb[0]) / 2, cy + radius + 12 * self.sc), label, font=f_lbl, fill=halo_col)
+
+    def _draw_reality_visual(
+        self,
+        draw: ImageDraw.Draw,
+        scene: Dict[str, Any],
+        prog: float,
+        global_t: float,
+        box: Tuple[int, int, int, int],
+    ):
+        x0, y0, x1, y1 = box
+        vw = x1 - x0
+        vh = y1 - y0
+        cx = (x0 + x1) * 0.5
+        cy = (y0 + y1) * 0.5
+        mode = scene["visual_mode"]
+        feature = scene["feature"]
+
+        for sx, sy, sr, spd in self.stars:
+            px = x0 + ((sx + global_t * 14.0 * spd) % vw)
+            py = y0 + ((sy + global_t * 4.0 * spd) % vh)
+            r_px = max(1, int(sr * self.sc))
+            draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(140, 175, 220))
+
+        # DUAL REALITY & TWO WORLDS SIDE-BY-SIDE COMPARISON
+        if feature in ("DUAL_REALITY", "TWO_WORLDS") or mode in ("atmosphere_shock", "two_worlds"):
+            mid_x = int(cx)
+            draw.line([(mid_x, y0 + 16), (mid_x, y1 - 16)], fill=self.pal["violet"], width=2)
+            r_p = min(vw * 0.17, vh * 0.28)
+            self._draw_planet(draw, (x0 + mid_x) * 0.5, cy, r_p, global_t * 1.4, perturbed=False, label="NORMAL REALITY")
+            self._draw_planet(draw, (mid_x + x1) * 0.5, cy, r_p, global_t * 0.3, perturbed=True, label="ALTERED SCENARIO")
+
+            for k in range(6):
+                wy = cy - r_p + k * (2 * r_p / 5.0)
+                wx_start = mid_x + 18 + ((global_t * 180 + k * 35) % max(40, int(vw * 0.38)))
+                draw.line([(wx_start, wy), (wx_start + 38 * self.sc, wy)], fill=self.pal["crimson"], width=2)
+
+        # CONSEQUENCE MAP
+        elif feature == "CONSEQUENCE_MAP" or mode in ("ocean_surge", "consequence_map"):
+            r_globe = min(vw, vh) * 0.31
+            self._draw_planet(draw, cx, cy, r_globe, global_t * 0.8, perturbed=True, label="GLOBAL CASCADE TELEMETRY")
+            pulse_r = r_globe * (0.3 + (prog * 1.1) % 1.0)
+            draw.ellipse([cx - pulse_r, cy - pulse_r, cx + pulse_r, cy + pulse_r], outline=self.pal["amber"], width=2)
+            nodes = [
+                (-0.45, -0.35, "EQUATORIAL ZONE"),
+                (0.45, -0.30, "NORTHERN BASIN"),
+                (-0.42, 0.35, "COASTAL GRID"),
+                (0.42, 0.35, "ATMOSPHERIC JET"),
+            ]
+            f_nd = get_font(max(11, int(13 * self.sc)), bold=True)
+            for nx_f, ny_f, n_lbl in nodes:
+                nx = cx + nx_f * vw * 0.68
+                ny = cy + ny_f * vh * 0.62
+                draw.line([(cx, cy), (nx, ny)], fill=self.pal["cyan"], width=1)
+                draw.ellipse([nx - 5, ny - 5, nx + 5, ny + 5], fill=self.pal["amber"])
+                draw.text((nx - 45 * self.sc, ny + 8), n_lbl, font=f_nd, fill=self.pal["text"])
+
+        # ASTEROID TRAJECTORY & IMPACT
+        elif mode in ("asteroid_trajectory", "asteroid_impact"):
+            r_earth = min(vw, vh) * 0.24
+            ex = x1 - vw * 0.28
+            ey = cy + vh * 0.06
+            self._draw_planet(draw, ex, ey, r_earth, global_t, perturbed=(mode == "asteroid_impact"), label="EARTH")
+
+            ax = x0 + vw * (0.15 + 0.54 * ease_in_out(prog))
+            ay = y0 + vh * (0.22 + 0.32 * ease_in_out(prog))
+            draw.line([(x0 + vw * 0.12, y0 + vh * 0.20), (ex, ey)], fill=self.pal["crimson"], width=2)
+            ar = max(8, int(16 * self.sc))
+            draw.ellipse([ax - ar, ay - ar, ax + ar, ay + ar], fill=self.pal["amber"], outline=(255, 255, 255), width=2)
+            if mode == "asteroid_impact" and prog > 0.55:
+                blast = r_earth * (prog - 0.55) * 3.2
+                draw.ellipse([ex - blast, ey - blast, ex + blast, ey + blast], outline=self.pal["amber"], width=3)
+
+        # SOLAR SYSTEM & ORBITAL MECHANICS
+        elif mode == "solar_system":
+            sun_r = min(vw, vh) * 0.11
+            draw.ellipse([cx - sun_r, cy - sun_r, cx + sun_r, cy + sun_r], fill=self.pal["amber"])
+            for orb_i, mult in enumerate([0.24, 0.36, 0.48], start=1):
+                rx = vw * mult
+                ry = vh * mult * 0.62
+                draw.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], outline=(45, 65, 105), width=1)
+                ang = global_t * (1.8 / orb_i) + orb_i
+                px = cx + math.cos(ang) * rx
+                py = cy + math.sin(ang) * ry
+                pr = max(5, int((9 - orb_i) * self.sc))
+                col = self.pal["cyan"] if orb_i == 2 else self.pal["violet"]
+                draw.ellipse([px - pr, py - pr, px + pr, py + pr], fill=col)
+
+        # BIOSPHERE & REALITY REPLAY
+        elif mode in ("human_biosphere", "reality_replay"):
+            pts = []
+            steps = 70
+            for i in range(steps):
+                t_norm = i / float(steps - 1)
+                px = x0 + 24 + t_norm * (vw - 48)
+                freq = 18.0 if scene["is_hypothetical"] else 9.0
+                amp = vh * (0.22 * (1.0 - 0.4 * prog) if scene["is_hypothetical"] else 0.16)
+                py = cy + math.sin(t_norm * freq + global_t * 6.0) * amp * math.sin(t_norm * math.pi)
+                pts.append((px, py))
+            draw.line(pts, fill=self.pal["emerald"] if not scene["is_hypothetical"] else self.pal["cyan"], width=3)
+            ret_r = min(vw, vh) * 0.26
+            draw.ellipse([cx - ret_r, cy - ret_r, cx + ret_r, cy + ret_r], outline=self.pal["violet"], width=2)
+
+        # DEFAULT: EARTH ROTATION & SCIENTIFIC TIMELINE
+        else:
+            r_p = min(vw, vh) * 0.30
+            self._draw_planet(
+                draw,
+                cx,
+                cy,
+                r_p,
+                global_t * (0.15 if scene["is_hypothetical"] else 1.8),
+                perturbed=scene["is_hypothetical"],
+                label="HYPOTHETICAL MODEL" if scene["is_hypothetical"] else "VERIFIED PHYSICAL MODEL",
+            )
+
+    def render_frame(
+        self,
+        topic: str,
+        scene: Dict[str, Any],
+        scene_idx: int,
+        total_scenes: int,
+        scene_prog: float,
+        global_t: float,
+        overall_prog: float,
+    ) -> bytes:
+        frame = self._bg_cache.copy()
+        draw = ImageDraw.Draw(frame)
+        pad = int(28 * self.sc)
+
+        # 1. TOP HUD HEADER + REALITY CLOCK
+        top_h = int(52 * self.sc)
+        draw.rounded_rectangle(
+            [pad, pad, self.w - pad, pad + top_h],
+            radius=10,
+            fill=self.pal["panel"],
+            outline=self.pal["cyan"],
+            width=2,
+        )
+
+        f_brand = get_font(max(13, int(17 * self.sc)), bold=True)
+        f_clock = get_font(max(13, int(18 * self.sc)), bold=True)
+
+        tag_txt = "HYPOTHETICAL SIMULATION" if scene["is_hypothetical"] else "VERIFIED SCIENTIFIC DATA"
+        tag_col = self.pal["amber"] if scene["is_hypothetical"] else self.pal["emerald"]
+        draw.text((pad + 14, pad + int(15 * self.sc)), f"NEXUS // {tag_txt}", font=f_brand, fill=tag_col)
+
+        clock_txt = f"REALITY CLOCK: {scene['clock']}"
+        cb = draw.textbbox((0, 0), clock_txt, font=f_clock)
+        draw.text((self.w - pad - (cb[2] - cb[0]) - 14, pad + int(14 * self.sc)), clock_txt, font=f_clock, fill=self.pal["cyan"])
+
+        # 2. MAIN SIMULATION VIEWPORT & TELEMETRY SIDEBAR
+        vp_top = pad + top_h + int(14 * self.sc)
+        bot_h = int(168 * self.sc) if not self.is_vertical else int(240 * self.sc)
+        vp_bot = self.h - pad - bot_h - int(14 * self.sc)
+
+        if self.is_vertical:
+            vp_box = (pad, vp_top, self.w - pad, vp_bot)
+            draw.rounded_rectangle(vp_box, radius=14, fill=(6, 10, 22), outline=self.pal["violet"], width=2)
+            self._draw_reality_visual(draw, scene, scene_prog, global_t, vp_box)
+        else:
+            side_w = int(self.w * 0.27)
+            vp_box = (pad, vp_top, self.w - pad - side_w - int(12 * self.sc), vp_bot)
+            side_box = (self.w - pad - side_w, vp_top, self.w - pad, vp_bot)
+
+            draw.rounded_rectangle(vp_box, radius=14, fill=(6, 10, 22), outline=self.pal["violet"], width=2)
+            self._draw_reality_visual(draw, scene, scene_prog, global_t, vp_box)
+
+            draw.rounded_rectangle(side_box, radius=14, fill=self.pal["panel"], outline=self.pal["cyan"], width=2)
+            f_sh = get_font(max(12, int(15 * self.sc)), bold=True)
+            f_sv = get_font(max(12, int(14 * self.sc)), bold=False)
+            sy = side_box[1] + int(14 * self.sc)
+            draw.text((side_box[0] + 14, sy), f"STAGE {scene_idx + 1}/{total_scenes} TELEMETRY", font=f_sh, fill=self.pal["cyan"])
+            sy += int(28 * self.sc)
+
+            for k_lbl, v_lbl in scene.get("telemetry", {}).items():
+                draw.text((side_box[0] + 14, sy), f"{k_lbl}:", font=f_sv, fill=self.pal["muted"])
+                sy += int(18 * self.sc)
+                draw.text((side_box[0] + 14, sy), str(v_lbl), font=f_sh, fill=self.pal["text"])
+                sy += int(26 * self.sc)
+
+            # HIDDEN CONSEQUENCE DETECTOR
+            if scene_prog >= 0.45 and sy + 60 < side_box[3]:
+                sy += int(6 * self.sc)
+                draw.line([(side_box[0] + 12, sy), (side_box[2] - 12, sy)], fill=self.pal["amber"], width=1)
+                sy += int(10 * self.sc)
+                draw.text((side_box[0] + 14, sy), "HIDDEN CONSEQUENCE:", font=f_sh, fill=self.pal["amber"])
+                sy += int(22 * self.sc)
+                hc_lines = wrap_text(draw, scene.get("hidden_consequence", ""), f_sv, side_w - 28)
+                for h_ln in hc_lines[:5]:
+                    if sy + 18 < side_box[3]:
+                        draw.text((side_box[0] + 14, sy), h_ln, font=f_sv, fill=self.pal["text"])
+                        sy += int(18 * self.sc)
+
+        # 3. BOTTOM NARRATION DECK & TIMELINE PROGRESS BAR
+        deck_top = vp_bot + int(14 * self.sc)
+        deck_bot = self.h - pad
+        draw.rounded_rectangle(
+            [pad, deck_top, self.w - pad, deck_bot],
+            radius=14,
+            fill=self.pal["panel"],
+            outline=self.pal["cyan"],
+            width=2,
+        )
+
+        f_head = get_font(max(16, int(23 * self.sc)), bold=True)
+        f_nar = get_font(max(13, int(17 * self.sc)), bold=False)
+
+        hy = deck_top + int(14 * self.sc)
+        draw.text((pad + 18, hy), f"{scene['stage']} — {scene['headline']}", font=f_head, fill=self.pal["cyan"])
+
+        ny = hy + int(34 * self.sc)
+        nar_lines = wrap_text(draw, scene["narration"], f_nar, (self.w - 2 * pad) - 36)
+        for n_ln in nar_lines[:4]:
+            draw.text((pad + 18, ny), n_ln, font=f_nar, fill=self.pal["text"])
+            ny += int(24 * self.sc)
+
+        bar_y = deck_bot - int(16 * self.sc)
+        bar_w = (self.w - 2 * pad) - 36
+        draw.rounded_rectangle([pad + 18, bar_y, pad + 18 + bar_w, bar_y + int(7 * self.sc)], radius=4, fill=(25, 36, 64))
+        fill_w = max(8, int(bar_w * overall_prog))
+        draw.rounded_rectangle([pad + 18, bar_y, pad + 18 + fill_w, bar_y + int(7 * self.sc)], radius=4, fill=self.pal["violet"])
+
+        return frame.tobytes()
+
+
+# ==============================================================================
+# 6. VOICE & AUDIO ENGINE (MODULE E)
+# ==============================================================================
+class VoiceAudioEngine:
+    @staticmethod
+    def build_ambient_bed(total_dur: float, out_wav: str, volume: float = 0.25):
+        rate = 22050
+        with wave.open(out_wav, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(rate)
+
+            chunk_sec = 20.0
+            cursor = 0.0
+            while cursor < total_dur:
+                dur = min(chunk_sec, total_dur - cursor)
+                n = int(round(dur * rate))
+                if n <= 0:
+                    break
+                t = np.linspace(cursor, cursor + dur, n, endpoint=False, dtype=np.float32)
+                drone = (
+                    0.45 * np.sin(2.0 * np.pi * 55.0 * t)
+                    + 0.30 * np.sin(2.0 * np.pi * 82.41 * t)
+                    + 0.25 * np.sin(2.0 * np.pi * 110.0 * t + 0.4 * np.sin(2.0 * np.pi * 0.25 * t))
+                )
+                pulse = np.exp(-((t % 2.0) * 6.0)) * np.sin(2.0 * np.pi * 440.0 * t) * 0.14
+                sig = (drone + pulse) * max(0.0, min(1.0, volume)) * 0.35
+                pcm = (np.clip(sig, -0.95, 0.95) * 32767.0).astype(np.int16)
+                wf.writeframes(pcm.tobytes())
+                cursor += dur
+                gc.collect()
+
+    @staticmethod
+    def synthesize_narration_track(
+        scenes: List[Dict[str, Any]],
+        total_dur: float,
+        work_dir: str,
+        speed_wpm: int = 155,
+        voice_variant: str = "en-us",
+    ) -> Tuple[Optional[str], str]:
+        if not ESPEAK_BIN or not HAS_FFMPEG:
+            return None, "Offline TTS engine not installed; using ambient telemetry audio."
+
+        speed_wpm = max(110, min(210, int(speed_wpm)))
+        voice = voice_variant if voice_variant in ("en-us", "en-gb", "en-au", "en") else "en-us"
+
+        concat_parts: List[str] = []
+        cursor = 0.0
+
+        for idx, sc in enumerate(scenes):
+            sc_start = float(sc["start_sec"])
+            sc_dur = float(sc["duration_sec"])
+            if sc_start > cursor:
+                gap_wav = os.path.join(work_dir, f"gap_{idx}.wav")
+                subprocess.run(
+                    [
+                        "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono",
+                        "-t", f"{sc_start - cursor:.3f}", gap_wav,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                if os.path.exists(gap_wav):
+                    concat_parts.append(gap_wav)
+                cursor = sc_start
+
+            raw_tts = os.path.join(work_dir, f"tts_raw_{idx}.wav")
+            padded_tts = os.path.join(work_dir, f"tts_pad_{idx}.wav")
+            text = f"{sc['headline']}. {sc['narration']}"
+
+            subprocess.run(
+                [ESPEAK_BIN, "-v", voice, "-s", str(speed_wpm), "-w", raw_tts, text],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+
+            if os.path.exists(raw_tts) and os.path.getsize(raw_tts) > 100:
+                subprocess.run(
+                    [
+                        "ffmpeg", "-y", "-i", raw_tts,
+                        "-af", f"apad=whole_dur={sc_dur:.3f}",
+                        "-t", f"{sc_dur:.3f}",
+                        "-ar", "22050", "-ac", "1", padded_tts,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                if os.path.exists(padded_tts):
+                    concat_parts.append(padded_tts)
+                    cursor += sc_dur
+
+        if not concat_parts:
+            return None, "TTS synthesis returned no audio; using ambient audio."
+
+        list_txt = os.path.join(work_dir, "tts_concat.txt")
+        with open(list_txt, "w", encoding="utf-8") as fh:
+            for p in concat_parts:
+                fh.write(f"file '{p}'\n")
+
+        full_tts = os.path.join(work_dir, "full_narration.wav")
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_txt, "-c", "copy", full_tts],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+        if os.path.exists(full_tts) and os.path.getsize(full_tts) > 500:
+            return full_tts, f"Offline English TTS synthesized ({voice}, {speed_wpm} WPM)."
+        return None, "TTS concat failed; using ambient telemetry audio."
+
+
+# ==============================================================================
+# 7. QUALITY CONTROL ENGINE (MODULE G)
+# ==============================================================================
+class QualityControlEngine:
+    @staticmethod
+    def validate_output(
+        mp4_path: str, expected_w: int, expected_h: int
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        if not os.path.exists(mp4_path):
+            return False, "QC Failed: Output MP4 file was not created.", {}
+        size_bytes = os.path.getsize(mp4_path)
+        if size_bytes < 10_000:
+            return False, "QC Failed: Output MP4 file is corrupted or empty (<10 KB).", {}
+
+        meta: Dict[str, Any] = {"size_mb": round(size_bytes / (1024.0 * 1024.0), 2)}
+        if not HAS_FFPROBE:
+            return True, "QC Passed (file size verified; ffprobe unavailable).", meta
+
+        try:
+            cmd = [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration:stream=codec_type,width,height",
+                "-of", "json", mp4_path,
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            info = json.loads(res.stdout)
+            streams = info.get("streams", [])
+            v_streams = [s for s in streams if s.get("codec_type") == "video"]
+            a_streams = [s for s in streams if s.get("codec_type") == "audio"]
+            dur = float(info.get("format", {}).get("duration", 0.0))
+
+            if not v_streams:
+                return False, "QC Failed: No video stream found in MP4.", meta
+            vw = int(v_streams[0].get("width", 0))
+            vh = int(v_streams[0].get("height", 0))
+            if vw != expected_w or vh != expected_h:
+                return False, f"QC Failed: Dimension mismatch ({vw}x{vh} != {expected_w}x{expected_h}).", meta
+            if dur <= 1.0:
+                return False, "QC Failed: Invalid video duration.", meta
+
+            meta["duration_sec"] = round(dur, 1)
+            meta["resolution"] = f"{vw}x{vh}"
+            meta["has_audio"] = len(a_streams) > 0
+            return True, f"QC Verified: {vw}x{vh}, {dur:.1f}s, {meta['size_mb']} MB", meta
+        except Exception as exc:
+            return False, f"QC Probe Error: {exc}", meta
+
+
+# ==============================================================================
+# 8. TURBO RENDER ENGINE (MODULE F)
+# ==============================================================================
+def get_dimensions(aspect_ratio: str, resolution: str) -> Tuple[int, int]:
+    is_1080 = resolution == "1080p"
+    if aspect_ratio == "9:16":
+        return (1080, 1920) if is_1080 else (720, 1280)
+    if aspect_ratio == "1:1":
+        return (1080, 1080) if is_1080 else (720, 720)
+    return (1920, 1080) if is_1080 else (1280, 720)
+
+
+def update_job(job_id: str, **kwargs):
+    with JOBS_LOCK:
+        if job_id in JOBS:
+            JOBS[job_id].update(kwargs)
+
+
+def run_render_pipeline(job_id: str, payload: Dict[str, Any]):
+    work_dir = tempfile.mkdtemp(prefix=f"nexus_{job_id}_", dir=TMP_ROOT)
+    try:
+        if not HAS_FFMPEG:
+            raise RuntimeError("FFmpeg is not installed on the host container.")
+
+        script_data = payload["script"]
+        scenes = script_data.get("scenes", [])
+        if not scenes:
+            raise ValueError("Cannot render: script contains zero scenes.")
+
+        aspect_ratio = payload.get("aspect_ratio", "16:9")
+        resolution = payload.get("resolution", "720p")
+        fps = max(12, min(30, int(payload.get("fps", 20))))
+        visual_style = payload.get("visual_style", "nexus_obsidian")
+        voice_mode = payload.get("voice_mode", "offline_tts")
+        voice_variant = payload.get("voice_variant", "en-us")
+        speaking_speed = int(payload.get("speaking_speed", 155))
+        music_volume = float(payload.get("music_volume", 0.25))
+        uploaded_audio_id = payload.get("uploaded_audio_id", "")
+
+        out_w, out_h = get_dimensions(aspect_ratio, resolution)
+        total_dur = sum(float(s["duration_sec"]) for s in scenes)
+
+        update_job(job_id, status="running", progress=5, current_scene="Audio & Voice Synthesis")
+
+        ambient_wav = os.path.join(work_dir, "ambient.wav")
+        VoiceAudioEngine.build_ambient_bed(total_dur, ambient_wav, volume=music_volume)
+
+        narration_wav: Optional[str] = None
+        audio_note = "Ambient telemetry score only."
+
+        if voice_mode == "uploaded" and is_safe_id(uploaded_audio_id):
+            for fname in os.listdir(UPLOAD_DIR):
+                if fname.startswith(uploaded_audio_id):
+                    narration_wav = os.path.join(UPLOAD_DIR, fname)
+                    audio_note = f"Custom uploaded voiceover ({fname})."
+                    break
+            if not narration_wav:
+                raise FileNotFoundError("Uploaded narration audio file was not found.")
+        elif voice_mode == "offline_tts":
+            narration_wav, audio_note = VoiceAudioEngine.synthesize_narration_track(
+                scenes, total_dur, work_dir, speed_wpm=speaking_speed, voice_variant=voice_variant
+            )
+
+        master_wav = os.path.join(work_dir, "master_audio.wav")
+        if narration_wav and os.path.exists(narration_wav):
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-i", narration_wav,
+                    "-i", ambient_wav,
+                    "-filter_complex", "[0:a]volume=1.0[v];[1:a]volume=0.45[m];[v][m]amix=inputs=2:duration=longest[out]",
+                    "-map", "[out]", "-t", f"{total_dur:.3f}",
+                    "-ar", "22050", "-ac", "1", master_wav,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+        else:
+            shutil.copyfile(ambient_wav, master_wav)
+
+        renderer = RealityCinematicRenderer(out_w, out_h, style_key=visual_style)
+        dt = 1.0 / float(fps)
+        global_t = 0.0
+        total_scenes = len(scenes)
+        chunk_paths: List[str] = []
+
+        for idx, sc in enumerate(scenes):
+            sc_dur = float(sc["duration_sec"])
+            n_frames = max(1, int(round(sc_dur * fps)))
+            chunk_mp4 = os.path.join(work_dir, f"chunk_{idx:02d}.mp4")
+
+            update_job(
+                job_id,
+                progress=12 + int((idx / float(total_scenes)) * 74),
+                current_scene=f"Scene {idx + 1}/{total_scenes}: {sc['headline']}",
+            )
+
+            ffmpeg_chunk = [
+                "ffmpeg", "-y",
+                "-f", "rawvideo", "-vcodec", "rawvideo",
+                "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24",
+                "-r", str(fps), "-i", "-",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+                "-pix_fmt", "yuv420p", chunk_mp4,
+            ]
+            proc = subprocess.Popen(ffmpeg_chunk, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            for f_i in range(n_frames):
+                sc_prog = f_i / float(max(1, n_frames - 1))
+                ov_prog = min(1.0, global_t / max(1.0, total_dur))
+                raw_frame = renderer.render_frame(
+                    script_data["topic"], sc, idx, total_scenes, sc_prog, global_t, ov_prog
+                )
+                proc.stdin.write(raw_frame)
+                global_t += dt
+
+            proc.stdin.close()
+            rc = proc.wait()
+            if rc != 0 or not os.path.exists(chunk_mp4):
+                raise RuntimeError(f"FFmpeg chunk encoding failed on Scene {idx + 1}.")
+            chunk_paths.append(chunk_mp4)
+            gc.collect()
+
+        update_job(job_id, progress=90, current_scene="Combining Chunks & Muxing Master Audio")
+        concat_file = os.path.join(work_dir, "chunks.txt")
+        with open(concat_file, "w", encoding="utf-8") as cf:
+            for cp in chunk_paths:
+                cf.write(f"file '{cp}'\n")
+
+        silent_joined = os.path.join(work_dir, "joined_video.mp4")
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_file, "-c", "copy", silent_joined],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
+
+        safe_slug = re.sub(r"[^a-zA-Z0-9]+", "_", script_data["topic"])[:36].strip("_") or "NEXUS_REALITY"
+        final_filename = f"NEXUS_{safe_slug}_{aspect_ratio.replace(':', 'x')}_{resolution}_{job_id}.mp4"
+        final_path = os.path.join(OUTPUT_DIR, final_filename)
+
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", silent_joined,
+                "-i", master_wav,
+                "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                "-shortest", final_path,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
+
+        update_job(job_id, progress=96, current_scene="Running Quality Control Verification")
+        ok, qc_msg, qc_meta = QualityControlEngine.validate_output(final_path, out_w, out_h)
+        if not ok:
+            raise RuntimeError(qc_msg)
+
+        meta_record = {
+            "job_id": job_id,
+            "topic": script_data["topic"],
+            "category": script_data["category"],
+            "aspect_ratio": aspect_ratio,
+            "resolution": resolution,
+            "fps": fps,
+            "file_name": final_filename,
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "audio_note": audio_note,
+            "qc": qc_meta,
+            "growth": script_data["growth"],
+        }
+        with open(os.path.join(OUTPUT_DIR, f"{job_id}.json"), "w", encoding="utf-8") as mf:
+            json.dump(meta_record, mf, indent=2)
+
+        update_job(
+            job_id,
+            status="done",
+            progress=100,
+            current_scene="Completed",
+            file_name=final_filename,
+            audio_note=audio_note,
+            qc_message=qc_msg,
+            qc_meta=qc_meta,
+            growth=script_data["growth"],
+        )
 
     except Exception as exc:
-        job["status"] = "error"
-        job["message"] = f"Render Error: {exc}"
+        update_job(job_id, status="error", error=str(exc), current_scene="Failed")
+    finally:
+        with JOBS_LOCK:
+            ACTIVE_JOB_IDS.discard(job_id)
+        shutil.rmtree(work_dir, ignore_errors=True)
+        gc.collect()
 
+
+# ==============================================================================
+# 9. FLASK REST API ENDPOINTS
+# ==============================================================================
 @app.route("/")
-def serve_home():
-    return send_file(os.path.join(BASE_DIR, "index.html"))
+def index():
+    return render_template("index.html")
 
-@app.route("/api/ping")
-def api_ping():
-    return jsonify({"ok": True})
 
-@app.route("/api/start", methods=["POST", "OPTIONS"])
+@app.route("/api/health", methods=["GET"])
+def api_health():
+    return jsonify({
+        "status": "ok",
+        "service": "NEXUS Worldwide Reality Video Generator",
+        "ffmpeg": HAS_FFMPEG,
+        "ffprobe": HAS_FFPROBE,
+        "offline_tts": HAS_ESPEAK,
+        "tts_engine": ESPEAK_BIN or "none",
+        "active_jobs": len(ACTIVE_JOB_IDS),
+        "queue_note": "In-memory job queue active; completed MP4 files persist in /app/output.",
+    })
+
+
+@app.route("/api/script/generate", methods=["POST"])
+def api_script_generate():
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic", "")).strip()
+    if len(topic) < 3:
+        return jsonify({"error": "Please enter a valid topic (at least 3 characters)."}), 400
+    if len(topic) > 220:
+        return jsonify({"error": "Topic is too long (maximum 220 characters)."}), 400
+
+    category = str(data.get("category", "Auto-Detect")).strip()
+    try:
+        duration_sec = int(data.get("duration_sec", 60))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid duration value."}), 400
+
+    if duration_sec < 30 or duration_sec > 180:
+        return jsonify({"error": "Duration must be between 30 and 180 seconds in v1.0."}), 400
+
+    user_sources = str(data.get("user_sources", "")).strip()
+    script_payload = IntelligenceEngine.generate_script(
+        topic=topic,
+        category=category,
+        duration_sec=duration_sec,
+        user_sources=user_sources,
+    )
+    return jsonify({"ok": True, "script": script_payload})
+
+
+@app.route("/api/audio/upload", methods=["POST"])
+def api_audio_upload():
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file field provided."}), 400
+    f = request.files["audio"]
+    if not f or not f.filename:
+        return jsonify({"error": "Empty audio filename."}), 400
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in (".wav", ".mp3", ".m4a", ".ogg"):
+        return jsonify({"error": "Unsupported audio format. Use WAV, MP3, M4A, or OGG."}), 400
+
+    audio_id = f"aud_{uuid.uuid4().hex[:12]}"
+    dest = os.path.join(UPLOAD_DIR, f"{audio_id}{ext}")
+    f.save(dest)
+    return jsonify({"ok": True, "audio_id": audio_id, "file_name": f.filename})
+
+
+@app.route("/api/start", methods=["POST"])
 def api_start():
-    if request.method == "OPTIONS":
-        return jsonify({"ok": True})
+    data = request.get_json(silent=True) or {}
+    script = data.get("script")
+    if not isinstance(script, dict) or not script.get("scenes"):
+        topic = str(data.get("topic", "")).strip()
+        if len(topic) < 3:
+            return jsonify({"error": "Provide a valid topic or pre-generated script."}), 400
+        script = IntelligenceEngine.generate_script(
+            topic=topic,
+            category=str(data.get("category", "Auto-Detect")),
+            duration_sec=int(data.get("duration_sec", 60)),
+            user_sources=str(data.get("user_sources", "")),
+        )
 
-    job_id = uuid.uuid4().hex[:10]
-    data = request.get_json(force=True) if request.is_json else request.form
-    ratio = data.get("ratio", "9:16")
-    custom_raw = data.get("custom_raw", "")
+    aspect_ratio = str(data.get("aspect_ratio", "16:9"))
+    if aspect_ratio not in ("16:9", "9:16", "1:1"):
+        return jsonify({"error": "Invalid aspect ratio. Choose 16:9, 9:16, or 1:1."}), 400
 
-    JOBS[job_id] = {"status": "running", "progress": 3, "message": "Starting Modern Esports Bengali Studio..."}
-    threading.Thread(
-        target=run_ultra_quiz_v2_job,
-        args=(job_id, ratio, custom_raw),
-        daemon=True
-    ).start()
-    return jsonify({"job_id": job_id})
+    resolution = str(data.get("resolution", "720p"))
+    if resolution not in ("720p", "1080p"):
+        return jsonify({"error": "Invalid resolution. Choose 720p or 1080p."}), 400
 
-@app.route("/api/status/<job_id>")
-def api_status(job_id):
-    return jsonify(JOBS.get(job_id, {"status": "error", "message": "Server restarted — click Generate again!"}))
+    with JOBS_LOCK:
+        if len(ACTIVE_JOB_IDS) >= 2:
+            return jsonify({"error": "Server is currently rendering 2 active jobs. Please wait for one to finish."}), 429
+        job_id = f"nx_{uuid.uuid4().hex[:12]}"
+        ACTIVE_JOB_IDS.add(job_id)
+        JOBS[job_id] = {
+            "job_id": job_id,
+            "topic": script.get("topic", "NEXUS Reality Video"),
+            "status": "queued",
+            "progress": 1,
+            "current_scene": "Queued for TURBO Render Engine",
+            "error": None,
+        }
 
-@app.route("/api/video/<job_id>")
-def api_video(job_id):
-    job = JOBS.get(job_id)
-    if not job or not job.get("file_path") or not os.path.exists(job["file_path"]):
-        return "Not ready", 404
-    return send_file(job["file_path"], as_attachment=(request.args.get("dl") == "1"), mimetype="video/mp4")
+    payload = {
+        "script": script,
+        "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
+        "fps": data.get("fps", 20),
+        "visual_style": data.get("visual_style", "nexus_obsidian"),
+        "voice_mode": data.get("voice_mode", "offline_tts"),
+        "voice_variant": data.get("voice_variant", "en-us"),
+        "speaking_speed": data.get("speaking_speed", 155),
+        "music_volume": data.get("music_volume", 0.25),
+        "uploaded_audio_id": data.get("uploaded_audio_id", ""),
+    }
+
+    threading.Thread(target=run_render_pipeline, args=(job_id, payload), daemon=True).start()
+    return jsonify({"ok": True, "job_id": job_id})
+
+
+@app.route("/api/status/<job_id>", methods=["GET"])
+def api_status(job_id: str):
+    if not is_safe_id(job_id):
+        return jsonify({"error": "Invalid job ID format."}), 400
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        meta_file = os.path.join(OUTPUT_DIR, f"{job_id}.json")
+        if os.path.exists(meta_file):
+            with open(meta_file, "r", encoding="utf-8") as mf:
+                saved = json.load(mf)
+            return jsonify({
+                "job_id": job_id,
+                "status": "done",
+                "progress": 100,
+                "current_scene": "Completed",
+                "file_name": saved.get("file_name"),
+                "qc_meta": saved.get("qc", {}),
+                "growth": saved.get("growth", {}),
+            })
+        return jsonify({"error": "Job not found (server may have restarted while rendering)."}), 404
+    return jsonify(job)
+
+
+@app.route("/api/video/<job_id>", methods=["GET"])
+def api_video(job_id: str):
+    if not is_safe_id(job_id):
+        return jsonify({"error": "Invalid job ID."}), 400
+
+    meta_file = os.path.join(OUTPUT_DIR, f"{job_id}.json")
+    if not os.path.exists(meta_file):
+        return jsonify({"error": "Rendered video metadata not found."}), 404
+
+    with open(meta_file, "r", encoding="utf-8") as mf:
+        saved = json.load(mf)
+    fname = os.path.basename(saved.get("file_name", ""))
+    target = os.path.join(OUTPUT_DIR, fname)
+    if not fname or not os.path.exists(target):
+        return jsonify({"error": "MP4 file missing on disk."}), 404
+
+    as_dl = request.args.get("dl") == "1"
+    return send_file(target, as_attachment=as_dl, download_name=fname, mimetype="video/mp4")
+
+
+@app.route("/api/library", methods=["GET"])
+def api_library():
+    items: List[Dict[str, Any]] = []
+    for fname in sorted(os.listdir(OUTPUT_DIR), reverse=True):
+        if fname.endswith(".json"):
+            fpath = os.path.join(OUTPUT_DIR, fname)
+            try:
+                with open(fpath, "r", encoding="utf-8") as mf:
+                    rec = json.load(mf)
+                mp4_name = os.path.basename(rec.get("file_name", ""))
+                if mp4_name and os.path.exists(os.path.join(OUTPUT_DIR, mp4_name)):
+                    items.append(rec)
+            except Exception:
+                pass
+    return jsonify({"ok": True, "videos": items})
+
+
+@app.route("/api/job/<job_id>", methods=["DELETE"])
+def api_delete_job(job_id: str):
+    if not is_safe_id(job_id):
+        return jsonify({"error": "Invalid job ID."}), 400
+    with JOBS_LOCK:
+        if job_id in ACTIVE_JOB_IDS:
+            return jsonify({"error": "Cannot delete an actively rendering job."}), 409
+        JOBS.pop(job_id, None)
+
+    meta_file = os.path.join(OUTPUT_DIR, f"{job_id}.json")
+    if os.path.exists(meta_file):
+        try:
+            with open(meta_file, "r", encoding="utf-8") as mf:
+                rec = json.load(mf)
+            mp4_name = os.path.basename(rec.get("file_name", ""))
+            if mp4_name:
+                mp4_path = os.path.join(OUTPUT_DIR, mp4_name)
+                if os.path.exists(mp4_path):
+                    os.remove(mp4_path)
+            os.remove(meta_file)
+        except Exception as exc:
+            return jsonify({"error": f"Failed to delete files: {exc}"}), 500
+
+    return jsonify({"ok": True, "deleted": job_id})
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
