@@ -25,9 +25,6 @@ try:
 except ImportError:
     HAS_EDGE_TTS = False
 
-# ==============================================================================
-# 1. CONFIGURATION & ZERO-BLOAT STORAGE
-# ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -64,10 +61,6 @@ def purge_old_files(max_age_sec: int = 600):
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
-
-# ==============================================================================
-# 2. TYPOGRAPHY & MATH HELPERS
-# ==============================================================================
 _FONT_CACHE: Dict[Tuple[str, int], ImageFont.FreeTypeFont] = {}
 
 
@@ -102,52 +95,57 @@ def ease_in_out(t: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-# ==============================================================================
-# 3. CINEMATIC SCENE VISUAL FETCHER (POLLINATIONS FLUX + WIKIMEDIA BACKUP)
-# ==============================================================================
 def fetch_scene_visual(prompt: str, genre: str, out_path: str, width: int, height: int) -> bool:
+    """Rate-limit safe visual fetcher with 3 retries + Wikimedia backup so scenes never stay empty."""
     clean_p = re.sub(r"[^a-zA-Z0-9,\s-]", "", str(prompt or "")).strip()
     if not clean_p:
         return False
 
     style_suffix = {
-        "horror": ", dark eerie horror cinema still, volumetric fog, dramatic shadows, 8k photorealistic",
+        "horror": ", dark eerie horror movie still, volumetric fog, dramatic shadows, 8k photorealistic",
         "romantic": ", warm golden hour romantic movie still, soft bokeh, emotional lighting, 8k photorealistic",
         "documentary": ", ultra detailed IMAX documentary still, dramatic lighting, 8k",
     }.get(genre, ", cinematic lighting, 8k photorealistic")
 
-    for attempt in range(2):
+    # 3 attempts with polite pacing so Pollinations never triggers 429 rate-limit
+    for attempt in range(3):
         try:
+            if attempt > 0:
+                time.sleep(2.5 * attempt)
             full_prompt = urllib.parse.quote(clean_p + style_suffix)
-            seed = (abs(hash(clean_p)) + attempt * 2027) % 99999
+            seed = (abs(hash(clean_p)) + attempt * 3137) % 99999
+            model_name = "flux" if attempt < 2 else "turbo"
             ai_url = (
                 f"https://image.pollinations.ai/prompt/{full_prompt}"
-                f"?width={width}&height={height}&seed={seed}&model=flux&nologo=true"
+                f"?width={width}&height={height}&seed={seed}&model={model_name}&nologo=true"
             )
-            req = urllib.request.Request(ai_url, headers={"User-Agent": "Mozilla/5.0 NEXORAStudio/5.0"})
-            with urllib.request.urlopen(req, timeout=22) as resp:
+            req = urllib.request.Request(ai_url, headers={"User-Agent": "Mozilla/5.0 NEXORAStudio/5.2"})
+            with urllib.request.urlopen(req, timeout=28) as resp:
                 data = resp.read()
             if len(data) > 12_000:
                 with open(out_path, "wb") as f:
                     f.write(data)
+                time.sleep(1.5)  # Polite gap before next scene
                 return True
         except Exception:
-            time.sleep(1.2)
+            pass
 
+    # Backup: Wikimedia Commons search using top 3 keywords
+    kw = " ".join(clean_p.split()[:4])
     try:
         api_url = (
             "https://commons.wikimedia.org/w/api.php?action=query&generator=search"
-            f"&gsrsearch={urllib.parse.quote(clean_p)}&gsrnamespace=6&gsrlimit=4"
+            f"&gsrsearch={urllib.parse.quote(kw)}&gsrnamespace=6&gsrlimit=5"
             "&prop=imageinfo&iiprop=url&iiurlwidth=960&format=json"
         )
-        req = urllib.request.Request(api_url, headers={"User-Agent": "NEXORAStudio/5.0 (Educational)"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        req = urllib.request.Request(api_url, headers={"User-Agent": "NEXORAStudio/5.2 (Educational)"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
             info = json.loads(resp.read().decode("utf-8"))
         for _, page in info.get("query", {}).get("pages", {}).items():
             ii = page.get("imageinfo", [{}])[0]
             u = ii.get("thumburl") or ii.get("url", "")
             if u and any(u.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp")):
-                ireq = urllib.request.Request(u, headers={"User-Agent": "NEXORAStudio/5.0"})
+                ireq = urllib.request.Request(u, headers={"User-Agent": "NEXORAStudio/5.2"})
                 with urllib.request.urlopen(ireq, timeout=10) as iresp:
                     with open(out_path, "wb") as f:
                         f.write(iresp.read())
@@ -159,86 +157,8 @@ def fetch_scene_visual(prompt: str, genre: str, out_path: str, width: int, heigh
     return False
 
 
-# ==============================================================================
-# 4. MULTI-CHARACTER SCRIPT PARSER
-# ==============================================================================
-BUILTIN_TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
-    "horror": [
-        {
-            "speaker": "narrator",
-            "visual_prompt": "abandoned dark railway station in dense midnight fog glowing vintage lamp",
-            "hinglish": "Raat ke 1 baje us sunsan station par aakhiri train rukne wali thi...",
-            "hindi_dub": "रात के ठीक एक बजे, उस सुनसान रेलवे स्टेशन पर आखिरी ट्रेन रुकने वाली थी।",
-        },
-        {
-            "speaker": "male",
-            "visual_prompt": "young Indian man holding lantern on misty dark train platform looking around",
-            "hinglish": "Koi hai yahan? Yeh station itna khali kyun hai!",
-            "hindi_dub": "कोई है यहां? यह पूरा स्टेशन इतना खाली और सुनसान क्यों पड़ा है!",
-        },
-        {
-            "speaker": "female",
-            "visual_prompt": "mysterious woman in white saree standing under flickering lamp in thick fog",
-            "hinglish": "Tum jis train se aaye ho, woh 10 saal pehle hi hadse ka shikar ho gayi thi!",
-            "hindi_dub": "तुम जिस ट्रेन से आए हो, वह तो दस साल पहले ही हादसे का शिकार हो गई थी।",
-        },
-        {
-            "speaker": "child",
-            "visual_prompt": "eerie small child shadow standing near rusty train tracks in moonlight",
-            "hinglish": "Bhaiya, peeche mat mudna... yahan se koi wapas nahi jata!",
-            "hindi_dub": "भैया, पीछे मत मुड़ना... यहां से कोई कभी वापस नहीं जाता!",
-        },
-        {
-            "speaker": "narrator",
-            "visual_prompt": "sunrise breaking through misty pine forest dawn light",
-            "hinglish": "Subah hone par Rohan bach gaya, par us raat ka raaz aaj bhi zinda hai.",
-            "hindi_dub": "सुबह की पहली किरण के साथ रोहन बच तो गया, लेकिन उस रात का रहस्य आज भी ज़िंदा है।",
-        },
-    ],
-    "romantic": [
-        {
-            "speaker": "narrator",
-            "visual_prompt": "two lovers standing under umbrella on rainy street warm streetlamps",
-            "hinglish": "Baarish ki us pehli shaam mein unki nazrein mili aur waqt tham gaya.",
-            "hindi_dub": "बारिश की उस पहली शाम में उनकी नज़रें मिलीं, और मानो वक्त वहीं थम गया।",
-        },
-        {
-            "speaker": "female",
-            "visual_prompt": "emotional young Indian woman looking out rainy window warm golden light",
-            "hinglish": "Kya tum hamesha mere saath rahoge, chahe halat kuch bhi hon?",
-            "hindi_dub": "क्या तुम हमेशा मेरे साथ रहोगे, चाहे हालात कुछ भी हों?",
-        },
-        {
-            "speaker": "male",
-            "visual_prompt": "young Indian man smiling warmly holding hands in golden sunset light",
-            "hinglish": "Jab tak meri saansein hain, mera har pal sirf tumhara hai.",
-            "hindi_dub": "जब तक मेरी सांसें चल रही हैं, मेरा हर पल सिर्फ़ तुम्हारा है।",
-        },
-    ],
-    "documentary": [
-        {
-            "speaker": "narrator",
-            "visual_prompt": "supermassive black hole glowing accretion disk deep space",
-            "hinglish": "Agar Suraj ki jagah Black Hole aa jaye to kya Prithvi usmein sama jayegi?",
-            "hindi_dub": "अगर हमारे सूरज की जगह उतने ही वजन का एक ब्लैक होल आ जाए, तो क्या पृथ्वी उसमें समा जाएगी?",
-        },
-        {
-            "speaker": "narrator",
-            "visual_prompt": "frozen dark Earth in deep space with glowing blue atmosphere",
-            "hinglish": "Gravity same rahegi, par 8 minute baad poori Prithvi par ghup andhera chha jayega.",
-            "hindi_dub": "गुरुत्वाकर्षण तो वही रहेगा, लेकिन आठ मिनट बाद पूरी पृथ्वी पर घना अंधेरा छा जाएगा।",
-        },
-    ],
-}
-
-
 def parse_scenes(topic: str, genre: str, custom_script: str, duration_min: float) -> Tuple[str, List[Dict[str, Any]]]:
-    """
-    5-Column Multi-Voice Format:
-    Speaker(narrator / male / female / child) | English Scene Image Prompt | Hinglish Caption | Spoken Hindi Dubbing
-    (Also supports 5-column format with Visual Mode in col 1 for backward compatibility).
-    """
-    clean_topic = (topic or "").strip() or "Raat Ke 1 Baje Aakhiri Train"
+    clean_topic = (topic or "").strip() or "Purani Haveli Ka Rahasya"
     parsed: List[Dict[str, Any]] = []
 
     for line in str(custom_script or "").splitlines():
@@ -248,43 +168,34 @@ def parse_scenes(topic: str, genre: str, custom_script: str, duration_min: float
         parts = [p.strip() for p in line.split("|")]
         if len(parts) >= 4:
             sp = parts[0].lower()
-            if sp in ("narrator", "male", "female", "child"):
-                parsed.append({
-                    "speaker": sp,
-                    "visual_prompt": parts[1],
-                    "hinglish": parts[2],
-                    "hindi_dub": parts[3],
-                })
-            elif len(parts) >= 5:
-                # Backward compatibility with previous 5-col format
-                parsed.append({
-                    "speaker": "narrator",
-                    "visual_prompt": parts[1],
-                    "hinglish": parts[3],
-                    "hindi_dub": parts[4],
-                })
+            if sp not in ("narrator", "male", "female", "child"):
+                sp = "narrator"
+            parsed.append({
+                "speaker": sp,
+                "visual_prompt": parts[1],
+                "hinglish": parts[2],
+                "hindi_dub": parts[3],
+            })
 
     if not parsed:
-        tpl = BUILTIN_TEMPLATES.get(genre, BUILTIN_TEMPLATES["horror"])
-        parsed = [dict(x) for x in tpl]
+        parsed = [
+            {
+                "speaker": "narrator",
+                "visual_prompt": "abandoned dark Indian mansion gate at midnight in thick fog",
+                "hinglish": "Raat ke 12 baje us purani haveli ka darwaza apne aap khul gaya.",
+                "hindi_dub": "रात के ठीक बारह बजे, उस पुरानी हवेली का भारी दरवाज़ा अपने आप खुल गया।",
+            }
+        ]
 
     target_sec = max(15.0, min(900.0, float(duration_min) * 60.0))
     base_d = round(target_sec / float(len(parsed)), 2)
     scenes: List[Dict[str, Any]] = []
     for i, sc in enumerate(parsed):
-        scenes.append({
-            **sc,
-            "index": i + 1,
-            "duration_sec": max(3.5, base_d),
-        })
+        scenes.append({**sc, "index": i + 1, "duration_sec": max(3.0, base_d)})
     return clean_topic, scenes
 
 
-# ==============================================================================
-# 5. MULTI-CHARACTER HUMAN VOICE ENGINE + CRYSTAL-CLEAR STUDIO BGM
-# ==============================================================================
 class NexoraVoiceAndMusicEngine:
-    # Distinct expressive profiles for Narrator, Male, Female, and Child characters
     SPEAKER_PROFILES = {
         "narrator": {"voice": "hi-IN-MadhurNeural", "rate": "-2%", "pitch": "-4Hz"},
         "male": {"voice": "hi-IN-MadhurNeural", "rate": "+3%", "pitch": "+2Hz"},
@@ -329,10 +240,9 @@ class NexoraVoiceAndMusicEngine:
 
         speech_dur = cls.probe_dur(mp3_p)
         if speech_dur <= 0.25:
-            raise RuntimeError(f"Voice generation failed on scene {idx + 1}. Please retry.")
+            raise RuntimeError(f"Voice generation failed on scene {idx + 1}.")
 
-        # Exact speech duration + crisp 0.45s cinematic beat (never cuts off!)
-        final_dur = round(speech_dur + 0.45, 2)
+        final_dur = round(speech_dur + 0.40, 2)
         subprocess.run(
             [
                 "ffmpeg", "-y", "-i", mp3_p,
@@ -348,7 +258,6 @@ class NexoraVoiceAndMusicEngine:
 
     @staticmethod
     def build_clean_cinema_bgm(total_dur: float, genre: str, out_wav: str):
-        """Pure harmonic cinema score — ZERO static/white-noise hiss."""
         rate = 22050
         with wave.open(out_wav, "wb") as wf:
             wf.setnchannels(1)
@@ -364,13 +273,11 @@ class NexoraVoiceAndMusicEngine:
                 t = np.linspace(cur, cur + dur, n, endpoint=False, dtype=np.float32)
 
                 if genre == "horror":
-                    # Clean deep cello-like sub-drone + slow double heartbeat thump (no static hiss)
                     drone = 0.55 * np.sin(2.0 * np.pi * 41.20 * t) + 0.30 * np.sin(2.0 * np.pi * 61.74 * t)
                     beat1 = np.exp(-((t % 1.6) * 12.0)) * np.sin(2.0 * np.pi * 52.0 * t) * 0.65
                     beat2 = np.exp(-(((t - 0.24) % 1.6) * 14.0)) * np.sin(2.0 * np.pi * 48.0 * t) * 0.45
                     sig = (drone + beat1 + beat2) * 0.14
                 elif genre == "romantic":
-                    # Warm clean piano-pad major7 chord progression
                     pad = (
                         0.40 * np.sin(2.0 * np.pi * 130.81 * t)
                         + 0.30 * np.sin(2.0 * np.pi * 164.81 * t)
@@ -389,9 +296,6 @@ class NexoraVoiceAndMusicEngine:
                 gc.collect()
 
 
-# ==============================================================================
-# 6. HIGH-RETENTION CINEMA RENDERER (HOOK PUNCH + PHRASE-SYNCED CAPTIONS)
-# ==============================================================================
 class NexoraCinemaRenderer:
     def __init__(self, width: int, height: int, genre: str = "horror"):
         self.w = width
@@ -406,20 +310,21 @@ class NexoraCinemaRenderer:
             rng.uniform(1.0, 2.8, 60),
             rng.uniform(0.4, 1.2, 60),
         ])
-        self._fallback_art = self._build_genre_art()
 
-    def _build_genre_art(self) -> Image.Image:
+    def _build_scene_fallback(self, sc_idx: int) -> Image.Image:
+        """Generates unique per-scene architectural/atmospheric fallback art so two scenes never look identical."""
         yy, xx = np.mgrid[0 : self.h, 0 : self.w]
         nx = (xx - self.w * 0.5) / (self.w * 0.65)
         ny = (yy - self.h * 0.38) / (self.h * 0.65)
         rad = np.clip(1.0 - 0.85 * (nx * nx + ny * ny), 0.0, 1.0).astype(np.float32)
 
-        if self.genre == "horror":
-            top, bot = (48, 12, 22), (4, 5, 10)
-        elif self.genre == "romantic":
-            top, bot = (68, 28, 48), (12, 6, 18)
-        else:
-            top, bot = (12, 26, 56), (3, 5, 13)
+        palettes = [
+            ((48, 12, 22), (4, 5, 10)),
+            ((14, 24, 46), (3, 5, 10)),
+            ((38, 16, 44), (5, 4, 12)),
+            ((42, 22, 14), (6, 4, 8)),
+        ]
+        top, bot = palettes[sc_idx % len(palettes)] if self.genre == "horror" else ((68, 28, 48), (12, 6, 18))
 
         arr = np.zeros((self.h, self.w, 3), dtype=np.uint8)
         for c in range(3):
@@ -428,21 +333,31 @@ class NexoraCinemaRenderer:
         img = Image.fromarray(arr, mode="RGB")
         draw = ImageDraw.Draw(img)
 
-        if self.genre == "horror":
-            mx, my, mr = int(self.w * 0.5), int(self.h * 0.32), int(62 * self.sc)
-            draw.ellipse([mx - mr - 14, my - mr - 14, mx + mr + 14, my + mr + 14], fill=(95, 22, 36))
+        variant = sc_idx % 3
+        if variant == 0:
+            # Mansion arch & glowing windows
+            cx = self.w // 2
+            draw.rectangle([cx - int(140 * self.sc), int(self.h * 0.25), cx + int(140 * self.sc), self.h], fill=(8, 10, 16))
+            for wx in (-70, 0, 70):
+                draw.rectangle([cx + int((wx - 18) * self.sc), int(self.h * 0.34), cx + int((wx + 18) * self.sc), int(self.h * 0.48)], fill=(251, 191, 36))
+        elif variant == 1:
+            # Dark corridor perspective lines + distant doorway light
+            cx, cy = self.w // 2, int(self.h * 0.45)
+            for corner in [(0, 0), (self.w, 0), (0, self.h), (self.w, self.h)]:
+                draw.line([corner, (cx, cy)], fill=(30, 41, 59), width=2)
+            draw.rectangle([cx - int(36 * self.sc), cy - int(65 * self.sc), cx + int(36 * self.sc), cy + int(65 * self.sc)], fill=(226, 232, 240))
+        else:
+            # Moonlit forest silhouettes
+            mx, my, mr = int(self.w * 0.5), int(self.h * 0.30), int(56 * self.sc)
             draw.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=(226, 232, 240))
-            rng = np.random.default_rng(99)
-            for _ in range(26):
+            rng = np.random.default_rng(100 + sc_idx)
+            for _ in range(24):
                 tx = int(rng.uniform(0, self.w))
-                tw = int(rng.uniform(10, 26) * self.sc)
+                tw = int(rng.uniform(12, 28) * self.sc)
                 th = int(rng.uniform(self.h * 0.35, self.h * 0.72))
                 draw.polygon([(tx, self.h), (tx + tw // 2, self.h - th), (tx + tw, self.h)], fill=(6, 7, 12))
-        elif self.genre == "romantic":
-            sx, sy, sr = int(self.w * 0.5), int(self.h * 0.36), int(76 * self.sc)
-            draw.ellipse([sx - sr - 20, sy - sr - 20, sx + sr + 20, sy + sr + 20], fill=(135, 58, 72))
-            draw.ellipse([sx - sr, sy - sr, sx + sr, sy + sr], fill=(253, 186, 116))
-        return img
+
+        return img.resize((int(self.w * 1.22), int(self.h * 1.22)), Image.Resampling.BILINEAR)
 
     def prepare_photo(self, img_path: Optional[str]) -> Optional[Image.Image]:
         if not img_path or not os.path.exists(img_path):
@@ -458,7 +373,6 @@ class NexoraCinemaRenderer:
             return None
 
     def _draw_synced_phrase_caption(self, draw: ImageDraw.Draw, text: str, speaker: str, sc_prog: float):
-        """Displays 4-5 words at a time synced strictly to the active voice timeline so captions never lag."""
         words = str(text or "").split()
         if not words:
             return
@@ -468,7 +382,6 @@ class NexoraCinemaRenderer:
         active_idx = min(len(chunks) - 1, int(sc_prog * len(chunks)))
         phrase = chunks[active_idx]
 
-        # Speaker badge label
         sp_labels = {
             "narrator": ("KATHAVACHAK", (251, 191, 36)),
             "male": ("MALE VOICE", (56, 189, 248)),
@@ -490,15 +403,12 @@ class NexoraCinemaRenderer:
         by1 = self.h - int(22 * self.sc)
         by0 = by1 - box_h
 
-        # Subtle pop-in bounce per phrase
         phrase_local_t = (sc_prog * len(chunks)) - active_idx
         pop = int((1.0 - min(1.0, phrase_local_t / 0.15)) * 10 * self.sc)
         by0 += pop
         by1 += pop
 
         draw.rounded_rectangle([bx0, by0, bx0 + box_w, by1], radius=14, fill=(6, 9, 18), outline=sp_col, width=2)
-
-        # Speaker pill on top-left of subtitle card
         draw.text((bx0 + int(14 * self.sc), by0 + int(5 * self.sc)), sp_tag, font=f_tag, fill=sp_col)
 
         tx = (self.w - pw) // 2
@@ -513,15 +423,11 @@ class NexoraCinemaRenderer:
         sc_prog: float,
         global_t: float,
         ov_prog: float,
-        photo_img: Optional[Image.Image] = None,
+        base_img: Image.Image,
     ) -> bytes:
-        base_img = photo_img if photo_img is not None else self._fallback_art.resize((int(self.w * 1.22), int(self.h * 1.22)), Image.Resampling.BILINEAR)
         pw, ph = base_img.size
-
-        # Dynamic Camera Motion: Opening Hook Punch-In on Scene 1 + Alternating Pan/Zoom
         e = ease_in_out(sc_prog)
         if sc_idx == 0:
-            # Fast hook zoom-in on first scene for instant retention
             scale = 1.0 + 0.14 * min(1.0, sc_prog * 1.6)
         elif sc_idx % 2 == 0:
             scale = 1.02 + 0.10 * e
@@ -536,14 +442,12 @@ class NexoraCinemaRenderer:
         ox = int(max_dx * (e if sc_idx % 2 == 0 else (1.0 - e)))
         oy = int(max_dy * 0.45)
 
-        # Subtle horror camera tremor on intense scenes
         if self.genre == "horror" and sc_idx == 0 and sc_prog < 0.25:
             ox = max(0, min(max_dx, ox + int(math.sin(global_t * 38.0) * 6 * self.sc)))
 
         frame = base_img.crop((ox, oy, ox + crop_w, oy + crop_h)).resize((self.w, self.h), Image.Resampling.BILINEAR)
         draw = ImageDraw.Draw(frame)
 
-        # Atmospheric floating particles
         p_col = (244, 63, 94) if self.genre == "horror" else ((253, 224, 71) if self.genre == "romantic" else (186, 230, 253))
         for px0, py0, pr, spd in self.particles:
             px = (px0 + global_t * 16.0 * spd) % self.w
@@ -551,10 +455,8 @@ class NexoraCinemaRenderer:
             r_px = max(1, int(pr * self.sc * 0.7))
             draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=p_col)
 
-        # Phrase-synced dynamic subtitle card
         self._draw_synced_phrase_caption(draw, scene["hinglish"], scene.get("speaker", "narrator"), sc_prog)
 
-        # Thin cinema progress line at bottom edge
         bar_w = int(self.w * ov_prog)
         accent_c = (244, 63, 94) if self.genre == "horror" else ((244, 114, 182) if self.genre == "romantic" else (34, 211, 238))
         draw.rectangle([0, self.h - 4, bar_w, self.h], fill=accent_c)
@@ -562,9 +464,6 @@ class NexoraCinemaRenderer:
         return frame.tobytes()
 
 
-# ==============================================================================
-# 7. STREAMING RENDER PIPELINE (BUILT-IN MULTI-VOICE OR ELEVENLABS UPLOAD SYNC)
-# ==============================================================================
 def update_job(job_id: str, **kwargs):
     with JOBS_LOCK:
         if job_id in JOBS:
@@ -595,7 +494,6 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
         voice_source = str(payload.get("voice_source", "builtin_multi")).lower()
         uploaded_audio_id = str(payload.get("uploaded_audio_id", "")).strip()
 
-        # Check if user uploaded custom ElevenLabs audio
         uploaded_audio_path: Optional[str] = None
         if voice_source == "uploaded" and is_safe_id(uploaded_audio_id):
             for fn in os.listdir(UPLOAD_DIR):
@@ -603,9 +501,8 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                     uploaded_audio_path = os.path.join(UPLOAD_DIR, fn)
                     break
             if not uploaded_audio_path:
-                raise FileNotFoundError("Uploaded ElevenLabs audio file not found. Please upload again.")
+                raise FileNotFoundError("Uploaded ElevenLabs audio file not found.")
 
-            # Auto-align every scene duration proportionally to the exact length of ElevenLabs audio!
             total_el_dur = NexoraVoiceAndMusicEngine.probe_dur(uploaded_audio_path)
             if total_el_dur <= 1.0:
                 raise RuntimeError("Uploaded audio file is invalid or empty.")
@@ -651,6 +548,7 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                 if os.path.exists(img_file):
                     os.remove(img_file)
 
+            base_img = photo_img if photo_img is not None else renderer._build_scene_fallback(idx)
             n_frames = max(1, int(round(actual_dur * fps)))
             v_chunk = os.path.join(work_dir, f"v_{idx:03d}.mp4")
 
@@ -673,7 +571,7 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                     f_i / float(max(1, n_frames - 1)),
                     global_t,
                     min(1.0, global_t / max(1.0, est_total_dur)),
-                    photo_img=photo_img,
+                    base_img=base_img,
                 )
                 proc.stdin.write(raw)
                 global_t += dt
@@ -684,6 +582,7 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
 
             video_chunks.append(v_chunk)
             photo_img = None
+            base_img = None
             gc.collect()
 
         update_job(job_id, progress=91, current_scene="Mastering Clean Cinema Audio & Final MP4...")
@@ -698,7 +597,6 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
         )
 
-        # Build Master Voice Track (either ElevenLabs uploaded file or joined Multi-Character Dub)
         master_voice = os.path.join(work_dir, "master_voice.wav")
         if voice_source == "uploaded" and uploaded_audio_path:
             subprocess.run(
@@ -758,9 +656,6 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
         gc.collect()
 
 
-# ==============================================================================
-# 8. REST API
-# ==============================================================================
 @app.route("/")
 def index():
     return send_file(os.path.join(BASE_DIR, "index.html"))
