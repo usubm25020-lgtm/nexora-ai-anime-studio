@@ -25,20 +25,25 @@ try:
 except ImportError:
     HAS_EDGE_TTS = False
 
+# ==============================================================================
+# 1. CONFIGURATION & EPHEMERAL WORKSPACE
+# ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+SESSIONS_DIR = os.path.join(BASE_DIR, "sessions")
 TMP_ROOT = os.path.join(BASE_DIR, "tmp_work")
 
-for d in (OUTPUT_DIR, UPLOAD_DIR, TMP_ROOT):
+for d in (OUTPUT_DIR, UPLOAD_DIR, SESSIONS_DIR, TMP_ROOT):
     os.makedirs(d, exist_ok=True)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024
 
+SESSIONS: Dict[str, Dict[str, Any]] = {}
 JOBS: Dict[str, Dict[str, Any]] = {}
-JOBS_LOCK = threading.Lock()
-ACTIVE_JOB_IDS = set()
+LOCK = threading.Lock()
+ACTIVE_JOBS = set()
 SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{6,40}$")
 
 
@@ -46,16 +51,23 @@ def is_safe_id(val: str) -> bool:
     return bool(val and SAFE_ID_RE.match(val))
 
 
-def purge_old_files(max_age_sec: int = 600):
+def purge_expired(max_age_sec: int = 1800):
     now = time.time()
     for folder in (OUTPUT_DIR, UPLOAD_DIR):
         try:
-            for fname in os.listdir(folder):
-                fpath = os.path.join(folder, fname)
-                if os.path.isfile(fpath) and (now - os.path.getmtime(fpath)) > max_age_sec:
-                    os.remove(fpath)
+            for fn in os.listdir(folder):
+                fp = os.path.join(folder, fn)
+                if os.path.isfile(fp) and (now - os.path.getmtime(fp)) > max_age_sec:
+                    os.remove(fp)
         except Exception:
             pass
+    try:
+        for sid in os.listdir(SESSIONS_DIR):
+            sp = os.path.join(SESSIONS_DIR, sid)
+            if os.path.isdir(sp) and (now - os.path.getmtime(sp)) > max_age_sec:
+                shutil.rmtree(sp, ignore_errors=True)
+    except Exception:
+        pass
 
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
@@ -95,8 +107,10 @@ def ease_in_out(t: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-def fetch_scene_visual(prompt: str, genre: str, out_path: str, width: int, height: int) -> bool:
-    """Rate-limit safe visual fetcher with 3 retries + Wikimedia backup so scenes never stay empty."""
+# ==============================================================================
+# 2. SCENE VISUAL FETCHER (POLLINATIONS FLUX + WIKIMEDIA BACKUP)
+# ==============================================================================
+def fetch_single_visual(prompt: str, genre: str, out_path: str, width: int, height: int) -> bool:
     clean_p = re.sub(r"[^a-zA-Z0-9,\s-]", "", str(prompt or "")).strip()
     if not clean_p:
         return False
@@ -107,45 +121,43 @@ def fetch_scene_visual(prompt: str, genre: str, out_path: str, width: int, heigh
         "documentary": ", ultra detailed IMAX documentary still, dramatic lighting, 8k",
     }.get(genre, ", cinematic lighting, 8k photorealistic")
 
-    # 3 attempts with polite pacing so Pollinations never triggers 429 rate-limit
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             if attempt > 0:
-                time.sleep(2.5 * attempt)
+                time.sleep(2.0)
             full_prompt = urllib.parse.quote(clean_p + style_suffix)
             seed = (abs(hash(clean_p)) + attempt * 3137) % 99999
-            model_name = "flux" if attempt < 2 else "turbo"
+            model_name = "flux" if attempt == 0 else "turbo"
             ai_url = (
                 f"https://image.pollinations.ai/prompt/{full_prompt}"
                 f"?width={width}&height={height}&seed={seed}&model={model_name}&nologo=true"
             )
-            req = urllib.request.Request(ai_url, headers={"User-Agent": "Mozilla/5.0 NEXORAStudio/5.2"})
-            with urllib.request.urlopen(req, timeout=28) as resp:
+            req = urllib.request.Request(ai_url, headers={"User-Agent": "Mozilla/5.0 NEXORAStudio/6.0"})
+            with urllib.request.urlopen(req, timeout=24) as resp:
                 data = resp.read()
             if len(data) > 12_000:
                 with open(out_path, "wb") as f:
                     f.write(data)
-                time.sleep(1.5)  # Polite gap before next scene
                 return True
         except Exception:
             pass
 
-    # Backup: Wikimedia Commons search using top 3 keywords
+    # Fallback: Wikimedia Commons
     kw = " ".join(clean_p.split()[:4])
     try:
         api_url = (
             "https://commons.wikimedia.org/w/api.php?action=query&generator=search"
-            f"&gsrsearch={urllib.parse.quote(kw)}&gsrnamespace=6&gsrlimit=5"
+            f"&gsrsearch={urllib.parse.quote(kw)}&gsrnamespace=6&gsrlimit=4"
             "&prop=imageinfo&iiprop=url&iiurlwidth=960&format=json"
         )
-        req = urllib.request.Request(api_url, headers={"User-Agent": "NEXORAStudio/5.2 (Educational)"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        req = urllib.request.Request(api_url, headers={"User-Agent": "NEXORAStudio/6.0 (Educational)"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
             info = json.loads(resp.read().decode("utf-8"))
         for _, page in info.get("query", {}).get("pages", {}).items():
             ii = page.get("imageinfo", [{}])[0]
             u = ii.get("thumburl") or ii.get("url", "")
             if u and any(u.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp")):
-                ireq = urllib.request.Request(u, headers={"User-Agent": "NEXORAStudio/5.2"})
+                ireq = urllib.request.Request(u, headers={"User-Agent": "NEXORAStudio/6.0"})
                 with urllib.request.urlopen(ireq, timeout=10) as iresp:
                     with open(out_path, "wb") as f:
                         f.write(iresp.read())
@@ -157,10 +169,15 @@ def fetch_scene_visual(prompt: str, genre: str, out_path: str, width: int, heigh
     return False
 
 
-def parse_scenes(topic: str, genre: str, custom_script: str, duration_min: float) -> Tuple[str, List[Dict[str, Any]]]:
-    clean_topic = (topic or "").strip() or "Purani Haveli Ka Rahasya"
-    parsed: List[Dict[str, Any]] = []
-
+# ==============================================================================
+# 3. SCRIPT PARSER (ZERO DUMMY DATA)
+# ==============================================================================
+def parse_user_script(custom_script: str) -> List[Dict[str, Any]]:
+    """
+    Strictly parses user-provided 4-column script:
+    Speaker(narrator/male/female/child) | English Scene Image Prompt | Hinglish Subtitle | Spoken Hindi Dubbing
+    """
+    scenes: List[Dict[str, Any]] = []
     for line in str(custom_script or "").splitlines():
         line = line.strip()
         if not line or "|" not in line:
@@ -170,37 +187,28 @@ def parse_scenes(topic: str, genre: str, custom_script: str, duration_min: float
             sp = parts[0].lower()
             if sp not in ("narrator", "male", "female", "child"):
                 sp = "narrator"
-            parsed.append({
+            scenes.append({
+                "index": len(scenes),
                 "speaker": sp,
                 "visual_prompt": parts[1],
                 "hinglish": parts[2],
                 "hindi_dub": parts[3],
+                "image_ready": False,
+                "image_file": "",
             })
-
-    if not parsed:
-        parsed = [
-            {
-                "speaker": "narrator",
-                "visual_prompt": "abandoned dark Indian mansion gate at midnight in thick fog",
-                "hinglish": "Raat ke 12 baje us purani haveli ka darwaza apne aap khul gaya.",
-                "hindi_dub": "रात के ठीक बारह बजे, उस पुरानी हवेली का भारी दरवाज़ा अपने आप खुल गया।",
-            }
-        ]
-
-    target_sec = max(15.0, min(900.0, float(duration_min) * 60.0))
-    base_d = round(target_sec / float(len(parsed)), 2)
-    scenes: List[Dict[str, Any]] = []
-    for i, sc in enumerate(parsed):
-        scenes.append({**sc, "index": i + 1, "duration_sec": max(3.0, base_d)})
-    return clean_topic, scenes
+    return scenes
 
 
-class NexoraVoiceAndMusicEngine:
+# ==============================================================================
+# 4. SNAPPY, HIGH-RETENTION VOICE & CLEAN BGM ENGINE
+# ==============================================================================
+class NexoraAudioEngine:
+    # Fast, crisp, high-retention pacing (zero boring slow drag)
     SPEAKER_PROFILES = {
-        "narrator": {"voice": "hi-IN-MadhurNeural", "rate": "-2%", "pitch": "-4Hz"},
-        "male": {"voice": "hi-IN-MadhurNeural", "rate": "+3%", "pitch": "+2Hz"},
-        "female": {"voice": "hi-IN-SwaraNeural", "rate": "+0%", "pitch": "+1Hz"},
-        "child": {"voice": "hi-IN-SwaraNeural", "rate": "+6%", "pitch": "+16Hz"},
+        "narrator": {"voice": "hi-IN-MadhurNeural", "rate": "+11%", "pitch": "-3Hz"},
+        "male": {"voice": "hi-IN-MadhurNeural", "rate": "+14%", "pitch": "+2Hz"},
+        "female": {"voice": "hi-IN-SwaraNeural", "rate": "+12%", "pitch": "+1Hz"},
+        "child": {"voice": "hi-IN-SwaraNeural", "rate": "+16%", "pitch": "+16Hz"},
     }
 
     @staticmethod
@@ -217,7 +225,7 @@ class NexoraVoiceAndMusicEngine:
             return 0.0
 
     @classmethod
-    def dub_scene_character(cls, sc: Dict[str, Any], idx: int, work_dir: str) -> Tuple[str, float]:
+    def dub_scene(cls, sc: Dict[str, Any], idx: int, work_dir: str) -> Tuple[str, float]:
         if not HAS_EDGE_TTS:
             raise RuntimeError("edge-tts is not installed on the server.")
 
@@ -225,8 +233,8 @@ class NexoraVoiceAndMusicEngine:
         prof = cls.SPEAKER_PROFILES.get(sp, cls.SPEAKER_PROFILES["narrator"])
         text = str(sc.get("hindi_dub") or sc.get("hinglish") or "").strip()
 
-        mp3_p = os.path.join(work_dir, f"char_{idx:03d}.mp3")
-        wav_p = os.path.join(work_dir, f"char_{idx:03d}.wav")
+        mp3_p = os.path.join(work_dir, f"v_{idx:03d}.mp3")
+        wav_p = os.path.join(work_dir, f"v_{idx:03d}.wav")
 
         async def _synth():
             comm = edge_tts.Communicate(text, voice=prof["voice"], rate=prof["rate"], pitch=prof["pitch"])
@@ -240,13 +248,14 @@ class NexoraVoiceAndMusicEngine:
 
         speech_dur = cls.probe_dur(mp3_p)
         if speech_dur <= 0.25:
-            raise RuntimeError(f"Voice generation failed on scene {idx + 1}.")
+            raise RuntimeError(f"Voice synthesis failed on Scene {idx + 1}.")
 
-        final_dur = round(speech_dur + 0.40, 2)
+        # Tight 0.18s pause so story flows rapidly without dead air
+        final_dur = round(speech_dur + 0.18, 2)
         subprocess.run(
             [
                 "ffmpeg", "-y", "-i", mp3_p,
-                "-af", f"highpass=f=75,equalizer=f=150:t=q:w=1:g=3,acompressor=threshold=-18dB:ratio=3:attack=8:release=110,apad=whole_dur={final_dur:.3f}",
+                "-af", f"highpass=f=80,equalizer=f=150:t=q:w=1:g=3,acompressor=threshold=-18dB:ratio=3:attack=6:release=90,apad=whole_dur={final_dur:.3f}",
                 "-t", f"{final_dur:.3f}",
                 "-ar", "22050", "-ac", "1", wav_p,
             ],
@@ -257,7 +266,7 @@ class NexoraVoiceAndMusicEngine:
         return wav_p, final_dur
 
     @staticmethod
-    def build_clean_cinema_bgm(total_dur: float, genre: str, out_wav: str):
+    def build_clean_bgm(total_dur: float, genre: str, out_wav: str):
         rate = 22050
         with wave.open(out_wav, "wb") as wf:
             wf.setnchannels(1)
@@ -274,8 +283,8 @@ class NexoraVoiceAndMusicEngine:
 
                 if genre == "horror":
                     drone = 0.55 * np.sin(2.0 * np.pi * 41.20 * t) + 0.30 * np.sin(2.0 * np.pi * 61.74 * t)
-                    beat1 = np.exp(-((t % 1.6) * 12.0)) * np.sin(2.0 * np.pi * 52.0 * t) * 0.65
-                    beat2 = np.exp(-(((t - 0.24) % 1.6) * 14.0)) * np.sin(2.0 * np.pi * 48.0 * t) * 0.45
+                    beat1 = np.exp(-((t % 1.45) * 12.0)) * np.sin(2.0 * np.pi * 52.0 * t) * 0.65
+                    beat2 = np.exp(-(((t - 0.22) % 1.45) * 14.0)) * np.sin(2.0 * np.pi * 48.0 * t) * 0.45
                     sig = (drone + beat1 + beat2) * 0.14
                 elif genre == "romantic":
                     pad = (
@@ -284,11 +293,11 @@ class NexoraVoiceAndMusicEngine:
                         + 0.25 * np.sin(2.0 * np.pi * 196.00 * t)
                         + 0.20 * np.sin(2.0 * np.pi * 246.94 * t)
                     )
-                    bell = np.exp(-((t % 3.0) * 2.5)) * np.sin(2.0 * np.pi * 523.25 * t) * 0.22
+                    bell = np.exp(-((t % 2.8) * 2.5)) * np.sin(2.0 * np.pi * 523.25 * t) * 0.22
                     sig = (pad + bell) * 0.12
                 else:
                     drone = 0.50 * np.sin(2.0 * np.pi * 55.0 * t) + 0.30 * np.sin(2.0 * np.pi * 82.41 * t)
-                    pulse = np.exp(-((t % 2.0) * 6.5)) * np.sin(2.0 * np.pi * 440.0 * t) * 0.14
+                    pulse = np.exp(-((t % 1.8) * 6.5)) * np.sin(2.0 * np.pi * 440.0 * t) * 0.14
                     sig = (drone + pulse) * 0.12
 
                 wf.writeframes((np.clip(sig, -0.95, 0.95) * 32767.0).astype(np.int16).tobytes())
@@ -296,7 +305,10 @@ class NexoraVoiceAndMusicEngine:
                 gc.collect()
 
 
-class NexoraCinemaRenderer:
+# ==============================================================================
+# 5. CINEMA VIDEO COMPOSITOR (REAL SCENE IMAGES + PHRASE-SYNCED CAPTIONS)
+# ==============================================================================
+class NexoraVideoCompositor:
     def __init__(self, width: int, height: int, genre: str = "horror"):
         self.w = width
         self.h = height
@@ -305,74 +317,21 @@ class NexoraCinemaRenderer:
 
         rng = np.random.default_rng(777)
         self.particles = np.column_stack([
-            rng.uniform(0, width, 60),
-            rng.uniform(0, height, 60),
-            rng.uniform(1.0, 2.8, 60),
-            rng.uniform(0.4, 1.2, 60),
+            rng.uniform(0, width, 55),
+            rng.uniform(0, height, 55),
+            rng.uniform(1.0, 2.6, 55),
+            rng.uniform(0.4, 1.2, 55),
         ])
 
-    def _build_scene_fallback(self, sc_idx: int) -> Image.Image:
-        """Generates unique per-scene architectural/atmospheric fallback art so two scenes never look identical."""
-        yy, xx = np.mgrid[0 : self.h, 0 : self.w]
-        nx = (xx - self.w * 0.5) / (self.w * 0.65)
-        ny = (yy - self.h * 0.38) / (self.h * 0.65)
-        rad = np.clip(1.0 - 0.85 * (nx * nx + ny * ny), 0.0, 1.0).astype(np.float32)
+    def load_scene_image(self, img_path: str) -> Image.Image:
+        im = Image.open(img_path).convert("RGB")
+        tw, th = int(self.w * 1.20), int(self.h * 1.20)
+        im = im.resize((tw, th), Image.Resampling.BILINEAR)
+        im = ImageEnhance.Contrast(im).enhance(1.13)
+        im = ImageEnhance.Color(im).enhance(1.15)
+        return im
 
-        palettes = [
-            ((48, 12, 22), (4, 5, 10)),
-            ((14, 24, 46), (3, 5, 10)),
-            ((38, 16, 44), (5, 4, 12)),
-            ((42, 22, 14), (6, 4, 8)),
-        ]
-        top, bot = palettes[sc_idx % len(palettes)] if self.genre == "horror" else ((68, 28, 48), (12, 6, 18))
-
-        arr = np.zeros((self.h, self.w, 3), dtype=np.uint8)
-        for c in range(3):
-            arr[:, :, c] = np.clip(bot[c] + (top[c] - bot[c]) * rad, 0, 255).astype(np.uint8)
-
-        img = Image.fromarray(arr, mode="RGB")
-        draw = ImageDraw.Draw(img)
-
-        variant = sc_idx % 3
-        if variant == 0:
-            # Mansion arch & glowing windows
-            cx = self.w // 2
-            draw.rectangle([cx - int(140 * self.sc), int(self.h * 0.25), cx + int(140 * self.sc), self.h], fill=(8, 10, 16))
-            for wx in (-70, 0, 70):
-                draw.rectangle([cx + int((wx - 18) * self.sc), int(self.h * 0.34), cx + int((wx + 18) * self.sc), int(self.h * 0.48)], fill=(251, 191, 36))
-        elif variant == 1:
-            # Dark corridor perspective lines + distant doorway light
-            cx, cy = self.w // 2, int(self.h * 0.45)
-            for corner in [(0, 0), (self.w, 0), (0, self.h), (self.w, self.h)]:
-                draw.line([corner, (cx, cy)], fill=(30, 41, 59), width=2)
-            draw.rectangle([cx - int(36 * self.sc), cy - int(65 * self.sc), cx + int(36 * self.sc), cy + int(65 * self.sc)], fill=(226, 232, 240))
-        else:
-            # Moonlit forest silhouettes
-            mx, my, mr = int(self.w * 0.5), int(self.h * 0.30), int(56 * self.sc)
-            draw.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=(226, 232, 240))
-            rng = np.random.default_rng(100 + sc_idx)
-            for _ in range(24):
-                tx = int(rng.uniform(0, self.w))
-                tw = int(rng.uniform(12, 28) * self.sc)
-                th = int(rng.uniform(self.h * 0.35, self.h * 0.72))
-                draw.polygon([(tx, self.h), (tx + tw // 2, self.h - th), (tx + tw, self.h)], fill=(6, 7, 12))
-
-        return img.resize((int(self.w * 1.22), int(self.h * 1.22)), Image.Resampling.BILINEAR)
-
-    def prepare_photo(self, img_path: Optional[str]) -> Optional[Image.Image]:
-        if not img_path or not os.path.exists(img_path):
-            return None
-        try:
-            im = Image.open(img_path).convert("RGB")
-            tw, th = int(self.w * 1.22), int(self.h * 1.22)
-            im = im.resize((tw, th), Image.Resampling.BILINEAR)
-            im = ImageEnhance.Contrast(im).enhance(1.14)
-            im = ImageEnhance.Color(im).enhance(1.16)
-            return im
-        except Exception:
-            return None
-
-    def _draw_synced_phrase_caption(self, draw: ImageDraw.Draw, text: str, speaker: str, sc_prog: float):
+    def _draw_synced_caption(self, draw: ImageDraw.Draw, text: str, speaker: str, sc_prog: float):
         words = str(text or "").split()
         if not words:
             return
@@ -455,7 +414,7 @@ class NexoraCinemaRenderer:
             r_px = max(1, int(pr * self.sc * 0.7))
             draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=p_col)
 
-        self._draw_synced_phrase_caption(draw, scene["hinglish"], scene.get("speaker", "narrator"), sc_prog)
+        self._draw_synced_caption(draw, scene["hinglish"], scene.get("speaker", "narrator"), sc_prog)
 
         bar_w = int(self.w * ov_prog)
         accent_c = (244, 63, 94) if self.genre == "horror" else ((244, 114, 182) if self.genre == "romantic" else (34, 211, 238))
@@ -464,38 +423,82 @@ class NexoraCinemaRenderer:
         return frame.tobytes()
 
 
+# ==============================================================================
+# 6. STEP 1 (VISUAL PREP & REVIEW) + STEP 2 (FINAL VIDEO RENDER)
+# ==============================================================================
+def run_visual_prep(session_id: str):
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess:
+        return
+
+    sess_dir = os.path.join(SESSIONS_DIR, session_id)
+    os.makedirs(sess_dir, exist_ok=True)
+    out_w, out_h = (540, 960) if sess["aspect_ratio"] == "9:16" else (960, 540)
+    genre = sess["genre"]
+    scenes = sess["scenes"]
+    total = len(scenes)
+
+    for idx, sc in enumerate(scenes):
+        with LOCK:
+            sess["prep_status"] = "running"
+            sess["prep_progress"] = int(((idx) / float(total)) * 100)
+            sess["prep_msg"] = f"Generating/Fetching Image {idx + 1}/{total}..."
+
+        fname = f"scene_{idx:03d}.jpg"
+        fpath = os.path.join(sess_dir, fname)
+        ok = fetch_single_visual(sc["visual_prompt"], genre, fpath, out_w, out_h)
+        with LOCK:
+            sc["image_ready"] = ok
+            sc["image_file"] = fname if ok else ""
+        if ok:
+            time.sleep(1.2)
+
+    with LOCK:
+        sess["prep_status"] = "ready"
+        sess["prep_progress"] = 100
+        ready_cnt = sum(1 for s in scenes if s["image_ready"])
+        sess["prep_msg"] = f"Visual Review Ready: {ready_cnt}/{total} images generated. Replace or upload missing images below!"
+
+
 def update_job(job_id: str, **kwargs):
-    with JOBS_LOCK:
+    with LOCK:
         if job_id in JOBS:
             JOBS[job_id].update(kwargs)
 
 
-def run_nexora_job(job_id: str, payload: Dict[str, Any]):
+def run_final_render(job_id: str, session_id: str):
     work_dir = tempfile.mkdtemp(prefix=f"nxr_{job_id}_", dir=TMP_ROOT)
     try:
-        purge_old_files(600)
+        purge_expired(1800)
         if not HAS_FFMPEG:
-            raise RuntimeError("FFmpeg not installed on server.")
+            raise RuntimeError("FFmpeg not available on server.")
 
-        genre = str(payload.get("genre", "horror")).lower()
-        if genre not in ("horror", "romantic", "documentary"):
-            genre = "horror"
+        with LOCK:
+            sess = SESSIONS.get(session_id)
+        if not sess:
+            raise RuntimeError("Session expired. Please prepare visuals again.")
 
-        topic, scenes = parse_scenes(
-            payload.get("topic", ""),
-            genre,
-            payload.get("custom_script", ""),
-            float(payload.get("duration_min", 1.0)),
-        )
-        aspect = payload.get("aspect_ratio", "16:9")
+        scenes = sess["scenes"]
+        sess_dir = os.path.join(SESSIONS_DIR, session_id)
+        for sc in scenes:
+            img_p = os.path.join(sess_dir, sc.get("image_file", ""))
+            if not sc.get("image_ready") or not os.path.exists(img_p):
+                raise RuntimeError(f"Scene {sc['index'] + 1} is still missing an image. Upload it first!")
+
+        genre = sess["genre"]
+        topic = sess["topic"]
+        aspect = sess["aspect_ratio"]
+        voice_source = sess["voice_source"]
+        uploaded_audio_id = sess.get("uploaded_audio_id", "")
+
         out_w, out_h = (540, 960) if aspect == "9:16" else (960, 540)
         fps = 15
 
-        voice_source = str(payload.get("voice_source", "builtin_multi")).lower()
-        uploaded_audio_id = str(payload.get("uploaded_audio_id", "")).strip()
-
         uploaded_audio_path: Optional[str] = None
-        if voice_source == "uploaded" and is_safe_id(uploaded_audio_id):
+        if voice_source == "uploaded":
+            if not is_safe_id(uploaded_audio_id):
+                raise RuntimeError("Please upload your ElevenLabs audio file first.")
             for fn in os.listdir(UPLOAD_DIR):
                 if fn.startswith(uploaded_audio_id):
                     uploaded_audio_path = os.path.join(UPLOAD_DIR, fn)
@@ -503,7 +506,7 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
             if not uploaded_audio_path:
                 raise FileNotFoundError("Uploaded ElevenLabs audio file not found.")
 
-            total_el_dur = NexoraVoiceAndMusicEngine.probe_dur(uploaded_audio_path)
+            total_el_dur = NexoraAudioEngine.probe_dur(uploaded_audio_path)
             if total_el_dur <= 1.0:
                 raise RuntimeError("Uploaded audio file is invalid or empty.")
             total_words = sum(max(1, len(s["hinglish"].split())) for s in scenes)
@@ -511,9 +514,9 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                 w_cnt = max(1, len(sc["hinglish"].split()))
                 sc["duration_sec"] = round((w_cnt / float(total_words)) * total_el_dur, 2)
 
-        renderer = NexoraCinemaRenderer(out_w, out_h, genre=genre)
+        compositor = NexoraVideoCompositor(out_w, out_h, genre=genre)
         total_sc = len(scenes)
-        est_total_dur = sum(float(s["duration_sec"]) for s in scenes)
+        est_total_dur = sum(float(s.get("duration_sec", 4.0)) for s in scenes)
         global_t = 0.0
         dt = 1.0 / float(fps)
 
@@ -530,25 +533,18 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                 job_id,
                 status="running",
                 progress=5 + int((idx / float(total_sc)) * 84),
-                current_scene=f"Producing Scene {idx + 1}/{total_sc} ({sc.get('speaker', 'narrator').upper()})...",
+                current_scene=f"Rendering Scene {idx + 1}/{total_sc} ({sc['speaker'].upper()})...",
             )
 
             if voice_source == "uploaded":
                 actual_dur = float(sc["duration_sec"])
             else:
-                dub_wav, actual_dur = NexoraVoiceAndMusicEngine.dub_scene_character(sc, idx, work_dir)
+                dub_wav, actual_dur = NexoraAudioEngine.dub_scene(sc, idx, work_dir)
                 sc["duration_sec"] = actual_dur
                 voice_chunks.append(dub_wav)
 
-            photo_img = None
-            if sc.get("visual_prompt"):
-                img_file = os.path.join(work_dir, f"vis_{idx:03d}.jpg")
-                if fetch_scene_visual(sc["visual_prompt"], genre, img_file, out_w, out_h):
-                    photo_img = renderer.prepare_photo(img_file)
-                if os.path.exists(img_file):
-                    os.remove(img_file)
-
-            base_img = photo_img if photo_img is not None else renderer._build_scene_fallback(idx)
+            img_path = os.path.join(sess_dir, sc["image_file"])
+            base_img = compositor.load_scene_image(img_path)
             n_frames = max(1, int(round(actual_dur * fps)))
             v_chunk = os.path.join(work_dir, f"v_{idx:03d}.mp4")
 
@@ -565,7 +561,7 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
             )
 
             for f_i in range(n_frames):
-                raw = renderer.render_frame(
+                raw = compositor.render_frame(
                     sc,
                     idx,
                     f_i / float(max(1, n_frames - 1)),
@@ -581,11 +577,10 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                 raise RuntimeError(f"FFmpeg failed on Scene {idx + 1}.")
 
             video_chunks.append(v_chunk)
-            photo_img = None
             base_img = None
             gc.collect()
 
-        update_job(job_id, progress=91, current_scene="Mastering Clean Cinema Audio & Final MP4...")
+        update_job(job_id, progress=91, current_scene="Mastering Audio & Final MP4...")
         v_list = os.path.join(work_dir, "v_list.txt")
         with open(v_list, "w", encoding="utf-8") as vf:
             for vc in video_chunks:
@@ -613,9 +608,9 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
-        actual_total_dur = NexoraVoiceAndMusicEngine.probe_dur(joined_v) or global_t
+        actual_total_dur = NexoraAudioEngine.probe_dur(joined_v) or global_t
         bgm_wav = os.path.join(work_dir, "clean_bgm.wav")
-        NexoraVoiceAndMusicEngine.build_clean_cinema_bgm(actual_total_dur, genre, bgm_wav)
+        NexoraAudioEngine.build_clean_bgm(actual_total_dur, genre, bgm_wav)
 
         slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_STORY"
         out_name = f"NEXORA_{genre.upper()}_{slug}_{job_id}.mp4"
@@ -627,7 +622,7 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
                 "-i", joined_v,
                 "-i", master_voice,
                 "-i", bgm_wav,
-                "-filter_complex", "[1:a]volume=1.25[v];[2:a]volume=0.45[m];[v][m]amix=inputs=2:duration=first[aout]",
+                "-filter_complex", "[1:a]volume=1.28[v];[2:a]volume=0.42[m];[v][m]amix=inputs=2:duration=first[aout]",
                 "-map", "0:v", "-map", "[aout]",
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-shortest", out_path,
@@ -650,12 +645,15 @@ def run_nexora_job(job_id: str, payload: Dict[str, Any]):
     except Exception as exc:
         update_job(job_id, status="error", error=str(exc), current_scene="Failed")
     finally:
-        with JOBS_LOCK:
-            ACTIVE_JOB_IDS.discard(job_id)
+        with LOCK:
+            ACTIVE_JOBS.discard(job_id)
         shutil.rmtree(work_dir, ignore_errors=True)
         gc.collect()
 
 
+# ==============================================================================
+# 7. REST API ENDPOINTS
+# ==============================================================================
 @app.route("/")
 def index():
     return send_file(os.path.join(BASE_DIR, "index.html"))
@@ -679,28 +677,114 @@ def api_audio_upload():
     return jsonify({"ok": True, "audio_id": aud_id, "file_name": f.filename})
 
 
-@app.route("/api/start", methods=["POST"])
-def api_start():
+@app.route("/api/prepare", methods=["POST"])
+def api_prepare():
     data = request.get_json(silent=True) or {}
-    topic = str(data.get("topic", "")).strip()
     custom_script = str(data.get("custom_script", "")).strip()
-    if len(topic) < 3 and not custom_script:
-        return jsonify({"error": "Enter a story/video topic or paste your script."}), 400
+    scenes = parse_user_script(custom_script)
+    if not scenes:
+        return jsonify({"error": "Paste a valid 4-column script first (Speaker | Image Prompt | Hinglish | Hindi)."}), 400
 
-    with JOBS_LOCK:
-        if len(ACTIVE_JOB_IDS) >= 1:
-            return jsonify({"error": "Server is currently rendering another video. Wait a moment."}), 429
+    session_id = f"ses_{uuid.uuid4().hex[:10]}"
+    with LOCK:
+        SESSIONS[session_id] = {
+            "session_id": session_id,
+            "topic": str(data.get("topic", "NEXORA Story")).strip() or "NEXORA Story",
+            "genre": str(data.get("genre", "horror")).lower(),
+            "aspect_ratio": str(data.get("aspect_ratio", "16:9")),
+            "voice_source": str(data.get("voice_source", "builtin_multi")),
+            "uploaded_audio_id": str(data.get("uploaded_audio_id", "")),
+            "scenes": scenes,
+            "prep_status": "queued",
+            "prep_progress": 0,
+            "prep_msg": "Starting image preparation...",
+        }
+
+    threading.Thread(target=run_visual_prep, args=(session_id,), daemon=True).start()
+    return jsonify({"ok": True, "session_id": session_id})
+
+
+@app.route("/api/session/<session_id>")
+def api_session(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session ID."}), 400
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess:
+        return jsonify({"error": "Session expired."}), 404
+    return jsonify(sess)
+
+
+@app.route("/api/session/<session_id>/image/<int:idx>")
+def api_session_image(session_id: str, idx: int):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess or idx < 0 or idx >= len(sess["scenes"]):
+        return jsonify({"error": "Not found."}), 404
+    sc = sess["scenes"][idx]
+    fpath = os.path.join(SESSIONS_DIR, session_id, sc.get("image_file", ""))
+    if not sc.get("image_ready") or not os.path.exists(fpath):
+        return jsonify({"error": "Image missing."}), 404
+    return send_file(fpath)
+
+
+@app.route("/api/session/<session_id>/replace/<int:idx>", methods=["POST"])
+def api_replace_image(session_id: str, idx: int):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess or idx < 0 or idx >= len(sess["scenes"]):
+        return jsonify({"error": "Scene not found."}), 404
+
+    f = request.files.get("image")
+    if not f or not f.filename:
+        return jsonify({"error": "Select an image file first."}), 400
+
+    sess_dir = os.path.join(SESSIONS_DIR, session_id)
+    os.makedirs(sess_dir, exist_ok=True)
+    fname = f"custom_{idx:03d}_{uuid.uuid4().hex[:6]}.jpg"
+    fpath = os.path.join(sess_dir, fname)
+
+    im = Image.open(f.stream).convert("RGB")
+    im.save(fpath, format="JPEG", quality=92)
+
+    with LOCK:
+        sess["scenes"][idx]["image_ready"] = True
+        sess["scenes"][idx]["image_file"] = fname
+    return jsonify({"ok": True})
+
+
+@app.route("/api/render", methods=["POST"])
+def api_render():
+    data = request.get_json(silent=True) or {}
+    session_id = str(data.get("session_id", "")).strip()
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Prepare & review visuals first."}), 400
+
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess:
+            return jsonify({"error": "Session expired."}), 404
+        missing = [s["index"] + 1 for s in sess["scenes"] if not s.get("image_ready")]
+        if missing:
+            return jsonify({"error": f"Upload missing images for Scene(s): {', '.join(map(str, missing))} before rendering!"}), 400
+        if len(ACTIVE_JOBS) >= 1:
+            return jsonify({"error": "Server is currently rendering another video. Please wait."}), 429
+
         job_id = f"nx_{uuid.uuid4().hex[:10]}"
-        ACTIVE_JOB_IDS.add(job_id)
+        ACTIVE_JOBS.add(job_id)
         JOBS[job_id] = {
             "job_id": job_id,
             "status": "queued",
             "progress": 2,
-            "current_scene": "Initializing NEXORA Multi-Voice Cinema Engine...",
+            "current_scene": "Starting Final Video Render...",
             "error": None,
         }
 
-    threading.Thread(target=run_nexora_job, args=(job_id, data), daemon=True).start()
+    threading.Thread(target=run_final_render, args=(job_id, session_id), daemon=True).start()
     return jsonify({"ok": True, "job_id": job_id})
 
 
@@ -708,10 +792,10 @@ def api_start():
 def api_status(job_id: str):
     if not is_safe_id(job_id):
         return jsonify({"error": "Invalid job ID."}), 400
-    with JOBS_LOCK:
+    with LOCK:
         job = JOBS.get(job_id)
     if not job:
-        return jsonify({"error": "Job expired or server restarted."}), 404
+        return jsonify({"error": "Job expired."}), 404
     return jsonify(job)
 
 
@@ -719,14 +803,14 @@ def api_status(job_id: str):
 def api_video(job_id: str):
     if not is_safe_id(job_id):
         return jsonify({"error": "Invalid job ID."}), 400
-    with JOBS_LOCK:
+    with LOCK:
         job = JOBS.get(job_id)
     if not job or not job.get("file_name"):
         return jsonify({"error": "Video not ready."}), 404
     fname = os.path.basename(job["file_name"])
     target = os.path.join(OUTPUT_DIR, fname)
     if not os.path.exists(target):
-        return jsonify({"error": "File purged from temporary storage."}), 404
+        return jsonify({"error": "File purged from storage."}), 404
     return send_file(target, as_attachment=(request.args.get("dl") == "1"), download_name=fname, mimetype="video/mp4")
 
 
