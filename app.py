@@ -15,7 +15,7 @@ from typing import Dict, List, Any, Optional, Tuple
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, send_file
 
 # ==============================================================================
 # 1. APPLICATION CONFIGURATION & PATH SECURITY
@@ -28,7 +28,7 @@ TMP_ROOT = os.path.join(BASE_DIR, "tmp_work")
 for directory in (OUTPUT_DIR, UPLOAD_DIR, TMP_ROOT):
     os.makedirs(directory, exist_ok=True)
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload cap
 
 # In-memory job registry (structured for easy upgrade to Redis/Celery)
@@ -142,7 +142,7 @@ KNOWLEDGE_SCENARIOS: Dict[str, Dict[str, Any]] = {
                 "feature": "DUAL_REALITY",
                 "headline": "Supersonic Winds Scour the Continents",
                 "narration": "Super-hurricane winds four times faster than the strongest recorded tornado strip landscapes, generating intense aerodynamic friction heat and global firestorms.",
-                "telemetry": {"Wind Speed": "> 450 m/s", "Dynamic Pressure": "130 kPa", "Surface Shear": "Extreme"},
+                "telemetry": {"Wind Speed": "> 450 m/s", "Dynamic Pressure": "130 kPa", "Surface Friction": "Extreme"},
                 "hidden_consequence": "Atmospheric friction would rapidly heat the lower troposphere and trigger continent-wide electrostatic lightning storms.",
                 "is_hypothetical": True,
             },
@@ -1428,7 +1428,7 @@ def run_render_pipeline(job_id: str, payload: Dict[str, Any]):
 # ==============================================================================
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return send_file(os.path.join(BASE_DIR, "index.html"))
 
 
 @app.route("/api/health", methods=["GET"])
