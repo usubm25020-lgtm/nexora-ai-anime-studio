@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA STUDIO ULTRA v8 — High-Speed Retention-Lock Engine</title>
+  <title>NEXORA STUDIO ULTRA v9 — Crash-Proof Cinema &amp; ElevenLabs Engine</title>
   <style>
     :root {
       --bg: #03050c;
@@ -73,6 +73,10 @@
       padding: 7px 11px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
       background: rgba(251, 191, 36, 0.14); color: var(--amber); font-size: 11px; font-weight: 800; cursor: pointer;
     }
+    .btn-el {
+      padding: 7px 11px; border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.55);
+      background: rgba(168, 85, 247, 0.18); color: #e9d5ff; font-size: 11px; font-weight: 800; cursor: pointer;
+    }
     .btn-up {
       padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
       background: rgba(34, 211, 238, 0.16); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
@@ -81,9 +85,9 @@
     .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width 0.25s; }
     .err {
-      margin-top: 10px; padding: 10px; border-radius: 9px;
-      background: rgba(244, 63, 94, 0.16); border: 1px solid var(--crimson);
-      color: #fecdd3; font-size: 12px; display: none;
+      margin-top: 10px; padding: 11px; border-radius: 9px;
+      background: rgba(244, 63, 94, 0.18); border: 1px solid var(--crimson);
+      color: #fecdd3; font-size: 12px; font-weight: 700; display: none;
     }
     .scene-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 12px; margin-top: 12px;
@@ -109,8 +113,8 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO ULTRA v8</div>
-        <div style="font-size:11px; color:var(--cyan);">Auto-Hook Teaser • 1-Click Batch Upload • Fast-Pacing Retention Engine</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO ULTRA v9</div>
+        <div style="font-size:11px; color:var(--cyan);">Crash-Proof Engine • ElevenLabs Script Extractor • Smart Auto-Sort</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
@@ -120,8 +124,8 @@
     <!-- STEP 1: SCRIPT & RETENTION SETUP -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: HIGH-RETENTION STORY &amp; HOOK SETUP</div>
-        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Fast-Cut Story Prompt</button>
+        <div class="title">STEP 1: HIGH-RETENTION STORY &amp; VOICE SETUP</div>
+        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy ChatGPT Prompt</button>
       </div>
 
       <label for="topic">Video Title</label>
@@ -148,11 +152,11 @@
 
       <div class="row-2">
         <div>
-          <label for="voice-mode">Voice Engine (+12% Gripping Pace)</label>
+          <label for="voice-mode">Voice Engine</label>
           <select id="voice-mode" onchange="toggleElBox()">
-            <option value="single_storyteller" selected>Single Deep Storyteller (Human Baritone)</option>
+            <option value="single_storyteller" selected>Single Deep Storyteller (Built-in Baritone)</option>
             <option value="builtin_multi">Multi-Character (Narrator/Male/Female/Child)</option>
-            <option value="uploaded">Upload ElevenLabs Audio (Single or Multi)</option>
+            <option value="uploaded">Upload ElevenLabs Audio (Recommended for 40+ Scenes)</option>
           </select>
         </div>
         <div>
@@ -165,7 +169,7 @@
       </div>
 
       <div id="el-upload-box" style="display:none; padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
-        <label for="el-file">Upload ElevenLabs MP3 / WAV (Exact Word Captions &amp; Visuals Auto-Sync!)</label>
+        <label for="el-file">Upload ElevenLabs MP3 / WAV (Load Scenes below first to copy clean ElevenLabs script!)</label>
         <input type="file" id="el-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:8px; font-size:12px;" />
         <button type="button" class="btn-sm" onclick="uploadElAudio()">⬆ Upload ElevenLabs Audio</button>
         <div id="el-msg" style="font-size:11px; color:#34d399; margin-top:6px;"></div>
@@ -174,22 +178,27 @@
       <label for="custom-script">Paste 4-Column Script (Speaker | English Image Prompt | Hinglish Caption | Hindi Dub)</label>
       <textarea id="custom-script" placeholder="Paste your 4-column script here..."></textarea>
 
-      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scene Slots (Instant)</button>
+      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes &amp; Extract ElevenLabs Voice Script</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: 1-CLICK BATCH IMAGE UPLOAD & PROMPT COPIER -->
+    <!-- STEP 2: SMART BATCH UPLOAD, ELEVENLABS SCRIPT COPIER & SCENE SWAPPER -->
     <div class="card" id="review-card" style="display:none;">
       <div class="hdr-row">
-        <div class="title">STEP 2: UPLOAD IMAGES (BATCH OR ONE-BY-ONE)</div>
+        <div class="title">STEP 2: IMAGES &amp; ELEVENLABS VOICE SCRIPT</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button type="button" class="btn-sm" onclick="copyAllPrompts(this)">📋 Copy All Prompts</button>
+          <button type="button" class="btn-el" onclick="copyElScript(this)">🎙️ Copy ElevenLabs Voice Script</button>
+          <button type="button" class="btn-sm" onclick="copyAllPrompts(this)">📋 Copy All Image Prompts</button>
           <label class="btn-up" style="margin:0; background:rgba(16,185,129,0.18); border-color:#10b981; color:#34d399;">
-            ⚡ Batch Upload All Images
+            ⚡ Auto-Sort Batch Upload
             <input type="file" accept="image/*" multiple style="display:none;" onchange="batchUploadImages(this)" />
           </label>
           <span id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:800;">0 Ready</span>
         </div>
+      </div>
+
+      <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">
+        💡 <b>Smart Auto-Order:</b> Name files <code>1.jpg, 2.jpg...</code> OR select in order—or use the <b>Move to #</b> dropdown on any card to swap scenes instantly!
       </div>
 
       <div class="scene-grid" id="scene-grid"></div>
@@ -208,6 +217,7 @@
         <span id="job-lbl">Job: —</span>
         <span id="pct-lbl">0%</span>
       </div>
+      <div class="err" id="render-err-box"></div>
       <div id="result-box"></div>
     </div>
   </main>
@@ -215,6 +225,7 @@
   <script>
     let currentSessionId = "";
     let currentScenesCache = [];
+    let currentElScript = "";
     let uploadedAudioId = "";
     let pollTimer = null;
 
@@ -229,11 +240,17 @@
       el.textContent = msg || "";
     }
 
+    function showRenderErr(msg) {
+      const el = document.getElementById("render-err-box");
+      el.style.display = msg ? "block" : "none";
+      el.textContent = msg ? ("❌ Error Details: " + msg) : "";
+    }
+
     async function checkHealth() {
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.voice_ready ? "NEXORA v8 Ready" : "FFmpeg Ready";
+        document.getElementById("sys-status").textContent = d.voice_ready ? "NEXORA v9 Ready" : "FFmpeg Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
@@ -260,17 +277,16 @@
       const genreVal = document.getElementById("genre").value;
       const prompt = `Write a gripping, high-retention Hindi ${genreVal} story script on: "${topicVal}".
 CRITICAL RETENTION RULES:
-1. Keep every scene short (12 to 18 spoken words max per line) so visuals change every 4 seconds! Create 20 to 35 fast-paced scenes.
+1. Keep every scene short (12 to 18 spoken words max per line) so visuals change every 4 seconds!
 2. Start Scene 1 with an immediate shocking hook or mystery—NEVER a slow introduction.
 3. Add an open-loop cliffhanger every 5 scenes to keep viewers hooked till the end.
-4. Introduce who is speaking inside the Hindi narration before any dialogue.
-5. Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text in this exact 4-column format:
-narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dramatic lighting) | Crisp Hinglish Subtitle | Expressive Spoken Hindi Line in Devanagari Hindi`;
+4. Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text in this exact 4-column format:
+narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, consistent character face/clothes) | Crisp Hinglish Subtitle | Expressive Spoken Hindi Line in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Fast-Cut Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy Fast-Cut Story Prompt", 3000);
+        btn.textContent = "✅ ChatGPT Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy ChatGPT Prompt", 3000);
       });
     };
 
@@ -278,7 +294,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
       navigator.clipboard.writeText(txt).then(() => {
         const old = btnEl.textContent;
         btnEl.textContent = "✅ Copied!";
-        setTimeout(() => btnEl.textContent = old, 2000);
+        setTimeout(() => btnEl.textContent = old, 2200);
       });
     }
 
@@ -288,13 +304,16 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
       copyText(all, btnEl);
     }
 
+    function copyElScript(btnEl) {
+      if (!currentElScript) return;
+      copyText(currentElScript, btnEl);
+    }
+
     async function batchUploadImages(inputEl) {
       if (!inputEl.files || !inputEl.files.length || !currentSessionId) return;
-      document.getElementById("prep-msg").textContent = `Uploading ${inputEl.files.length} images...`;
+      document.getElementById("prep-msg").textContent = `Auto-sorting & uploading ${inputEl.files.length} images...`;
       const fd = new FormData();
-      // Sort files alphabetically/numerically by filename so they map cleanly to Scene 1..N
-      const sorted = Array.from(inputEl.files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-      sorted.forEach(file => fd.append("images", file));
+      Array.from(inputEl.files).forEach(file => fd.append("images", file));
 
       const r = await fetch(`/api/session/${currentSessionId}/batch_upload`, { method: "POST", body: fd });
       if (r.ok) {
@@ -302,6 +321,17 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
       } else {
         alert("Batch upload failed.");
       }
+    }
+
+    async function swapScene(fromIdx, toIdxStr) {
+      const toIdx = parseInt(toIdxStr, 10);
+      if (isNaN(toIdx) || fromIdx === toIdx || !currentSessionId) return;
+      const r = await fetch(`/api/session/${currentSessionId}/swap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ a: fromIdx, b: toIdx })
+      });
+      if (r.ok) refreshSessionGrid();
     }
 
     async function uploadSceneImg(idx, inputEl) {
@@ -322,6 +352,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
       if (!r.ok) return;
       const sess = await r.json();
       currentScenesCache = sess.scenes || [];
+      currentElScript = sess.elevenlabs_script || "";
 
       const readyCnt = currentScenesCache.filter(s => s.image_ready).length;
       document.getElementById("prep-msg").textContent = `${readyCnt}/${currentScenesCache.length} Ready`;
@@ -329,6 +360,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
       const grid = document.getElementById("scene-grid");
       grid.innerHTML = "";
       const ts = Date.now();
+      const total = currentScenesCache.length;
 
       currentScenesCache.forEach((sc, idx) => {
         const card = document.createElement("div");
@@ -341,12 +373,17 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
                <div>${sc.anim_type} • ${sc.sfx_type}</div>
              </div>`;
 
+        let swapOpts = `<option value="">Move...</option>`;
+        for (let k = 0; k < total; k++) {
+          if (k !== idx) swapOpts += `<option value="${k}">Swap #${k + 1}</option>`;
+        }
+
         const safePrompt = sc.visual_prompt.replace(/'/g, "\\'").replace(/"/g, "&quot;");
         card.innerHTML = `
           <div>
-            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; margin-bottom:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:6px; gap:4px;">
               <span style="color:var(--cyan);">SCENE ${idx + 1}</span>
-              <span style="color:${sc.image_ready ? '#34d399' : '#fbbf24'};">${sc.image_ready ? 'READY' : 'EMPTY'}</span>
+              <select style="width:auto; padding:2px 4px; margin:0; font-size:10px;" onchange="swapScene(${idx}, this.value)">${swapOpts}</select>
             </div>
             ${visualHtml}
             <div style="font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.35;">"${sc.hinglish}"</div>
@@ -393,6 +430,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
       }
 
       currentSessionId = d.session_id;
+      currentElScript = d.elevenlabs_script || "";
       document.getElementById("review-card").style.display = "block";
       document.getElementById("render-card").style.display = "none";
       refreshSessionGrid();
@@ -409,6 +447,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
 
     async function startFinalRender() {
       showErr("");
+      showRenderErr("");
       if (!currentSessionId) return;
 
       const r = await fetch("/api/render", {
@@ -437,7 +476,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
           const st = await sr.json();
           if (!sr.ok) {
             clearInterval(pollTimer);
-            showErr(st.error || "Status error");
+            showRenderErr(st.error || "Status error");
             return;
           }
           document.getElementById("prog-fill").style.width = `${st.progress}%`;
@@ -454,7 +493,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dra
             `;
           } else if (st.status === "error") {
             clearInterval(pollTimer);
-            showErr(st.error || "Render failed");
+            showRenderErr(st.error || "Render failed");
           }
         } catch (e) {}
       }, 2000);
