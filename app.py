@@ -35,7 +35,7 @@ for d in (OUTPUT_DIR, UPLOAD_DIR, SESSIONS_DIR, TMP_ROOT):
     os.makedirs(d, exist_ok=True)
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 75 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 120 * 1024 * 1024
 
 SESSIONS: Dict[str, Dict[str, Any]] = {}
 JOBS: Dict[str, Dict[str, Any]] = {}
@@ -64,7 +64,7 @@ def purge_expired(max_age_sec: int = 1800):
             if os.path.isdir(sp) and (now - os.path.getmtime(sp)) > max_age_sec:
                 shutil.rmtree(sp, ignore_errors=True)
     except Exception:
-        pass
+            pass
 
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
@@ -105,7 +105,7 @@ def ease_in_out(t: float) -> float:
 
 
 # ==============================================================================
-# 2. SCRIPT PARSER WITH AUTO-SFX & CAMERA MOTION TAGGING
+# 2. SCRIPT PARSER WITH AUTO-SFX & DYNAMIC CAMERA CHOREOGRAPHY
 # ==============================================================================
 ANIM_MODES = [
     "hook_zoom_in",
@@ -119,15 +119,15 @@ ANIM_MODES = [
 
 def detect_scene_sfx(text_blob: str, genre: str) -> str:
     low = text_blob.lower()
-    if any(k in low for k in ("thunder", "bijli", "lightning", "toofan", "storm")):
+    if any(k in low for k in ("thunder", "bijli", "lightning", "toofan", "storm", "barish")):
         return "thunder"
-    if any(k in low for k in ("door", "darwaza", "gate", "khula", "band")):
+    if any(k in low for k in ("door", "darwaza", "gate", "khula", "band", "kamre")):
         return "door_creak"
     if any(k in low for k in ("funny", "meme", "joke", "hasne", "pagal", "mazak", "comedy")):
         return "meme_boing"
-    if any(k in low for k in ("scream", "chilla", "bhoot", "khauf", "dar", "ghost", "blood", "khoon")):
+    if any(k in low for k in ("scream", "chilla", "bhoot", "khauf", "dar", "ghost", "blood", "khoon", "raaz", "dhokha")):
         return "horror_sting"
-    if any(k in low for k in ("heartbeat", "dil", "saansein", "dhadkan")):
+    if any(k in low for k in ("heartbeat", "dil", "saansein", "dhadkan", "kareeb", "pyaar", "aankhon")):
         return "heartbeat"
     if genre == "funny":
         return "meme_pop"
@@ -153,6 +153,7 @@ def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
             combined_txt = f"{parts[1]} {parts[2]}"
             scenes.append({
                 "index": idx,
+                "is_teaser": False,
                 "speaker": sp,
                 "visual_prompt": parts[1],
                 "hinglish": parts[2],
@@ -166,17 +167,17 @@ def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
 
 
 # ==============================================================================
-# 3. HUMAN-LIKE STORYTELLER VOICE + PROCEDURAL SFX & BGM SYNTHESIZER
+# 3. HIGH-RETENTION FAST PACING VOICE + PROCEDURAL SFX & AUTO-DUCKING BGM
 # ==============================================================================
 class NexoraSoundAndVoiceEngine:
-    # Tuned for natural, deep human storytelling (+6% speed, -5Hz rich baritone for Narrator)
+    # Fast-paced, gripping storytelling cadence (+12% rate, -5Hz deep baritone)
     MULTI_PROFILES = {
-        "narrator": {"voice": "hi-IN-MadhurNeural", "rate": "+6%", "pitch": "-5Hz"},
-        "male": {"voice": "hi-IN-MadhurNeural", "rate": "+9%", "pitch": "+1Hz"},
-        "female": {"voice": "hi-IN-SwaraNeural", "rate": "+8%", "pitch": "+0Hz"},
-        "child": {"voice": "hi-IN-SwaraNeural", "rate": "+11%", "pitch": "+15Hz"},
+        "narrator": {"voice": "hi-IN-MadhurNeural", "rate": "+12%", "pitch": "-5Hz"},
+        "male": {"voice": "hi-IN-MadhurNeural", "rate": "+14%", "pitch": "+1Hz"},
+        "female": {"voice": "hi-IN-SwaraNeural", "rate": "+13%", "pitch": "+0Hz"},
+        "child": {"voice": "hi-IN-SwaraNeural", "rate": "+15%", "pitch": "+14Hz"},
     }
-    SINGLE_STORYTELLER = {"voice": "hi-IN-MadhurNeural", "rate": "+6%", "pitch": "-5Hz"}
+    SINGLE_STORYTELLER = {"voice": "hi-IN-MadhurNeural", "rate": "+12%", "pitch": "-5Hz"}
 
     @staticmethod
     def probe_dur(path: str) -> float:
@@ -220,12 +221,12 @@ class NexoraSoundAndVoiceEngine:
         if speech_dur <= 0.25:
             raise RuntimeError(f"Voice synthesis failed on Scene {idx + 1}.")
 
-        # Tight 0.16s natural breath between lines
-        final_dur = round(speech_dur + 0.16, 2)
+        # Zero dead air: ultra-snappy 0.12s transition pause
+        final_dur = round(speech_dur + 0.12, 2)
         subprocess.run(
             [
                 "ffmpeg", "-y", "-i", mp3_p,
-                "-af", f"highpass=f=75,equalizer=f=135:t=q:w=1:g=3.5,acompressor=threshold=-18dB:ratio=2.8:attack=8:release=110,apad=whole_dur={final_dur:.3f}",
+                "-af", f"highpass=f=75,equalizer=f=135:t=q:w=1:g=3.5,acompressor=threshold=-18dB:ratio=3.0:attack=6:release=95,apad=whole_dur={final_dur:.3f}",
                 "-t", f"{final_dur:.3f}",
                 "-ar", "22050", "-ac", "1", wav_p,
             ],
@@ -237,9 +238,8 @@ class NexoraSoundAndVoiceEngine:
 
     @staticmethod
     def generate_sfx_wave(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
-        """Synthesizes authentic sound effects (Whoosh, Horror Sting, Thunder, Door, Meme Boing, Pop) at scene start."""
         out = np.zeros(n_samples, dtype=np.float32)
-        sfx_len = min(n_samples, int(rate * 1.35))
+        sfx_len = min(n_samples, int(rate * 1.40))
         if sfx_len <= 10:
             return out
         t = np.linspace(0, sfx_len / float(rate), sfx_len, endpoint=False, dtype=np.float32)
@@ -247,25 +247,22 @@ class NexoraSoundAndVoiceEngine:
 
         if sfx_type == "thunder":
             rumble = rng.normal(0.0, 0.5, sfx_len).astype(np.float32)
-            # Low-pass smooth rumble
             kernel = np.ones(28, dtype=np.float32) / 28.0
             rumble = np.convolve(rumble, kernel, mode="same")
             env = np.exp(-t * 2.2) * (1.0 - np.exp(-t * 40.0))
             out[:sfx_len] = rumble * env * 0.85
         elif sfx_type == "horror_sting":
-            # Sharp dissonant brass/string stab
             f1 = np.sin(2.0 * np.pi * 220.0 * t)
             f2 = np.sin(2.0 * np.pi * 233.08 * t)
             f3 = np.sin(2.0 * np.pi * 622.25 * t)
-            env = np.exp(-t * 3.2) * (1.0 - np.exp(-t * 60.0))
-            out[:sfx_len] = (f1 + f2 + 0.6 * f3) * env * 0.28
+            env = np.exp(-t * 3.0) * (1.0 - np.exp(-t * 60.0))
+            out[:sfx_len] = (f1 + f2 + 0.6 * f3) * env * 0.30
         elif sfx_type == "door_creak":
             freq = 180.0 + 95.0 * np.sin(2.0 * np.pi * 4.5 * t)
             phase = 2.0 * np.pi * np.cumsum(freq) / float(rate)
             env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.5
             out[:sfx_len] = np.sin(phase) * env * 0.25
         elif sfx_type in ("meme_boing", "meme_pop"):
-            # Classic cartoon/meme spring boing or pop
             freq = 190.0 + 380.0 * (t / (sfx_len / float(rate))) + 70.0 * np.sin(2.0 * np.pi * 18.0 * t)
             phase = 2.0 * np.pi * np.cumsum(freq) / float(rate)
             env = np.exp(-t * 4.8)
@@ -273,20 +270,19 @@ class NexoraSoundAndVoiceEngine:
         elif sfx_type == "heartbeat":
             b1 = np.exp(-t * 14.0) * np.sin(2.0 * np.pi * 55.0 * t)
             b2 = np.exp(-np.maximum(0.0, t - 0.25) * 14.0) * np.sin(2.0 * np.pi * 50.0 * t) * (t >= 0.25)
-            out[:sfx_len] = (b1 + b2) * 0.55
+            out[:sfx_len] = (b1 + b2) * 0.60
         else:
-            # Smooth cinematic transition whoosh
             noise = rng.normal(0.0, 0.3, sfx_len).astype(np.float32)
             kernel = np.ones(14, dtype=np.float32) / 14.0
             filtered = np.convolve(noise, kernel, mode="same")
             env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 2.0
-            out[:sfx_len] = filtered * env * 0.45
+            out[:sfx_len] = filtered * env * 0.48
 
         return out
 
     @classmethod
-    def build_full_sfx_and_bgm_track(cls, scenes: List[Dict[str, Any]], genre: str, out_wav: str):
-        """Builds a unified background score + scene-accurate SFX track."""
+    def build_full_sfx_and_bgm_track(cls, render_scenes: List[Dict[str, Any]], genre: str, out_wav: str):
+        """Builds emotional music swell + scene-accurate SFX track."""
         rate = 22050
         with wave.open(out_wav, "wb") as wf:
             wf.setnchannels(1)
@@ -294,28 +290,30 @@ class NexoraSoundAndVoiceEngine:
             wf.setframerate(rate)
             cur_t = 0.0
 
-            for sc in scenes:
+            for sc in render_scenes:
                 dur = float(sc.get("duration_sec", 4.0))
                 n = max(1, int(round(dur * rate)))
                 t = np.linspace(cur_t, cur_t + dur, n, endpoint=False, dtype=np.float32)
+                # Music swells gently at the start and end of each scene for cinematic emotion
+                local_p = np.linspace(0.0, 1.0, n, endpoint=False, dtype=np.float32)
+                swell = 1.0 + 0.35 * (np.exp(-local_p * 5.0) + np.exp(-(1.0 - local_p) * 5.0))
 
                 if genre == "horror":
                     drone = 0.50 * np.sin(2.0 * np.pi * 41.20 * t) + 0.30 * np.sin(2.0 * np.pi * 61.74 * t)
-                    bgm = drone * 0.11
+                    bgm = drone * 0.11 * swell
                 elif genre == "romantic":
                     pad = (
                         0.40 * np.sin(2.0 * np.pi * 130.81 * t)
                         + 0.30 * np.sin(2.0 * np.pi * 164.81 * t)
                         + 0.25 * np.sin(2.0 * np.pi * 196.00 * t)
                     )
-                    bgm = pad * 0.10
+                    bgm = pad * 0.11 * swell
                 elif genre == "funny":
-                    # Upbeat bouncy pizzicato bassline
                     beat = np.exp(-((t % 0.45) * 10.0)) * np.sin(2.0 * np.pi * 196.0 * t)
                     bgm = beat * 0.12
                 else:
                     drone = 0.50 * np.sin(2.0 * np.pi * 55.0 * t) + 0.30 * np.sin(2.0 * np.pi * 82.41 * t)
-                    bgm = drone * 0.10
+                    bgm = drone * 0.10 * swell
 
                 sfx = cls.generate_sfx_wave(sc.get("sfx_type", "whoosh"), n, rate=rate)
                 mix = bgm + sfx
@@ -325,9 +323,15 @@ class NexoraSoundAndVoiceEngine:
 
 
 # ==============================================================================
-# 4. ULTRA-SMOOTH VFX & EXACT VOICE-SYNCED CAPTION RENDERER
+# 4. RETENTION-LOCK VFX RENDERER (AUTO-HOOK TEASER + CHAPTER BAR + WORD SYNC)
 # ==============================================================================
 class NexoraVfxRenderer:
+    POWER_WORDS = {
+        "raaz", "dhokha", "pyaar", "achanak", "khatra", "bhoot", "khoon",
+        "sach", "ishq", "mohabbat", "intezar", "dard", "aansu", "kasam",
+        "secret", "shock", "murder", "mystery", "junoon", "barbaad",
+    }
+
     def __init__(self, width: int, height: int, genre: str = "horror"):
         self.w = width
         self.h = height
@@ -344,16 +348,14 @@ class NexoraVfxRenderer:
 
     def load_scene_image(self, img_path: str) -> Image.Image:
         im = Image.open(img_path).convert("RGB")
-        # 28% oversize buffer enables ultra-smooth sub-pixel pan, zoom, and diagonal drift
-        tw, th = int(self.w * 1.28), int(self.h * 1.28)
+        tw, th = int(self.w * 1.30), int(self.h * 1.30)
         im = im.resize((tw, th), Image.Resampling.BILINEAR)
-        im = ImageEnhance.Contrast(im).enhance(1.13)
-        im = ImageEnhance.Color(im).enhance(1.16)
+        im = ImageEnhance.Contrast(im).enhance(1.14)
+        im = ImageEnhance.Color(im).enhance(1.18)
         return im
 
     @staticmethod
     def build_word_timings(text: str) -> List[Tuple[str, float, float]]:
-        """Calculates exact proportional start/end progress (0.0 -> 1.0) for each word based on syllable length & punctuation pauses."""
         words = str(text or "").split()
         if not words:
             return []
@@ -361,9 +363,9 @@ class NexoraVfxRenderer:
         for w in words:
             base_w = max(2.0, float(len(re.sub(r"[^a-zA-Z0-9]", "", w))))
             if w.endswith((",", ";", ":")):
-                base_w += 3.5
+                base_w += 3.2
             elif w.endswith((".", "!", "?", "।")):
-                base_w += 5.0
+                base_w += 4.5
             weights.append(base_w)
 
         total_w = sum(weights)
@@ -376,12 +378,31 @@ class NexoraVfxRenderer:
             timings.append((w, st, en))
         return timings
 
+    def _draw_top_hud(self, draw: ImageDraw.Draw, is_teaser: bool, ov_prog: float):
+        """Draws 'AAGE DEKHIYE...' hook badge on teaser, or 3-stage curiosity chapter bar during main story."""
+        f_hud = get_font(max(11, int(12 * self.sc)), bold=True)
+        pad_x = int(14 * self.sc)
+        pad_y = int(12 * self.sc)
+
+        if is_teaser:
+            badge = "🔥 AAGE DEKHIYE... (CLIMAX PREVIEW)"
+            bb = draw.textbbox((0, 0), badge, font=f_hud)
+            bw = (bb[2] - bb[0]) + int(24 * self.sc)
+            bh = (bb[3] - bb[1]) + int(12 * self.sc)
+            draw.rounded_rectangle([pad_x, pad_y, pad_x + bw, pad_y + bh], radius=8, fill=(225, 29, 72), outline=(255, 255, 255), width=2)
+            draw.text((pad_x + int(12 * self.sc), pad_y + int(5 * self.sc)), badge, font=f_hud, fill=(255, 255, 255))
+        else:
+            stage = "01. SHURUAT" if ov_prog < 0.34 else ("02. GEHRA RAAZ" if ov_prog < 0.72 else "03. ASLI ANJAAM")
+            bb = draw.textbbox((0, 0), stage, font=f_hud)
+            bw = (bb[2] - bb[0]) + int(20 * self.sc)
+            bh = (bb[3] - bb[1]) + int(10 * self.sc)
+            draw.rounded_rectangle([pad_x, pad_y, pad_x + bw, pad_y + bh], radius=8, fill=(8, 13, 26), outline=(34, 211, 238), width=1)
+            draw.text((pad_x + int(10 * self.sc), pad_y + int(4 * self.sc)), stage, font=f_hud, fill=(34, 211, 238))
+
     def _draw_exact_synced_captions(self, draw: ImageDraw.Draw, timings: List[Tuple[str, float, float]], sc_prog: float, voice_mode: str, speaker: str):
-        """Displays 5-word groups where the exact spoken word lights up in real time."""
         if not timings:
             return
 
-        # Find which word index is currently being spoken
         cur_w_idx = len(timings) - 1
         for i, (_, st, en) in enumerate(timings):
             if sc_prog <= en:
@@ -393,7 +414,7 @@ class NexoraVfxRenderer:
         grp_start = grp_idx * group_size
         grp_words = timings[grp_start : grp_start + group_size]
 
-        f_sub = get_font(max(19, int(25 * self.sc)), bold=True)
+        f_sub = get_font(max(20, int(26 * self.sc)), bold=True)
         f_tag = get_font(max(10, int(11 * self.sc)), bold=True)
 
         full_grp_str = " ".join(w[0] for w in grp_words)
@@ -427,7 +448,15 @@ class NexoraVfxRenderer:
             abs_i = grp_start + offset_i
             is_spoken_now = abs_i == cur_w_idx
             is_already_spoken = abs_i < cur_w_idx
-            w_col = accent if is_spoken_now else ((255, 255, 255) if is_already_spoken else (148, 163, 184))
+            clean_low = re.sub(r"[^a-z]", "", word_str.lower())
+            is_power = clean_low in self.POWER_WORDS
+
+            if is_spoken_now:
+                w_col = (253, 224, 71) if is_power else accent
+            elif is_already_spoken:
+                w_col = (255, 255, 255)
+            else:
+                w_col = (148, 163, 184)
 
             draw.text((tx + 2, ty + 2), word_str, font=f_sub, fill=(0, 0, 0))
             draw.text((tx, ty), word_str, font=f_sub, fill=w_col)
@@ -446,26 +475,30 @@ class NexoraVfxRenderer:
     ) -> bytes:
         pw, ph = base_img.size
         e = ease_in_out(sc_prog)
-        anim = scene.get("anim_type", "smooth_pan_right")
+        is_teaser = bool(scene.get("is_teaser", False))
+        anim = "hook_zoom_in" if is_teaser else scene.get("anim_type", "smooth_pan_right")
 
-        # 6 Distinct Ultra-Smooth Camera Animations
+        # Continuous organic floating motion + beat-punch zoom so screen is never static
+        float_x = 0.03 * math.sin(global_t * 2.2)
+        float_y = 0.03 * math.cos(global_t * 1.8)
+
         if anim == "hook_zoom_in":
-            scale = 1.0 + 0.18 * min(1.0, sc_prog * 1.45)
-            pan_x, pan_y = 0.5, 0.45
+            scale = 1.0 + 0.22 * min(1.0, sc_prog * 1.45)
+            pan_x, pan_y = 0.5 + float_x, 0.45 + float_y
         elif anim == "dramatic_zoom_out":
-            scale = 1.20 - 0.18 * e
-            pan_x, pan_y = 0.5, 0.5
+            scale = 1.22 - 0.19 * e
+            pan_x, pan_y = 0.5 + float_x, 0.5 + float_y
         elif anim == "smooth_pan_right":
-            scale = 1.12
-            pan_x, pan_y = e, 0.48
+            scale = 1.13
+            pan_x, pan_y = e, 0.48 + float_y
         elif anim == "smooth_pan_left":
-            scale = 1.12
-            pan_x, pan_y = 1.0 - e, 0.48
+            scale = 1.13
+            pan_x, pan_y = 1.0 - e, 0.48 + float_y
         elif anim == "pulse_zoom":
-            scale = 1.08 + 0.05 * math.sin(sc_prog * math.pi * 3.0)
-            pan_x, pan_y = 0.5 + 0.15 * math.sin(sc_prog * math.pi), 0.5
-        else:  # diagonal_drift
-            scale = 1.05 + 0.11 * e
+            scale = 1.09 + 0.06 * math.sin(sc_prog * math.pi * 3.0)
+            pan_x, pan_y = 0.5 + 0.15 * math.sin(sc_prog * math.pi), 0.5 + float_y
+        else:
+            scale = 1.05 + 0.12 * e
             pan_x, pan_y = e, e
 
         crop_w = int(pw / scale)
@@ -476,25 +509,22 @@ class NexoraVfxRenderer:
         ox = int(max_dx * max(0.0, min(1.0, pan_x)))
         oy = int(max_dy * max(0.0, min(1.0, pan_y)))
 
-        # Micro handheld tremor on horror stings/thunder
-        if scene.get("sfx_type") in ("horror_sting", "thunder") and sc_prog < 0.22:
-            ox = max(0, min(max_dx, ox + int(math.sin(global_t * 45.0) * 8 * self.sc)))
-            oy = max(0, min(max_dy, oy + int(math.cos(global_t * 40.0) * 5 * self.sc)))
+        if (is_teaser or scene.get("sfx_type") in ("horror_sting", "thunder")) and sc_prog < 0.25:
+            ox = max(0, min(max_dx, ox + int(math.sin(global_t * 48.0) * 9 * self.sc)))
+            oy = max(0, min(max_dy, oy + int(math.cos(global_t * 42.0) * 6 * self.sc)))
 
         frame = base_img.crop((ox, oy, ox + crop_w, oy + crop_h)).resize((self.w, self.h), Image.Resampling.BILINEAR)
 
-        # VFX 1: Lightning / Impact Flash in opening 6 frames of dramatic scenes
-        if scene.get("sfx_type") in ("thunder", "horror_sting") and sc_prog < 0.07:
-            flash_strength = 1.0 + 0.55 * (1.0 - sc_prog / 0.07)
+        # Impact flash at scene start
+        if (is_teaser or scene.get("sfx_type") in ("thunder", "horror_sting")) and sc_prog < 0.08:
+            flash_strength = 1.0 + 0.60 * (1.0 - sc_prog / 0.08)
             frame = ImageEnhance.Brightness(frame).enhance(flash_strength)
-
-        # VFX 2: Smooth Cross-Fade from black at scene transitions
-        if sc_prog < 0.06:
-            frame = ImageEnhance.Brightness(frame).enhance(max(0.15, sc_prog / 0.06))
+        elif sc_prog < 0.06:
+            frame = ImageEnhance.Brightness(frame).enhance(max(0.20, sc_prog / 0.06))
 
         draw = ImageDraw.Draw(frame)
 
-        # VFX 3: Genre-specific atmospheric overlays (Rain streaks / Embers / Golden Bokeh)
+        # Genre atmospheric particles
         if self.genre == "horror":
             for px0, py0, pr, spd in self.particles:
                 px = (px0 + global_t * 22.0 * spd) % self.w
@@ -514,10 +544,9 @@ class NexoraVfxRenderer:
                 r_px = max(2, int(pr * self.sc))
                 draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(56, 189, 248))
 
-        # Exact word-synced karaoke captions
+        self._draw_top_hud(draw, is_teaser, ov_prog)
         self._draw_exact_synced_captions(draw, timings, sc_prog, voice_mode, scene.get("speaker", "narrator"))
 
-        # Bottom cinema progress bar
         bar_w = int(self.w * ov_prog)
         accent_c = (244, 63, 94) if self.genre == "horror" else ((244, 114, 182) if self.genre == "romantic" else (34, 211, 238))
         draw.rectangle([0, self.h - 4, bar_w, self.h], fill=accent_c)
@@ -526,12 +555,30 @@ class NexoraVfxRenderer:
 
 
 # ==============================================================================
-# 5. INSTANT SCENE LOADER (STEP 1) & FINAL RENDER PIPELINE (STEP 2)
+# 5. RENDER PIPELINE WITH AUTO-HOOK TEASER ENGINE
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
         if job_id in JOBS:
             JOBS[job_id].update(kwargs)
+
+
+def build_render_timeline(scenes: List[Dict[str, Any]], auto_hook: bool, voice_mode: str) -> List[Dict[str, Any]]:
+    """Prepends a high-tension climax teaser scene at 0:00 if auto_hook is enabled."""
+    if not auto_hook or len(scenes) < 4 or voice_mode == "uploaded":
+        return [dict(s) for s in scenes]
+
+    # Pick the dramatic climax scene (~75% into the story) for the opening 0:00-0:05 hook
+    climax_idx = min(len(scenes) - 2, max(2, int(len(scenes) * 0.75)))
+    hook_sc = dict(scenes[climax_idx])
+    hook_sc["is_teaser"] = True
+    hook_sc["anim_type"] = "hook_zoom_in"
+    hook_sc["sfx_type"] = "heartbeat"
+
+    timeline = [hook_sc]
+    for s in scenes:
+        timeline.append(dict(s))
+    return timeline
 
 
 def run_final_render(job_id: str, session_id: str):
@@ -546,9 +593,9 @@ def run_final_render(job_id: str, session_id: str):
         if not sess:
             raise RuntimeError("Session expired. Please load scenes again.")
 
-        scenes = sess["scenes"]
+        raw_scenes = sess["scenes"]
         sess_dir = os.path.join(SESSIONS_DIR, session_id)
-        for sc in scenes:
+        for sc in raw_scenes:
             img_p = os.path.join(sess_dir, sc.get("image_file", ""))
             if not sc.get("image_ready") or not os.path.exists(img_p):
                 raise RuntimeError(f"Scene {sc['index'] + 1} is missing an image. Upload it first!")
@@ -557,7 +604,10 @@ def run_final_render(job_id: str, session_id: str):
         topic = sess["topic"]
         aspect = sess["aspect_ratio"]
         voice_mode = sess["voice_mode"]
+        auto_hook = bool(sess.get("auto_hook", True))
         uploaded_audio_id = sess.get("uploaded_audio_id", "")
+
+        render_scenes = build_render_timeline(raw_scenes, auto_hook, voice_mode)
 
         out_w, out_h = (540, 960) if aspect == "9:16" else (960, 540)
         fps = 16
@@ -576,14 +626,14 @@ def run_final_render(job_id: str, session_id: str):
             total_el_dur = NexoraSoundAndVoiceEngine.probe_dur(uploaded_audio_path)
             if total_el_dur <= 1.0:
                 raise RuntimeError("Uploaded audio file is invalid or empty.")
-            total_weights = sum(max(1, len(s["hinglish"])) for s in scenes)
-            for sc in scenes:
+            total_weights = sum(max(1, len(s["hinglish"])) for s in render_scenes)
+            for sc in render_scenes:
                 w_cnt = max(1, len(sc["hinglish"]))
                 sc["duration_sec"] = round((w_cnt / float(total_weights)) * total_el_dur, 2)
 
         renderer = NexoraVfxRenderer(out_w, out_h, genre=genre)
-        total_sc = len(scenes)
-        est_total_dur = sum(float(s.get("duration_sec", 4.0)) for s in scenes)
+        total_sc = len(render_scenes)
+        est_total_dur = sum(float(s.get("duration_sec", 4.0)) for s in render_scenes)
         global_t = 0.0
         dt = 1.0 / float(fps)
 
@@ -595,12 +645,13 @@ def run_final_render(job_id: str, session_id: str):
             else "eq=contrast=1.06:brightness=0.01:saturation=1.22,unsharp=3:3:0.45:3:3:0.0,vignette=PI/6"
         )
 
-        for idx, sc in enumerate(scenes):
+        for idx, sc in enumerate(render_scenes):
+            lbl = "Auto-Hook Teaser" if sc.get("is_teaser") else f"Scene {idx + 1}/{total_sc}"
             update_job(
                 job_id,
                 status="running",
                 progress=5 + int((idx / float(total_sc)) * 84),
-                current_scene=f"Rendering VFX & SFX Scene {idx + 1}/{total_sc} ({sc['anim_type']})...",
+                current_scene=f"Rendering {lbl} ({sc['anim_type']})...",
             )
 
             if voice_mode == "uploaded":
@@ -645,13 +696,13 @@ def run_final_render(job_id: str, session_id: str):
 
             proc.stdin.close()
             if proc.wait() != 0:
-                raise RuntimeError(f"FFmpeg failed on Scene {idx + 1}.")
+                raise RuntimeError(f"FFmpeg failed on {lbl}.")
 
             video_chunks.append(v_chunk)
             base_img = None
             gc.collect()
 
-        update_job(job_id, progress=91, current_scene="Synthesizing SFX, Mixing Audio & Finalizing MP4...")
+        update_job(job_id, progress=91, current_scene="Mixing SFX, Auto-Ducking BGM & Finalizing MP4...")
         v_list = os.path.join(work_dir, "v_list.txt")
         with open(v_list, "w", encoding="utf-8") as vf:
             for vc in video_chunks:
@@ -680,9 +731,9 @@ def run_final_render(job_id: str, session_id: str):
             )
 
         sfx_bgm_wav = os.path.join(work_dir, "sfx_bgm.wav")
-        NexoraSoundAndVoiceEngine.build_full_sfx_and_bgm_track(scenes, genre, sfx_bgm_wav)
+        NexoraSoundAndVoiceEngine.build_full_sfx_and_bgm_track(render_scenes, genre, sfx_bgm_wav)
 
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_VFX"
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_V8"
         out_name = f"NEXORA_{genre.upper()}_{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
@@ -692,7 +743,7 @@ def run_final_render(job_id: str, session_id: str):
                 "-i", joined_v,
                 "-i", master_voice,
                 "-i", sfx_bgm_wav,
-                "-filter_complex", "[1:a]volume=1.30[v];[2:a]volume=0.55[m];[v][m]amix=inputs=2:duration=first[aout]",
+                "-filter_complex", "[1:a]volume=1.32[v];[2:a]volume=0.55[m];[v][m]amix=inputs=2:duration=first[aout]",
                 "-map", "0:v", "-map", "[aout]",
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-shortest", out_path,
@@ -723,7 +774,7 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 6. REST API ENDPOINTS
+# 6. REST API ENDPOINTS (INCLUDING 1-CLICK BATCH IMAGE UPLOAD)
 # ==============================================================================
 @app.route("/")
 def index():
@@ -750,9 +801,8 @@ def api_audio_upload():
 
 @app.route("/api/prepare", methods=["POST"])
 def api_prepare():
-    """Instantly creates scene upload slots with zero server CPU waste."""
     data = request.get_json(silent=True) or {}
-    genre = str(data.get("genre", "horror")).lower()
+    genre = str(data.get("genre", "romantic")).lower()
     scenes = parse_user_script(str(data.get("custom_script", "")), genre)
     if not scenes:
         return jsonify({"error": "Paste a valid 4-column script first (Speaker | Image Prompt | Hinglish | Hindi)."}), 400
@@ -766,6 +816,7 @@ def api_prepare():
             "genre": genre,
             "aspect_ratio": str(data.get("aspect_ratio", "16:9")),
             "voice_mode": str(data.get("voice_mode", "single_storyteller")),
+            "auto_hook": bool(data.get("auto_hook", True)),
             "uploaded_audio_id": str(data.get("uploaded_audio_id", "")),
             "scenes": scenes,
         }
@@ -826,6 +877,39 @@ def api_replace_image(session_id: str, idx: int):
     return jsonify({"ok": True})
 
 
+@app.route("/api/session/<session_id>/batch_upload", methods=["POST"])
+def api_batch_upload(session_id: str):
+    """Assigns multiple selected images sequentially into scene slots in one click."""
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess:
+        return jsonify({"error": "Session expired."}), 404
+
+    files = request.files.getlist("images")
+    if not files:
+        return jsonify({"error": "No images selected."}), 400
+
+    sess_dir = os.path.join(SESSIONS_DIR, session_id)
+    os.makedirs(sess_dir, exist_ok=True)
+
+    count = min(len(files), len(sess["scenes"]))
+    for idx in range(count):
+        f = files[idx]
+        if not f or not f.filename:
+            continue
+        fname = f"img_{idx:03d}_{uuid.uuid4().hex[:6]}.jpg"
+        fpath = os.path.join(sess_dir, fname)
+        im = Image.open(f.stream).convert("RGB")
+        im.save(fpath, format="JPEG", quality=92)
+        with LOCK:
+            sess["scenes"][idx]["image_ready"] = True
+            sess["scenes"][idx]["image_file"] = fname
+
+    return jsonify({"ok": True, "uploaded": count})
+
+
 @app.route("/api/render", methods=["POST"])
 def api_render():
     data = request.get_json(silent=True) or {}
@@ -849,7 +933,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 2,
-            "current_scene": "Starting VFX, SFX & Cinema Render...",
+            "current_scene": "Starting Retention-Lock Render...",
             "error": None,
         }
 
