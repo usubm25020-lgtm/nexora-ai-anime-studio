@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA STUDIO PRO v11 — True Voice-to-Caption Sync &amp; Cinema VFX</title>
+  <title>NEXORA STUDIO ULTRA v13 — "Sunday Suspense" Edition</title>
   <style>
     :root {
       --bg: #03050c;
@@ -113,38 +113,38 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO PRO v11</div>
-        <div style="font-size:11px; color:var(--cyan);">True Voice-to-Caption AI Sync • 8 Cinema Animations • Fast FFmpeg</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO ULTRA v13</div>
+        <div style="font-size:11px; color:var(--cyan);">"Sunday Suspense" Deep Voice Engine • 9 Foley SFX • Auto-Captions</div>
       </div>
     </div>
-    <div class="chip-live" id="sys-status">Checking Engine...</div>
+    <div class="chip-live" id="sys-status">Checking Studio...</div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: 3-COLUMN SCRIPT & VOICE SETUP -->
+    <!-- STEP 1: SUNDAY SUSPENSE STORY & VOICE SETUP -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: 3-COLUMN STORY &amp; VOICE SETUP (AUTO-CAPTION ENABLED)</div>
-        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy 3-Column ChatGPT Prompt</button>
+        <div class="title">STEP 1: "SUNDAY SUSPENSE" STORY &amp; STUDIO VOICE SETUP</div>
+        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Sunday Suspense Script Prompt</button>
       </div>
 
       <label for="topic">Video Title</label>
-      <input type="text" id="topic" value="Anjaan Dweep Ka Khatarnak Raaz" placeholder="Enter your story title..." />
+      <input type="text" id="topic" value="Raat Ke 2 Baje Uske Kamre Ka Raaz" placeholder="Enter your story title..." />
 
       <div class="row-2">
         <div>
-          <label for="genre">Genre (Auto VFX + SFX + BGM)</label>
+          <label for="genre">Cinema Genre (Auto Foley SFX + Dark BGM + VFX)</label>
           <select id="genre">
-            <option value="romantic" selected>Deep Romantic / Suspense Love (Golden Bokeh, Swell)</option>
-            <option value="horror">Horror / Mystery (Red Embers, Thunder, Shake)</option>
+            <option value="mystery" selected>Dark Mystery / Suspense Thriller (Sunday Suspense Vibe)</option>
+            <option value="horror">Pure Horror / Ghost (Stings, Thunder, Red Embers)</option>
+            <option value="romantic">Dark Romantic Suspense (Minor Pad, Golden Bokeh)</option>
             <option value="funny">Funny / Meme Story (Boing, Pop, Bounce)</option>
-            <option value="documentary">Documentary / Thriller (Whoosh, Pulse)</option>
           </select>
         </div>
         <div>
           <label for="aspect">Screen Format</label>
           <select id="aspect">
-            <option value="16:9" selected>16:9 YouTube Long</option>
+            <option value="16:9" selected>16:9 YouTube Widescreen Cinema</option>
             <option value="9:16">9:16 YouTube Shorts / Reels</option>
           </select>
         </div>
@@ -152,15 +152,15 @@
 
       <div class="row-2">
         <div>
-          <label for="voice-mode">Voice Engine (Auto-Captions Transcribed Directly From Audio!)</label>
+          <label for="voice-mode">Studio Voice Engine (100% Free Unlimited Built-In!)</label>
           <select id="voice-mode" onchange="toggleElBox()">
-            <option value="uploaded" selected>ElevenLabs MP3/WAV Upload (Exact Voice-to-Caption Sync)</option>
-            <option value="single_storyteller">Built-in Single Deep Storyteller (Unlimited Free)</option>
-            <option value="builtin_multi">Built-in Multi-Character (Narrator/Male/Female/Child)</option>
+            <option value="builtin_multi" selected>Multi-Character Radio Drama (Deep Narrator + Male + Female)</option>
+            <option value="single_storyteller">Deep Horror/Mystery Baritone Narrator (-12Hz Radio Bass)</option>
+            <option value="uploaded">Optional: Upload External MP3/WAV Audio</option>
           </select>
         </div>
         <div>
-          <label for="auto-hook">0:00-0:05 Climax Hook Teaser ("AAGE DEKHIYE...")</label>
+          <label for="auto-hook">0:00-0:04.5 Climax Hook Teaser ("AAGE DEKHIYE...")</label>
           <select id="auto-hook">
             <option value="true" selected>ON — Show 4.5s Climax Hook at 0:00</option>
             <option value="false">OFF — Start Directly From Scene 1</option>
@@ -168,25 +168,24 @@
         </div>
       </div>
 
-      <div id="el-upload-box" style="padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
-        <label for="el-file">Upload ElevenLabs MP3 / WAV (Captions &amp; Scene Cuts Auto-Sync to Your Voice!)</label>
+      <div id="el-upload-box" style="display:none; padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
+        <label for="el-file">Upload External MP3 / WAV (Instant Acoustic Sync &amp; Auto-Captions)</label>
         <input type="file" id="el-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:8px; font-size:12px;" onchange="uploadElAudio()" />
-        <div id="el-msg" style="font-size:11px; color:#34d399; margin-top:4px;">Select your ElevenLabs audio file above — uploads automatically!</div>
+        <div id="el-msg" style="font-size:11px; color:#34d399; margin-top:4px;">Select an audio file above — uploads automatically!</div>
       </div>
 
-      <label for="custom-script">Paste 3-Column Script: Speaker | English Image Prompt | Spoken Hindi Line (No Caption Column Needed!)</label>
-      <textarea id="custom-script" placeholder="narrator | Cinematic 8k photo of young Indian man and woman in a stormy plane... | आरव और मीरा की छुट्टियां अचानक एक भयानक तूफान में बदल गईं।"></textarea>
+      <label for="custom-script">Paste 3-Column Script: Speaker(narrator/male/female) | English Image Prompt | Spoken Hindi Line</label>
+      <textarea id="custom-script" placeholder="narrator | Dark rainy night outside a haunted mansion, lightning, 8k photorealistic | रात के ठीक दो बजे हवेली के बंद दरवाज़े पर किसी ने ज़ोर से दस्तक दी!"></textarea>
 
-      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes &amp; Extract Clean ElevenLabs Script</button>
+      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes &amp; Detect Emotions/SFX</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: IMAGES, ANIMATION SELECTOR & ELEVENLABS COPIER -->
+    <!-- STEP 2: IMAGES, ANIMATION SELECTOR & BATCH UPLOAD -->
     <div class="card" id="review-card" style="display:none;">
       <div class="hdr-row">
-        <div class="title">STEP 2: IMAGES, CINEMA ANIMATIONS &amp; ELEVENLABS SCRIPT</div>
+        <div class="title">STEP 2: IMAGES, FOLEY SFX &amp; CINEMA ANIMATIONS</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button type="button" class="btn-el" onclick="copyElScript(this)">🎙️ Copy ElevenLabs Voice Script</button>
           <button type="button" class="btn-sm" onclick="copyAllPrompts(this)">📋 Copy All Prompts</button>
           <label class="btn-up" style="margin:0; background:rgba(16,185,129,0.18); border-color:#10b981; color:#34d399;">
             ⚡ Auto-Sort Batch Upload
@@ -199,13 +198,13 @@
       <div class="scene-grid" id="scene-grid"></div>
 
       <div style="margin-top:16px;">
-        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Auto-Captioned HD Cinema Video</button>
+        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Sunday Suspense Cinema MP4</button>
       </div>
     </div>
 
     <!-- STEP 3: LIVE FINAL VIDEO RENDER -->
     <div class="card" id="render-card" style="display:none;">
-      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE SERVER RENDER PROGRESS</div>
+      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE STUDIO RENDER PROGRESS</div>
       <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting render...</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
@@ -220,7 +219,6 @@
   <script>
     let currentSessionId = "";
     let currentScenesCache = [];
-    let currentElScript = "";
     let uploadedAudioId = "";
     let pollTimer = null;
 
@@ -256,7 +254,7 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.auto_caption ? "v11 Auto-Caption Ready" : "NEXORA v11 Ready";
+        document.getElementById("sys-status").textContent = d.studio_v13 ? "Studio v13 Ready" : "NEXORA Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
@@ -267,7 +265,7 @@
       if (!inp.files || !inp.files[0]) return;
       const fd = new FormData();
       fd.append("audio", inp.files[0]);
-      document.getElementById("el-msg").textContent = "Uploading ElevenLabs voiceover...";
+      document.getElementById("el-msg").textContent = "Uploading audio...";
       const r = await fetch("/api/audio/upload", { method: "POST", body: fd });
       const d = await r.json();
       if (r.ok) {
@@ -279,20 +277,20 @@
     }
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const topicVal = document.getElementById("topic").value.trim() || "Anjaan Dweep Ka Khatarnak Raaz";
+      const topicVal = document.getElementById("topic").value.trim() || "Raat Ke 2 Baje Uske Kamre Ka Raaz";
       const genreVal = document.getElementById("genre").value;
-      const prompt = `Write a gripping, high-retention Hindi ${genreVal} story script on: "${topicVal}".
-CRITICAL RULES FOR NEXORA STUDIO v11:
-1. Keep every scene short (12 to 18 spoken words max per line) so visuals change every 4 seconds!
-2. Start Scene 1 with an immediate shocking hook or mystery—NEVER a slow introduction.
-3. Add an open-loop cliffhanger every 5 scenes to keep viewers hooked till the end.
-4. Output ONLY 3 pipe-separated columns per line (NO caption column needed, NO numbering, NO markdown):
-narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, consistent character face/clothes, no text) | Expressive Spoken Hindi Line in Devanagari Hindi`;
+      const prompt = `Write a gripping, high-retention Hindi radio-drama script (like Sunday Suspense) in ${genreVal} genre on: "${topicVal}".
+CRITICAL RULES FOR NEXORA STUDIO v13:
+1. Create 22 to 28 fast-paced scenes (12 to 18 spoken words max per line) so visuals change every 4 seconds!
+2. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female' so different voices perform the drama.
+3. Start Scene 1 with an immediate shocking hook—NEVER a slow intro. Add a chilling twist every 5 scenes.
+4. Output ONLY 3 pipe-separated columns per line (NO caption column, NO numbering, NO markdown):
+narrator/male/female | Detailed English Cinematic Scene Image Prompt (8k photorealistic, consistent character face/clothes, dramatic dark lighting, no text) | Expressive Spoken Hindi Line in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ 3-Column Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy 3-Column ChatGPT Prompt", 3000);
+        btn.textContent = "✅ Sunday Suspense Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy Sunday Suspense Script Prompt", 3000);
       });
     };
 
@@ -308,11 +306,6 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, con
       if (!currentScenesCache.length) return;
       const all = currentScenesCache.map((s, i) => `Scene ${i + 1}: ${s.visual_prompt}`).join("\n");
       copyText(all, btnEl);
-    }
-
-    function copyElScript(btnEl) {
-      if (!currentElScript) return;
-      copyText(currentElScript, btnEl);
     }
 
     async function batchUploadImages(inputEl) {
@@ -361,7 +354,6 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, con
       if (!r.ok) return;
       const sess = await r.json();
       currentScenesCache = sess.scenes || [];
-      currentElScript = sess.elevenlabs_script || "";
 
       const readyCnt = currentScenesCache.filter(s => s.image_ready).length;
       document.getElementById("prep-msg").textContent = `${readyCnt}/${currentScenesCache.length} Ready`;
@@ -378,8 +370,8 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, con
         const visualHtml = sc.image_ready
           ? `<img class="sc-thumb" src="/api/session/${currentSessionId}/image/${idx}?t=${ts}" alt="Scene ${idx + 1}" />`
           : `<div class="upload-slot">
-               <div style="font-weight:900; color:var(--amber); margin-bottom:4px;">SCENE ${idx + 1}</div>
-               <div>${sc.anim_type.replace(/_/g, " ")}</div>
+               <div style="font-weight:900; color:var(--amber); margin-bottom:4px;">SCENE ${idx + 1} (${sc.speaker.toUpperCase()})</div>
+               <div>SFX: ${sc.sfx_type} • ${sc.emotion}</div>
              </div>`;
 
         let swapOpts = `<option value="">Swap...</option>`;
@@ -396,7 +388,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, con
         card.innerHTML = `
           <div>
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:6px; gap:4px;">
-              <span style="color:var(--cyan);">SCENE ${idx + 1}</span>
+              <span style="color:var(--cyan);">SCENE ${idx + 1} • ${sc.speaker.toUpperCase()}</span>
               <select style="width:auto; padding:2px 4px; margin:0; font-size:10px;" onchange="swapScene(${idx}, this.value)">${swapOpts}</select>
             </div>
             ${visualHtml}
@@ -445,7 +437,6 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, con
       }
 
       currentSessionId = d.session_id;
-      currentElScript = d.elevenlabs_script || "";
       document.getElementById("review-card").style.display = "block";
       document.getElementById("render-card").style.display = "none";
       refreshSessionGrid();
@@ -509,7 +500,7 @@ narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, con
             const dlUrl = `/api/video/${jobId}?dl=1`;
             autoDownload(dlUrl, st.file_name);
             document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
+              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Sunday Suspense MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
               <video src="/api/video/${jobId}" controls playsinline></video>
             `;
           } else if (st.status === "error") {
