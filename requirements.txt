@@ -3,4 +3,3 @@ gunicorn
 numpy
 Pillow
 edge-tts
-faster-whisper
