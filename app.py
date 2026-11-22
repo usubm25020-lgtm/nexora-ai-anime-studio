@@ -23,7 +23,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. HIGH-SPEED CONFIGURATION & ZERO-BLOAT WORKSPACE
+# 1. STUDIO CONFIGURATION & ZERO-BLOAT WORKSPACE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -105,7 +105,7 @@ def ease_in_out(t: float) -> float:
 
 
 # ==============================================================================
-# 2. INSTANT DEVANAGARI -> CLEAN HINGLISH AUTO-CAPTION GENERATOR
+# 2. DEVANAGARI -> CLEAN HINGLISH AUTO-CAPTION GENERATOR
 # ==============================================================================
 _CONSONANTS = {
     "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "ng",
@@ -169,7 +169,7 @@ def devanagari_to_hinglish(text: str) -> str:
 
 
 # ==============================================================================
-# 3. SCRIPT PARSER (3-COLUMN & 4-COLUMN COMPATIBLE)
+# 3. SCRIPT PARSER WITH AUTOMATIC EMOTION & FOLEY SFX DETECTION
 # ==============================================================================
 ANIM_MODES = [
     "3D_Zoom_Punch",
@@ -185,19 +185,35 @@ ANIM_MODES = [
 
 def detect_scene_sfx(text_blob: str, genre: str) -> str:
     low = text_blob.lower()
-    if any(k in low for k in ("thunder", "bijli", "lightning", "toofan", "storm", "barish")):
+    if any(k in low for k in ("thunder", "bijli", "lightning", "toofan", "storm", "barish", "garaj")):
         return "thunder"
-    if any(k in low for k in ("door", "darwaza", "gate", "khula", "band", "kamre")):
+    if any(k in low for k in ("door", "darwaza", "gate", "khula", "band", "kamre", "kundi")):
         return "door_creak"
+    if any(k in low for k in ("clock", "ghadi", "raat ke 2", "raat ke 12", "aadhi raat", "waqt")):
+        return "clock_tick"
+    if any(k in low for k in ("crash", "patthar", "collapse", "toot", "gir", "dhakka", "shisha")):
+        return "impact_slam"
     if any(k in low for k in ("funny", "meme", "joke", "hasne", "pagal", "mazak", "comedy")):
         return "meme_boing"
-    if any(k in low for k in ("scream", "chilla", "bhoot", "khauf", "dar", "ghost", "blood", "khoon", "raaz", "dhokha", "khatra")):
+    if any(k in low for k in ("scream", "chilla", "bhoot", "khauf", "dar", "ghost", "blood", "khoon", "raaz", "dhokha", "khatra", "saaya")):
         return "horror_sting"
-    if any(k in low for k in ("heartbeat", "dil", "saansein", "dhadkan", "kareeb", "pyaar", "aankhon")):
+    if any(k in low for k in ("heartbeat", "dil", "saansein", "dhadkan", "kareeb", "pyaar", "aankhon", "kaamp")):
         return "heartbeat"
-    if genre == "funny":
-        return "meme_pop"
+    if genre in ("horror", "mystery"):
+        return "night_wind"
     return "whoosh"
+
+
+def detect_line_emotion(hinglish_txt: str, speaker: str) -> str:
+    """Detects whether a line should be spoken in a chilling whisper, urgent shock, or deep suspense."""
+    low = hinglish_txt.lower()
+    if any(k in low for k in ("dheeme", "chup", "sannata", "raaz", "saaya", "bhoot", "khauf", "kaamp", "aahat", "andar")):
+        return "chilling_whisper"
+    if "!" in hinglish_txt or any(k in low for k in ("achanak", "bhaag", "cheekh", "bacha", "khatra", "toot", "gir", "rok")):
+        return "urgent_shock"
+    if speaker in ("male", "female"):
+        return "dramatic_dialogue"
+    return "deep_suspense"
 
 
 def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
@@ -220,6 +236,7 @@ def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
                 "index": idx,
                 "is_teaser": False,
                 "speaker": sp,
+                "emotion": detect_line_emotion(auto_caption, sp),
                 "visual_prompt": visual_prompt,
                 "hindi_dub": spoken_hindi,
                 "auto_caption": auto_caption,
@@ -244,14 +261,11 @@ def build_elevenlabs_script(scenes: List[Dict[str, Any]], voice_mode: str) -> st
 
 
 # ==============================================================================
-# 4. 0.5-SECOND ULTRAFAST ACOUSTIC PAUSE & PHONETIC SYLLABLE SYNC ENGINE
+# 4. 0.5-SECOND ULTRAFAST ACOUSTIC SYNC ENGINE (FOR OPTIONAL UPLOADED AUDIO)
 # ==============================================================================
 class FastAcousticSyncEngine:
     @staticmethod
     def detect_speech_segments(wav_path: str, total_dur: float) -> List[Tuple[float, float]]:
-        """
-        Finds exact speech bursts and silence pauses in 0.2 seconds using vectorized NumPy!
-        """
         try:
             with wave.open(wav_path, "rb") as wf:
                 sr = wf.getframerate()
@@ -261,7 +275,7 @@ class FastAcousticSyncEngine:
                 if wf.getnchannels() > 1:
                     samples = samples[::wf.getnchannels()]
 
-            win = max(1, int(sr * 0.04))  # 40ms frames
+            win = max(1, int(sr * 0.04))
             trim_len = (len(samples) // win) * win
             if trim_len == 0:
                 return []
@@ -294,14 +308,9 @@ class FastAcousticSyncEngine:
 
     @classmethod
     def align_scenes_and_words(cls, scenes: List[Dict[str, Any]], master_wav: str, total_dur: float):
-        """
-        Aligns every scene cut to natural speech pauses and maps every word's exact
-        syllable + punctuation duration directly onto active speech segments.
-        """
         speech_segs = cls.detect_speech_segments(master_wav, total_dur)
         pauses = [en for (_, en) in speech_segs]
 
-        # 1. Calculate spoken weight of each scene line
         weights = []
         for s in scenes:
             txt = s.get("auto_caption") or ""
@@ -315,7 +324,6 @@ class FastAcousticSyncEngine:
             st = cursor
             en = cursor + raw_dur
 
-            # Snap scene cut to nearest natural voice pause within +/- 0.75s
             if pauses and idx < len(scenes) - 1:
                 best_p = en
                 min_diff = 0.75
@@ -336,13 +344,10 @@ class FastAcousticSyncEngine:
             scenes[-1]["end_sec"] = total_dur
             scenes[-1]["duration_sec"] = max(0.5, round(total_dur - scenes[-1]["start_sec"], 3))
 
-        # 2. Build exact word-level timings inside each scene's active speech window
         for sc in scenes:
             st = sc["start_sec"]
             en = sc["end_sec"]
             span = max(0.1, en - st)
-
-            # Find actual speech start/end inside this scene window so captions don't run during silence
             active_start = 0.0
             active_end = 1.0
             if speech_segs:
@@ -350,7 +355,6 @@ class FastAcousticSyncEngine:
                 if inside:
                     active_start = max(0.0, (inside[0][0] - st) / span)
                     active_end = min(1.0, max(active_start + 0.15, (inside[-1][1] - st) / span))
-
             sc["word_timings"] = NexoraVfxRenderer.build_word_timings(
                 sc.get("auto_caption", ""),
                 win_start=active_start,
@@ -359,17 +363,9 @@ class FastAcousticSyncEngine:
 
 
 # ==============================================================================
-# 5. BUILT-IN VOICE ENGINE + PROCEDURAL SFX & EMOTIONAL BGM
+# 5. "SUNDAY SUSPENSE" DEEP HORROR / MYSTERY STUDIO VOICE & FOLEY ENGINE
 # ==============================================================================
 class NexoraSoundAndVoiceEngine:
-    MULTI_PROFILES = {
-        "narrator": {"voice": "hi-IN-MadhurNeural", "rate": "+12%", "pitch": "-5Hz"},
-        "male": {"voice": "hi-IN-MadhurNeural", "rate": "+14%", "pitch": "+1Hz"},
-        "female": {"voice": "hi-IN-SwaraNeural", "rate": "+13%", "pitch": "+0Hz"},
-        "child": {"voice": "hi-IN-SwaraNeural", "rate": "+15%", "pitch": "+14Hz"},
-    }
-    SINGLE_STORYTELLER = {"voice": "hi-IN-MadhurNeural", "rate": "+12%", "pitch": "-5Hz"}
-
     @staticmethod
     def probe_dur(path: str) -> float:
         if not HAS_FFPROBE or not os.path.exists(path):
@@ -384,11 +380,44 @@ class NexoraSoundAndVoiceEngine:
             return 0.0
 
     @classmethod
-    def dub_scene_with_retry(cls, sc: Dict[str, Any], idx: int, voice_mode: str, work_dir: str) -> Tuple[str, float]:
+    def get_dynamic_voice_profile(cls, sc: Dict[str, Any], voice_mode: str, genre: str) -> Dict[str, str]:
+        """
+        Shifts pitch, cadence, and rate line-by-line like a real radio-drama voice actor!
+        """
+        sp = sc.get("speaker", "narrator").lower()
+        emo = sc.get("emotion", "deep_suspense")
+
+        if voice_mode == "builtin_multi":
+            if sp == "female":
+                if emo == "urgent_shock":
+                    return {"voice": "hi-IN-SwaraNeural", "rate": "+14%", "pitch": "+3Hz"}
+                if emo == "chilling_whisper":
+                    return {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "-3Hz"}
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+6%", "pitch": "-1Hz"}
+            if sp == "male":
+                if emo == "urgent_shock":
+                    return {"voice": "hi-IN-MadhurNeural", "rate": "+14%", "pitch": "-2Hz"}
+                if emo == "chilling_whisper":
+                    return {"voice": "hi-IN-MadhurNeural", "rate": "-4%", "pitch": "-9Hz"}
+                return {"voice": "hi-IN-MadhurNeural", "rate": "+6%", "pitch": "-5Hz"}
+            if sp == "child":
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+10%", "pitch": "+14Hz"}
+
+        # Deep "Sunday Suspense" Radio Narrator (gambhir, dark, magnetic)
+        if emo == "chilling_whisper":
+            return {"voice": "hi-IN-MadhurNeural", "rate": "-3%", "pitch": "-14Hz"}
+        if emo == "urgent_shock":
+            return {"voice": "hi-IN-MadhurNeural", "rate": "+14%", "pitch": "-7Hz"}
+        if genre in ("horror", "mystery"):
+            return {"voice": "hi-IN-MadhurNeural", "rate": "+4%", "pitch": "-12Hz"}
+        return {"voice": "hi-IN-MadhurNeural", "rate": "+6%", "pitch": "-10Hz"}
+
+    @classmethod
+    def dub_scene_studio(cls, sc: Dict[str, Any], idx: int, voice_mode: str, genre: str, work_dir: str) -> Tuple[str, float]:
         if not HAS_EDGE_TTS:
             raise RuntimeError("edge-tts is not installed on the server.")
 
-        prof = cls.SINGLE_STORYTELLER if voice_mode == "single_storyteller" else cls.MULTI_PROFILES.get(sc.get("speaker", "narrator"), cls.MULTI_PROFILES["narrator"])
+        prof = cls.get_dynamic_voice_profile(sc, voice_mode, genre)
         text = str(sc.get("hindi_dub") or "").strip() or "कहानी आगे बढ़ती है..."
 
         mp3_p = os.path.join(work_dir, f"v_{idx:03d}.mp3")
@@ -415,13 +444,24 @@ class NexoraSoundAndVoiceEngine:
 
         speech_dur = cls.probe_dur(mp3_p)
         if speech_dur <= 0.20:
-            raise RuntimeError(f"Built-in voice timeout on Scene {idx + 1} ({last_err}). Upload ElevenLabs MP3 or retry.")
+            raise RuntimeError(f"Voice synthesis timeout on Scene {idx + 1} ({last_err}).")
 
-        final_dur = round(speech_dur + 0.12, 2)
+        # Natural dramatic breath pause (0.28s) so lines feel like a real radio drama
+        final_dur = round(speech_dur + 0.26, 2)
+
+        # Studio Mastering Chain: Warm Radio Sub-Bass (+5dB @ 115Hz), Presence (+2.5dB @ 3.2kHz), Subtle Dark Room Echo
+        studio_af = (
+            "highpass=f=65,"
+            "equalizer=f=115:t=q:w=1.1:g=5.0,"
+            "equalizer=f=3200:t=q:w=1.4:g=2.5,"
+            "aecho=0.8:0.85:28:0.14,"
+            "acompressor=threshold=-19dB:ratio=3.2:attack=5:release=110,"
+            f"apad=whole_dur={final_dur:.3f}"
+        )
         subprocess.run(
             [
                 "ffmpeg", "-y", "-i", mp3_p,
-                "-af", f"highpass=f=75,equalizer=f=135:t=q:w=1:g=3.5,acompressor=threshold=-18dB:ratio=3.0:attack=6:release=95,apad=whole_dur={final_dur:.3f}",
+                "-af", studio_af,
                 "-t", f"{final_dur:.3f}",
                 "-ar", "22050", "-ac", "1", wav_p,
             ],
@@ -432,51 +472,80 @@ class NexoraSoundAndVoiceEngine:
         return wav_p, final_dur
 
     @staticmethod
-    def generate_sfx_wave(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
+    def generate_foley_sfx(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
+        """Synthesizes 9 rich cinema Foley & Horror/Mystery sound effects."""
         out = np.zeros(n_samples, dtype=np.float32)
-        sfx_len = min(n_samples, int(rate * 1.40))
+        sfx_len = min(n_samples, int(rate * 1.80))
         if sfx_len <= 10:
             return out
         t = np.linspace(0, sfx_len / float(rate), sfx_len, endpoint=False, dtype=np.float32)
-        rng = np.random.default_rng(42)
+        rng = np.random.default_rng(108)
 
         if sfx_type == "thunder":
-            rumble = rng.normal(0.0, 0.5, sfx_len).astype(np.float32)
-            kernel = np.ones(28, dtype=np.float32) / 28.0
+            rumble = rng.normal(0.0, 0.55, sfx_len).astype(np.float32)
+            kernel = np.ones(34, dtype=np.float32) / 34.0
             rumble = np.convolve(rumble, kernel, mode="same")
-            env = np.exp(-t * 2.2) * (1.0 - np.exp(-t * 40.0))
-            out[:sfx_len] = rumble * env * 0.85
+            crack = np.exp(-t * 18.0) * rng.normal(0.0, 0.6, sfx_len).astype(np.float32)
+            env = np.exp(-t * 1.8) * (1.0 - np.exp(-t * 50.0))
+            out[:sfx_len] = (rumble * env * 0.90) + (crack * 0.45)
+
         elif sfx_type == "horror_sting":
-            f1 = np.sin(2.0 * np.pi * 220.0 * t)
-            f2 = np.sin(2.0 * np.pi * 233.08 * t)
-            f3 = np.sin(2.0 * np.pi * 622.25 * t)
-            env = np.exp(-t * 3.0) * (1.0 - np.exp(-t * 60.0))
-            out[:sfx_len] = (f1 + f2 + 0.6 * f3) * env * 0.30
+            # Dissonant violin/brass terror chord
+            f1 = np.sin(2.0 * np.pi * 196.00 * t)
+            f2 = np.sin(2.0 * np.pi * 207.65 * t)
+            f3 = np.sin(2.0 * np.pi * 587.33 * t)
+            sub = np.sin(2.0 * np.pi * 49.00 * t)
+            env = np.exp(-t * 2.4) * (1.0 - np.exp(-t * 65.0))
+            out[:sfx_len] = (0.4 * f1 + 0.4 * f2 + 0.35 * f3 + 0.6 * sub) * env * 0.42
+
         elif sfx_type == "door_creak":
-            freq = 180.0 + 95.0 * np.sin(2.0 * np.pi * 4.5 * t)
+            freq = 165.0 + 110.0 * np.sin(2.0 * np.pi * 3.8 * t) + 40.0 * np.sin(2.0 * np.pi * 11.0 * t)
             phase = 2.0 * np.pi * np.cumsum(freq) / float(rate)
-            env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.5
-            out[:sfx_len] = np.sin(phase) * env * 0.25
+            env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.4
+            out[:sfx_len] = np.sin(phase) * env * 0.32
+
+        elif sfx_type == "clock_tick":
+            # Eerie midnight clock ticks
+            for tick_t in (0.1, 0.7, 1.3):
+                mask = (t >= tick_t) & (t < tick_t + 0.06)
+                lt = np.maximum(0.0, t - tick_t)
+                out[:sfx_len] += mask * np.exp(-lt * 85.0) * np.sin(2.0 * np.pi * 1200.0 * lt) * 0.45
+
+        elif sfx_type == "impact_slam":
+            sub_drop = np.sin(2.0 * np.pi * (95.0 * np.exp(-t * 6.0) + 28.0) * t) * np.exp(-t * 4.5)
+            debris = np.convolve(rng.normal(0.0, 0.4, sfx_len).astype(np.float32), np.ones(12) / 12.0, mode="same") * np.exp(-t * 5.5)
+            out[:sfx_len] = (sub_drop * 0.85 + debris * 0.50)
+
+        elif sfx_type == "heartbeat":
+            b1 = np.exp(-t * 14.0) * np.sin(2.0 * np.pi * 52.0 * t)
+            b2 = np.exp(-np.maximum(0.0, t - 0.28) * 14.0) * np.sin(2.0 * np.pi * 46.0 * t) * (t >= 0.28)
+            out[:sfx_len] = (b1 + b2) * 0.72
+
+        elif sfx_type == "night_wind":
+            noise = rng.normal(0.0, 0.28, sfx_len).astype(np.float32)
+            kernel = np.ones(45, dtype=np.float32) / 45.0
+            wind = np.convolve(noise, kernel, mode="same")
+            env = np.sin(np.pi * (t / (sfx_len / float(rate))))
+            out[:sfx_len] = wind * env * 0.55
+
         elif sfx_type in ("meme_boing", "meme_pop"):
             freq = 190.0 + 380.0 * (t / (sfx_len / float(rate))) + 70.0 * np.sin(2.0 * np.pi * 18.0 * t)
             phase = 2.0 * np.pi * np.cumsum(freq) / float(rate)
             env = np.exp(-t * 4.8)
             out[:sfx_len] = np.sin(phase) * env * 0.35
-        elif sfx_type == "heartbeat":
-            b1 = np.exp(-t * 14.0) * np.sin(2.0 * np.pi * 55.0 * t)
-            b2 = np.exp(-np.maximum(0.0, t - 0.25) * 14.0) * np.sin(2.0 * np.pi * 50.0 * t) * (t >= 0.25)
-            out[:sfx_len] = (b1 + b2) * 0.60
+
         else:
-            noise = rng.normal(0.0, 0.3, sfx_len).astype(np.float32)
-            kernel = np.ones(14, dtype=np.float32) / 14.0
+            noise = rng.normal(0.0, 0.32, sfx_len).astype(np.float32)
+            kernel = np.ones(16, dtype=np.float32) / 16.0
             filtered = np.convolve(noise, kernel, mode="same")
             env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 2.0
-            out[:sfx_len] = filtered * env * 0.48
+            out[:sfx_len] = filtered * env * 0.52
 
         return out
 
     @classmethod
     def build_full_sfx_and_bgm_track(cls, render_scenes: List[Dict[str, Any]], genre: str, out_wav: str):
+        """Builds dark, atmospheric Sunday Suspense BGM with dynamic swells + Foley SFX."""
         rate = 22050
         with wave.open(out_wav, "wb") as wf:
             wf.setnchannels(1)
@@ -489,26 +558,35 @@ class NexoraSoundAndVoiceEngine:
                 n = max(1, int(round(dur * rate)))
                 t = np.linspace(cur_t, cur_t + dur, n, endpoint=False, dtype=np.float32)
                 local_p = np.linspace(0.0, 1.0, n, endpoint=False, dtype=np.float32)
-                swell = 1.0 + 0.35 * (np.exp(-local_p * 5.0) + np.exp(-(1.0 - local_p) * 5.0))
+                # Music swells dramatically during scene transitions and softens slightly during speech
+                swell = 1.0 + 0.45 * (np.exp(-local_p * 5.5) + np.exp(-(1.0 - local_p) * 5.5))
 
-                if genre == "horror":
-                    drone = 0.50 * np.sin(2.0 * np.pi * 41.20 * t) + 0.30 * np.sin(2.0 * np.pi * 61.74 * t)
-                    bgm = drone * 0.11 * swell
-                elif genre == "romantic":
-                    pad = (
-                        0.40 * np.sin(2.0 * np.pi * 130.81 * t)
-                        + 0.30 * np.sin(2.0 * np.pi * 164.81 * t)
-                        + 0.25 * np.sin(2.0 * np.pi * 196.00 * t)
+                if genre in ("horror", "mystery"):
+                    # Deep ominous C1/G1/D#2 thriller pad + slow pulse
+                    lfo = 0.75 + 0.25 * np.sin(2.0 * np.pi * 0.4 * t)
+                    drone = (
+                        0.55 * np.sin(2.0 * np.pi * 32.70 * t)
+                        + 0.30 * np.sin(2.0 * np.pi * 49.00 * t)
+                        + 0.20 * np.sin(2.0 * np.pi * 77.78 * t)
                     )
-                    bgm = pad * 0.11 * swell
+                    bgm = drone * 0.14 * swell * lfo
+                elif genre == "romantic":
+                    # Dark romantic minor chord (Am7 atmospheric pad)
+                    pad = (
+                        0.45 * np.sin(2.0 * np.pi * 110.00 * t)
+                        + 0.32 * np.sin(2.0 * np.pi * 130.81 * t)
+                        + 0.25 * np.sin(2.0 * np.pi * 164.81 * t)
+                        + 0.20 * np.sin(2.0 * np.pi * 55.00 * t)
+                    )
+                    bgm = pad * 0.13 * swell
                 elif genre == "funny":
                     beat = np.exp(-((t % 0.45) * 10.0)) * np.sin(2.0 * np.pi * 196.0 * t)
                     bgm = beat * 0.12
                 else:
-                    drone = 0.50 * np.sin(2.0 * np.pi * 55.0 * t) + 0.30 * np.sin(2.0 * np.pi * 82.41 * t)
-                    bgm = drone * 0.10 * swell
+                    drone = 0.50 * np.sin(2.0 * np.pi * 43.65 * t) + 0.30 * np.sin(2.0 * np.pi * 65.41 * t)
+                    bgm = drone * 0.13 * swell
 
-                sfx = cls.generate_sfx_wave(sc.get("sfx_type", "whoosh"), n, rate=rate)
+                sfx = cls.generate_foley_sfx(sc.get("sfx_type", "whoosh"), n, rate=rate)
                 mix = bgm + sfx
                 wf.writeframes((np.clip(mix, -0.95, 0.95) * 32767.0).astype(np.int16).tobytes())
                 cur_t += dur
@@ -516,16 +594,16 @@ class NexoraSoundAndVoiceEngine:
 
 
 # ==============================================================================
-# 6. HEAVY CINEMA ANIMATION & VFX RENDERER (8 CAMERA STYLES + PARTICLES)
+# 6. HEAVY CINEMA ANIMATION & LETTERBOX VFX RENDERER
 # ==============================================================================
 class NexoraVfxRenderer:
     POWER_WORDS = {
         "raaz", "dhokha", "pyaar", "achanak", "khatra", "bhoot", "khoon",
         "sach", "ishq", "mohabbat", "intezar", "dard", "aansu", "kasam",
-        "secret", "shock", "murder", "mystery", "junoon", "barbaad", "dweep", "toofan",
+        "secret", "shock", "murder", "mystery", "junoon", "barbaad", "dweep", "toofan", "saaya",
     }
 
-    def __init__(self, width: int, height: int, genre: str = "romantic"):
+    def __init__(self, width: int, height: int, genre: str = "mystery"):
         self.w = width
         self.h = height
         self.genre = genre
@@ -533,10 +611,10 @@ class NexoraVfxRenderer:
 
         rng = np.random.default_rng(777)
         self.particles = np.column_stack([
-            rng.uniform(0, width, 70),
-            rng.uniform(0, height, 70),
-            rng.uniform(1.2, 3.0, 70),
-            rng.uniform(0.5, 1.5, 70),
+            rng.uniform(0, width, 75),
+            rng.uniform(0, height, 75),
+            rng.uniform(1.2, 3.0, 75),
+            rng.uniform(0.5, 1.5, 75),
         ])
 
     def load_scene_image(self, img_path: str) -> Image.Image:
@@ -544,7 +622,7 @@ class NexoraVfxRenderer:
             im = raw_im.convert("RGB")
             tw, th = int(self.w * 1.32), int(self.h * 1.32)
             im = im.resize((tw, th), Image.Resampling.BILINEAR)
-            im = ImageEnhance.Contrast(im).enhance(1.14)
+            im = ImageEnhance.Contrast(im).enhance(1.16)
             im = ImageEnhance.Color(im).enhance(1.20)
             return im
 
@@ -572,10 +650,10 @@ class NexoraVfxRenderer:
             timings.append((w, st, en))
         return timings
 
-    def _draw_top_hud(self, draw: ImageDraw.Draw, is_teaser: bool, ov_prog: float):
+    def _draw_top_hud(self, draw: ImageDraw.Draw, is_teaser: bool, ov_prog: float, bar_h: int):
         f_hud = get_font(max(11, int(12 * self.sc)), bold=True)
         pad_x = int(14 * self.sc)
-        pad_y = int(12 * self.sc)
+        pad_y = bar_h + int(10 * self.sc)
 
         if is_teaser:
             badge = "🔥 AAGE DEKHIYE... (CLIMAX PREVIEW)"
@@ -592,7 +670,7 @@ class NexoraVfxRenderer:
             draw.rounded_rectangle([pad_x, pad_y, pad_x + bw, pad_y + bh], radius=8, fill=(8, 13, 26), outline=(34, 211, 238), width=1)
             draw.text((pad_x + int(10 * self.sc), pad_y + int(4 * self.sc)), stage, font=f_hud, fill=(34, 211, 238))
 
-    def _draw_exact_synced_captions(self, draw: ImageDraw.Draw, timings: List[Tuple[str, float, float]], sc_prog: float, voice_mode: str, speaker: str):
+    def _draw_exact_synced_captions(self, draw: ImageDraw.Draw, timings: List[Tuple[str, float, float]], sc_prog: float, voice_mode: str, speaker: str, bar_h: int):
         if not timings:
             return
 
@@ -618,14 +696,14 @@ class NexoraVfxRenderer:
         accent = (
             (251, 191, 36) if self.genre == "funny"
             else ((244, 114, 182) if self.genre == "romantic"
-                  else ((244, 63, 94) if self.genre == "horror" else (34, 211, 238)))
+                  else ((244, 63, 94) if self.genre in ("horror", "mystery") else (34, 211, 238)))
         )
 
         show_tag = voice_mode == "builtin_multi"
         box_w = min(int(self.w * 0.92), pw + int(46 * self.sc))
         box_h = ph + (int(34 * self.sc) if show_tag else int(24 * self.sc))
         bx0 = (self.w - box_w) // 2
-        by1 = self.h - int(22 * self.sc)
+        by1 = self.h - bar_h - int(14 * self.sc)
         by0 = by1 - box_h
 
         draw.rounded_rectangle([bx0, by0, bx0 + box_w, by1], radius=14, fill=(6, 9, 18), outline=accent, width=2)
@@ -713,7 +791,7 @@ class NexoraVfxRenderer:
         ox = int(max_dx * max(0.0, min(1.0, pan_x)))
         oy = int(max_dy * max(0.0, min(1.0, pan_y)))
 
-        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("horror_sting", "thunder")) and sc_prog < 0.24:
+        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("horror_sting", "thunder", "impact_slam")) and sc_prog < 0.25:
             ox = max(0, min(max_dx, ox + int(math.sin(global_t * 54.0) * 11 * self.sc)))
             oy = max(0, min(max_dy, oy + int(math.cos(global_t * 48.0) * 8 * self.sc)))
 
@@ -722,7 +800,7 @@ class NexoraVfxRenderer:
         if abs(rot_deg) > 0.05:
             frame = frame.rotate(rot_deg, resample=Image.Resampling.BILINEAR, expand=False)
 
-        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("thunder", "horror_sting")) and sc_prog < 0.08:
+        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("thunder", "horror_sting", "impact_slam")) and sc_prog < 0.08:
             flash_strength = 1.0 + 0.65 * (1.0 - sc_prog / 0.08)
             frame = ImageEnhance.Brightness(frame).enhance(flash_strength)
         elif sc_prog < 0.05:
@@ -730,12 +808,14 @@ class NexoraVfxRenderer:
 
         draw = ImageDraw.Draw(frame)
 
-        if self.genre == "horror":
+        # Glowing Atmospheric Particles
+        if self.genre in ("horror", "mystery"):
             for px0, py0, pr, spd in self.particles:
                 px = (px0 + global_t * 26.0 * spd) % self.w
                 py = (py0 - global_t * 22.0 * spd) % self.h
                 r_px = max(1, int(pr * self.sc * 0.85))
-                draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(244, 63, 94))
+                col = (244, 63, 94) if self.genre == "horror" else (56, 189, 248)
+                draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=col)
         elif self.genre == "romantic":
             for px0, py0, pr, spd in self.particles:
                 px = (px0 + math.sin(global_t * 1.4 + py0) * 18.0) % self.w
@@ -749,18 +829,24 @@ class NexoraVfxRenderer:
                 r_px = max(2, int(pr * self.sc))
                 draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(56, 189, 248))
 
-        self._draw_top_hud(draw, is_teaser, ov_prog)
-        self._draw_exact_synced_captions(draw, timings, sc_prog, voice_mode, scene.get("speaker", "narrator"))
+        # Cinematic Widescreen Letterbox Bars (for 16:9 theatre look)
+        bar_h = int(self.h * 0.055) if self.w > self.h else 0
+        if bar_h > 0:
+            draw.rectangle([0, 0, self.w, bar_h], fill=(3, 5, 10))
+            draw.rectangle([0, self.h - bar_h, self.w, self.h], fill=(3, 5, 10))
+
+        self._draw_top_hud(draw, is_teaser, ov_prog, bar_h)
+        self._draw_exact_synced_captions(draw, timings, sc_prog, voice_mode, scene.get("speaker", "narrator"), bar_h)
 
         bar_w = int(self.w * ov_prog)
-        accent_c = (244, 63, 94) if self.genre == "horror" else ((244, 114, 182) if self.genre == "romantic" else (34, 211, 238))
+        accent_c = (244, 63, 94) if self.genre in ("horror", "mystery") else ((244, 114, 182) if self.genre == "romantic" else (34, 211, 238))
         draw.rectangle([0, self.h - 4, bar_w, self.h], fill=accent_c)
 
         return frame.tobytes()
 
 
 # ==============================================================================
-# 7. HIGH-SPEED RENDER PIPELINE (INSTANT START — ZERO AI MODEL DELAY)
+# 7. STUDIO RENDER PIPELINE WITH SIDECHAIN AUTO-DUCKING AUDIO MASTERING
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
@@ -801,16 +887,16 @@ def run_final_render(job_id: str, session_id: str):
 
         if voice_mode == "uploaded":
             if not is_safe_id(uploaded_audio_id):
-                raise RuntimeError("Please upload your ElevenLabs MP3/WAV file first!")
+                raise RuntimeError("Please upload your MP3/WAV audio file first!")
             uploaded_audio_path = None
             for fn in os.listdir(UPLOAD_DIR):
                 if fn.startswith(uploaded_audio_id):
                     uploaded_audio_path = os.path.join(UPLOAD_DIR, fn)
                     break
             if not uploaded_audio_path:
-                raise FileNotFoundError("Uploaded ElevenLabs audio file not found.")
+                raise FileNotFoundError("Uploaded audio file not found.")
 
-            update_job(job_id, status="running", progress=6, current_scene="Instant Acoustic Waveform Sync & Auto-Captioning (0.5s)...")
+            update_job(job_id, status="running", progress=6, current_scene="Instant Acoustic Sync & Auto-Captioning...")
             subprocess.run(
                 ["ffmpeg", "-y", "-i", uploaded_audio_path, "-ar", "22050", "-ac", "1", master_voice],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
@@ -818,8 +904,6 @@ def run_final_render(job_id: str, session_id: str):
             total_el_dur = NexoraSoundAndVoiceEngine.probe_dur(master_voice)
             if total_el_dur <= 1.0:
                 raise RuntimeError("Uploaded audio file is invalid or empty.")
-
-            # Instant 0.5-second acoustic pause & syllable alignment (zero AI model download!)
             FastAcousticSyncEngine.align_scenes_and_words(raw_scenes, master_voice, total_el_dur)
         else:
             voice_chunks: List[str] = []
@@ -827,12 +911,12 @@ def run_final_render(job_id: str, session_id: str):
                 update_job(
                     job_id,
                     status="running",
-                    progress=4 + int((idx / float(len(raw_scenes))) * 14),
-                    current_scene=f"Generating Voice & Auto-Captions ({idx + 1}/{len(raw_scenes)})...",
+                    progress=4 + int((idx / float(len(raw_scenes))) * 15),
+                    current_scene=f"Dubbing Studio Voice ({idx + 1}/{len(raw_scenes)}) [{sc['emotion']}]...",
                 )
-                dub_wav, actual_dur = NexoraSoundAndVoiceEngine.dub_scene_with_retry(sc, idx, voice_mode, work_dir)
+                dub_wav, actual_dur = NexoraSoundAndVoiceEngine.dub_scene_studio(sc, idx, voice_mode, genre, work_dir)
                 sc["duration_sec"] = actual_dur
-                sc["word_timings"] = NexoraVfxRenderer.build_word_timings(sc.get("auto_caption", ""), 0.02, 0.96)
+                sc["word_timings"] = NexoraVfxRenderer.build_word_timings(sc.get("auto_caption", ""), 0.02, 0.94)
                 voice_chunks.append(dub_wav)
 
             a_list = os.path.join(work_dir, "a_list.txt")
@@ -889,9 +973,9 @@ def run_final_render(job_id: str, session_id: str):
 
         video_chunks: List[str] = []
         cinema_vf = (
-            "eq=contrast=1.10:brightness=-0.02:saturation=1.16,unsharp=3:3:0.5:3:3:0.0,vignette=PI/5"
-            if genre == "horror"
-            else "eq=contrast=1.06:brightness=0.01:saturation=1.24,unsharp=3:3:0.45:3:3:0.0,vignette=PI/6"
+            "eq=contrast=1.12:brightness=-0.03:saturation=1.18,unsharp=3:3:0.55:3:3:0.0,vignette=PI/4.5"
+            if genre in ("horror", "mystery")
+            else "eq=contrast=1.08:brightness=0.01:saturation=1.24,unsharp=3:3:0.5:3:3:0.0,vignette=PI/5.5"
         )
 
         for idx, sc in enumerate(render_scenes):
@@ -899,8 +983,8 @@ def run_final_render(job_id: str, session_id: str):
             update_job(
                 job_id,
                 status="running",
-                progress=18 + int((idx / float(total_sc)) * 74),
-                current_scene=f"Rendering {lbl} ({sc['anim_type']})...",
+                progress=19 + int((idx / float(total_sc)) * 73),
+                current_scene=f"Rendering {lbl} ({sc['anim_type']} + {sc['sfx_type']})...",
             )
 
             actual_dur = float(sc.get("duration_sec", 4.0))
@@ -917,7 +1001,7 @@ def run_final_render(job_id: str, session_id: str):
                     "-f", "rawvideo", "-vcodec", "rawvideo",
                     "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24", "-r", str(fps), "-i", "-",
                     "-vf", cinema_vf,
-                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "2",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
                     "-pix_fmt", "yuv420p", v_chunk,
                 ],
                 stdin=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -946,7 +1030,7 @@ def run_final_render(job_id: str, session_id: str):
             base_img = None
             gc.collect()
 
-        update_job(job_id, progress=93, current_scene="Mixing SFX, Emotional BGM & Finalizing MP4...")
+        update_job(job_id, progress=93, current_scene="Mastering Studio Sidechain Audio, Foley SFX & MP4...")
         v_list = os.path.join(work_dir, "v_list.txt")
         with open(v_list, "w", encoding="utf-8") as vf:
             for vc in video_chunks:
@@ -961,9 +1045,18 @@ def run_final_render(job_id: str, session_id: str):
         sfx_bgm_wav = os.path.join(work_dir, "sfx_bgm.wav")
         NexoraSoundAndVoiceEngine.build_full_sfx_and_bgm_track(render_scenes, genre, sfx_bgm_wav)
 
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_V12"
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_V13"
         out_name = f"NEXORA_{genre.upper()}_{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
+
+        # True Studio Sidechain Ducking: BGM/SFX automatically dips slightly while voice is speaking!
+        filter_audio = (
+            "[1:a]asplit=2[v_main][v_sc];"
+            "[2:a][v_sc]sidechaincompress=threshold=0.03:ratio=4:attack=15:release=250[bg_ducked];"
+            "[v_main]volume=1.38[v_loud];"
+            "[bg_ducked]volume=0.65[bg_loud];"
+            "[v_loud][bg_loud]amix=inputs=2:duration=first[aout]"
+        )
 
         subprocess.run(
             [
@@ -971,7 +1064,7 @@ def run_final_render(job_id: str, session_id: str):
                 "-i", joined_v,
                 "-i", master_voice,
                 "-i", sfx_bgm_wav,
-                "-filter_complex", "[1:a]volume=1.35[v];[2:a]volume=0.52[m];[v][m]amix=inputs=2:duration=first[aout]",
+                "-filter_complex", filter_audio,
                 "-map", "0:v", "-map", "[aout]",
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-shortest", out_path,
@@ -1011,7 +1104,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "fast_sync": True})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "studio_v13": True})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -1030,8 +1123,8 @@ def api_audio_upload():
 @app.route("/api/prepare", methods=["POST"])
 def api_prepare():
     data = request.get_json(silent=True) or {}
-    genre = str(data.get("genre", "romantic")).lower()
-    voice_mode = str(data.get("voice_mode", "uploaded"))
+    genre = str(data.get("genre", "mystery")).lower()
+    voice_mode = str(data.get("voice_mode", "single_storyteller"))
     scenes = parse_user_script(str(data.get("custom_script", "")), genre)
     if not scenes:
         return jsonify({"error": "Paste a valid 3-column script first (Speaker | Image Prompt | Spoken Hindi)."}), 400
@@ -1226,7 +1319,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 3,
-            "current_scene": "Starting High-Speed Cinema Render...",
+            "current_scene": "Starting Sunday Suspense Studio Render...",
             "error": None,
         }
 
