@@ -1,5 +1,6 @@
-Flask==3.0.3
-numpy==1.26.4
-Pillow==10.4.0
-gunicorn==22.0.0
+flask
+gunicorn
+numpy
+Pillow
 edge-tts
+faster-whisper
