@@ -22,8 +22,14 @@ try:
 except ImportError:
     HAS_EDGE_TTS = False
 
+try:
+    from faster_whisper import WhisperModel
+    HAS_WHISPER = True
+except ImportError:
+    HAS_WHISPER = False
+
 # ==============================================================================
-# 1. CONFIGURATION & MEMORY-SAFE WORKSPACE
+# 1. PRODUCTION CONFIGURATION & MEMORY-SAFE WORKSPACE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -35,13 +41,33 @@ for d in (OUTPUT_DIR, UPLOAD_DIR, SESSIONS_DIR, TMP_ROOT):
     os.makedirs(d, exist_ok=True)
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 180 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
 
 SESSIONS: Dict[str, Dict[str, Any]] = {}
 JOBS: Dict[str, Dict[str, Any]] = {}
 LOCK = threading.Lock()
 ACTIVE_JOBS = set()
 SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{6,40}$")
+
+HAS_FFMPEG = shutil.which("ffmpeg") is not None
+HAS_FFPROBE = shutil.which("ffprobe") is not None
+
+_WHISPER_MODEL = None
+_WHISPER_LOCK = threading.Lock()
+
+
+def get_whisper_model():
+    """Lazy-loads tiny int8 Whisper model (~40MB RAM) for exact word-level timestamps."""
+    global _WHISPER_MODEL
+    if not HAS_WHISPER:
+        return None
+    with _WHISPER_LOCK:
+        if _WHISPER_MODEL is None:
+            try:
+                _WHISPER_MODEL = WhisperModel("tiny", device="cpu", compute_type="int8")
+            except Exception:
+                _WHISPER_MODEL = None
+        return _WHISPER_MODEL
 
 
 def is_safe_id(val: str) -> bool:
@@ -66,9 +92,6 @@ def purge_expired(max_age_sec: int = 1800):
     except Exception:
         pass
 
-
-HAS_FFMPEG = shutil.which("ffmpeg") is not None
-HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 _FONT_CACHE: Dict[Tuple[str, int], ImageFont.FreeTypeFont] = {}
 
@@ -105,15 +128,84 @@ def ease_in_out(t: float) -> float:
 
 
 # ==============================================================================
-# 2. SCRIPT PARSER + ELEVENLABS CLEAN VOICEOVER GENERATOR
+# 2. DEVANAGARI TO CRISP HINGLISH TRANSLITERATOR (SO CAPTIONS ARE 100% READABLE)
+# ==============================================================================
+_CONSONANTS = {
+    "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "ng",
+    "च": "ch", "छ": "chh", "ज": "j", "झ": "jh", "ञ": "ny",
+    "ट": "t", "ठ": "th", "ड": "d", "ढ": "dh", "ण": "n",
+    "त": "t", "थ": "th", "द": "d", "ध": "dh", "न": "n",
+    "प": "p", "फ": "ph", "ब": "b", "भ": "bh", "म": "m",
+    "य": "y", "र": "r", "ल": "l", "व": "v", "श": "sh",
+    "ष": "sh", "स": "s", "ह": "h", "क़": "q", "ख़": "kh",
+    "ग़": "g", "ज़": "z", "ड़": "d", "ढ़": "dh", "फ़": "f",
+}
+_VOWELS_INDEP = {
+    "अ": "a", "आ": "aa", "इ": "i", "ई": "ee", "उ": "u", "ऊ": "oo",
+    "ऋ": "ri", "ए": "e", "ऐ": "ai", "ओ": "o", "औ": "au",
+}
+_MATRAS = {
+    "ा": "aa", "ि": "i", "ी": "ee", "ु": "u", "ू": "oo",
+    "ृ": "ri", "े": "e", "ै": "ai", "ो": "o", "ौ": "au",
+    "ं": "n", "ँ": "n", "ः": "h", "्": "",
+}
+
+
+def devanagari_to_hinglish(text: str) -> str:
+    """Converts Hindi Devanagari words into clean, readable Hinglish subtitles."""
+    if not text:
+        return ""
+    if not any("\u0900" <= ch <= "\u097F" for ch in text):
+        return text
+
+    out_words: List[str] = []
+    for token in text.split():
+        res: List[str] = []
+        n = len(token)
+        i = 0
+        while i < n:
+            ch = token[i]
+            if ch in _VOWELS_INDEP:
+                res.append(_VOWELS_INDEP[ch])
+                i += 1
+            elif ch in _CONSONANTS:
+                res.append(_CONSONANTS[ch])
+                nxt = token[i + 1] if i + 1 < n else ""
+                if nxt in _MATRAS:
+                    res.append(_MATRAS[nxt])
+                    i += 2
+                else:
+                    # Inherent 'a' except at word end
+                    if i + 1 < n and ("\u0900" <= nxt <= "\u097F"):
+                        res.append("a")
+                    i += 1
+            elif ch in _MATRAS:
+                res.append(_MATRAS[ch])
+                i += 1
+            elif ch == "।":
+                res.append(".")
+                i += 1
+            else:
+                res.append(ch)
+                i += 1
+        word_str = "".join(res)
+        word_str = re.sub(r"aa+", "aa", word_str)
+        out_words.append(word_str)
+    return " ".join(out_words)
+
+
+# ==============================================================================
+# 3. 3-COLUMN SCRIPT PARSER (NO MANUAL CAPTION COLUMN REQUIRED!)
 # ==============================================================================
 ANIM_MODES = [
-    "hook_zoom_in",
-    "smooth_pan_right",
-    "dramatic_zoom_out",
-    "smooth_pan_left",
-    "pulse_zoom",
-    "diagonal_drift",
+    "3D_Zoom_Punch",
+    "Cinema_Pan_Right",
+    "Dramatic_Zoom_Out",
+    "Cinema_Pan_Left",
+    "Heartbeat_Pulse",
+    "Tilt_Rotate_Drift",
+    "Flash_Impact_Zoom",
+    "Whip_Slide_In",
 ]
 
 
@@ -125,7 +217,7 @@ def detect_scene_sfx(text_blob: str, genre: str) -> str:
         return "door_creak"
     if any(k in low for k in ("funny", "meme", "joke", "hasne", "pagal", "mazak", "comedy")):
         return "meme_boing"
-    if any(k in low for k in ("scream", "chilla", "bhoot", "khauf", "dar", "ghost", "blood", "khoon", "raaz", "dhokha")):
+    if any(k in low for k in ("scream", "chilla", "bhoot", "khauf", "dar", "ghost", "blood", "khoon", "raaz", "dhokha", "khatra")):
         return "horror_sting"
     if any(k in low for k in ("heartbeat", "dil", "saansein", "dhadkan", "kareeb", "pyaar", "aankhon")):
         return "heartbeat"
@@ -135,26 +227,32 @@ def detect_scene_sfx(text_blob: str, genre: str) -> str:
 
 
 def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
+    """
+    Supports both 3-column (Speaker | Image Prompt | Spoken Hindi)
+    and legacy 4-column scripts automatically!
+    """
     scenes: List[Dict[str, Any]] = []
     for line in str(custom_script or "").splitlines():
         line = line.strip()
         if not line or "|" not in line:
             continue
         parts = [p.strip() for p in line.split("|")]
-        if len(parts) >= 4:
+        if len(parts) >= 3:
             sp = parts[0].lower()
             if sp not in ("narrator", "male", "female", "child"):
                 sp = "narrator"
+            visual_prompt = parts[1]
+            # If 4 columns provided, take column 4 as spoken line; if 3 columns, take column 3
+            spoken_hindi = parts[3] if len(parts) >= 4 else parts[2]
             idx = len(scenes)
-            combined_txt = f"{parts[1]} {parts[2]}"
+            combined_txt = f"{visual_prompt} {spoken_hindi}"
             scenes.append({
                 "index": idx,
                 "is_teaser": False,
                 "speaker": sp,
-                "visual_prompt": parts[1],
-                "hinglish": parts[2],
-                "hindi_dub": parts[3],
-                "anim_type": "hook_zoom_in" if idx == 0 else ANIM_MODES[idx % len(ANIM_MODES)],
+                "visual_prompt": visual_prompt,
+                "hindi_dub": spoken_hindi,
+                "anim_type": "3D_Zoom_Punch" if idx == 0 else ANIM_MODES[idx % len(ANIM_MODES)],
                 "sfx_type": detect_scene_sfx(combined_txt, genre),
                 "image_ready": False,
                 "image_file": "",
@@ -163,10 +261,9 @@ def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
 
 
 def build_elevenlabs_script(scenes: List[Dict[str, Any]], voice_mode: str) -> str:
-    """Generates a clean, ready-to-paste Hindi voiceover script for ElevenLabs."""
     lines: List[str] = []
     for sc in scenes:
-        dub = sc.get("hindi_dub") or sc.get("hinglish") or ""
+        dub = sc.get("hindi_dub") or ""
         if voice_mode == "builtin_multi":
             sp = sc.get("speaker", "narrator").upper()
             lines.append(f"[{sp}]: {dub}")
@@ -176,7 +273,172 @@ def build_elevenlabs_script(scenes: List[Dict[str, Any]], voice_mode: str) -> st
 
 
 # ==============================================================================
-# 3. CRASH-PROOF VOICE ENGINE (WITH 3X AUTO-RETRY) & PROCEDURAL SFX/BGM
+# 4. TRUE AUTO-CAPTION TRANSCRIBER + WAVEFORM PAUSE ALIGNER
+# ==============================================================================
+class AutoCaptionAndSyncEngine:
+    @staticmethod
+    def extract_word_timestamps(audio_wav_path: str, total_dur: float) -> List[Dict[str, Any]]:
+        """
+        Uses faster-whisper to transcribe the actual voice audio and extract
+        exact word-level start & end timestamps in Hinglish!
+        """
+        model = get_whisper_model()
+        if model is None or not os.path.exists(audio_wav_path):
+            return []
+
+        words_out: List[Dict[str, Any]] = []
+        try:
+            segments, _ = model.transcribe(
+                audio_wav_path,
+                language="hi",
+                word_timestamps=True,
+                vad_filter=True,
+                beam_size=1,
+            )
+            for seg in segments:
+                if getattr(seg, "words", None):
+                    for w in seg.words:
+                        raw_w = str(w.word or "").strip()
+                        if not raw_w:
+                            continue
+                        hinglish_w = devanagari_to_hinglish(raw_w)
+                        words_out.append({
+                            "word": hinglish_w,
+                            "start": max(0.0, float(w.start)),
+                            "end": min(total_dur, max(float(w.start) + 0.05, float(w.end))),
+                        })
+                else:
+                    # Segment-level fallback if word timestamps omitted
+                    seg_txt = devanagari_to_hinglish(str(seg.text or "").strip())
+                    toks = seg_txt.split()
+                    if toks:
+                        span = max(0.1, float(seg.end) - float(seg.start))
+                        step = span / len(toks)
+                        for i, tk in enumerate(toks):
+                            words_out.append({
+                                "word": tk,
+                                "start": float(seg.start) + i * step,
+                                "end": float(seg.start) + (i + 1) * step,
+                            })
+        except Exception:
+            return []
+        return words_out
+
+    @staticmethod
+    def detect_silence_pauses(wav_path: str) -> List[float]:
+        """Finds exact pause timestamps (in seconds) in the WAV file so scene cuts snap to natural pauses."""
+        pauses: List[float] = []
+        try:
+            with wave.open(wav_path, "rb") as wf:
+                sr = wf.getframerate()
+                n_frames = wf.getnframes()
+                raw = wf.readframes(n_frames)
+                samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+                if wf.getnchannels() > 1:
+                    samples = samples[::wf.getnchannels()]
+
+            win = max(1, int(sr * 0.04))
+            rms_vals = []
+            for i in range(0, len(samples), win):
+                chunk = samples[i : i + win]
+                rms_vals.append(float(np.sqrt(np.mean(chunk * chunk))) if len(chunk) else 0.0)
+
+            max_e = max(rms_vals) if rms_vals else 0.0
+            thresh = max(0.012, max_e * 0.08)
+            in_speech = False
+            sil_run = 0.0
+            for k, e in enumerate(rms_vals):
+                t = k * 0.04
+                if e > thresh:
+                    in_speech = True
+                    sil_run = 0.0
+                elif in_speech:
+                    sil_run += 0.04
+                    if sil_run >= 0.24:
+                        pauses.append(round(t - 0.10, 2))
+                        in_speech = False
+        except Exception:
+            pass
+        return pauses
+
+    @classmethod
+    def align_uploaded_audio_to_scenes(
+        cls,
+        scenes: List[Dict[str, Any]],
+        master_wav: str,
+        total_dur: float,
+    ) -> List[Dict[str, Any]]:
+        """
+        Aligns each scene's start/end time to the actual spoken voice using both
+        Whisper word timestamps and waveform silence pauses.
+        """
+        transcribed_words = cls.extract_word_timestamps(master_wav, total_dur)
+        pauses = cls.detect_silence_pauses(master_wav)
+
+        # Compute character weights of each scene's script line
+        weights = []
+        for s in scenes:
+            txt = s.get("hindi_dub") or ""
+            punct = len(re.findall(r"[।.!?]", txt)) * 4 + len(re.findall(r"[,—]", txt)) * 2
+            weights.append(max(4, len(re.sub(r"\s+", "", txt)) + punct))
+        total_w = float(sum(weights)) or 1.0
+
+        cursor = 0.0
+        for idx, sc in enumerate(scenes):
+            raw_dur = (weights[idx] / total_w) * total_dur
+            st = cursor
+            en = cursor + raw_dur
+
+            if pauses and idx < len(scenes) - 1:
+                best_p = en
+                min_diff = 0.70
+                for p in pauses:
+                    d = abs(p - en)
+                    if d < min_diff:
+                        min_diff = d
+                        best_p = p
+                en = best_p
+
+            cursor = en
+            sc["start_sec"] = st
+            sc["end_sec"] = en
+            sc["duration_sec"] = max(0.5, round(en - st, 3))
+
+        if scenes:
+            scenes[0]["start_sec"] = 0.0
+            scenes[-1]["end_sec"] = total_dur
+            scenes[-1]["duration_sec"] = max(0.5, round(total_dur - scenes[-1]["start_sec"], 3))
+
+        # Attach exact transcribed words to each scene window!
+        for sc in scenes:
+            st = sc["start_sec"]
+            en = sc["end_sec"]
+            span = max(0.1, en - st)
+            if transcribed_words:
+                sc_words = [
+                    w for w in transcribed_words
+                    if ((w["start"] + w["end"]) * 0.5) >= st and ((w["start"] + w["end"]) * 0.5) <= en
+                ]
+                if sc_words:
+                    sc["word_timings"] = [
+                        (
+                            w["word"],
+                            max(0.0, min(1.0, (w["start"] - st) / span)),
+                            max(0.0, min(1.0, (w["end"] - st) / span)),
+                        )
+                        for w in sc_words
+                    ]
+                    continue
+
+            # Fallback if Whisper unavailable: auto-transliterate spoken Hindi line directly
+            fallback_hinglish = devanagari_to_hinglish(sc.get("hindi_dub", ""))
+            sc["word_timings"] = NexoraVfxRenderer.build_proportional_timings(fallback_hinglish)
+
+        return transcribed_words
+
+
+# ==============================================================================
+# 5. BUILT-IN VOICE ENGINE + PROCEDURAL SFX & EMOTIONAL BGM
 # ==============================================================================
 class NexoraSoundAndVoiceEngine:
     MULTI_PROFILES = {
@@ -205,15 +467,8 @@ class NexoraSoundAndVoiceEngine:
         if not HAS_EDGE_TTS:
             raise RuntimeError("edge-tts is not installed on the server.")
 
-        if voice_mode == "single_storyteller":
-            prof = cls.SINGLE_STORYTELLER
-        else:
-            sp = sc.get("speaker", "narrator").lower()
-            prof = cls.MULTI_PROFILES.get(sp, cls.MULTI_PROFILES["narrator"])
-
-        text = str(sc.get("hindi_dub") or sc.get("hinglish") or "").strip()
-        if not text:
-            text = "कहानी आगे बढ़ती है..."
+        prof = cls.SINGLE_STORYTELLER if voice_mode == "single_storyteller" else cls.MULTI_PROFILES.get(sc.get("speaker", "narrator"), cls.MULTI_PROFILES["narrator"])
+        text = str(sc.get("hindi_dub") or "").strip() or "कहानी आगे बढ़ती है..."
 
         mp3_p = os.path.join(work_dir, f"v_{idx:03d}.mp3")
         wav_p = os.path.join(work_dir, f"v_{idx:03d}.wav")
@@ -235,11 +490,11 @@ class NexoraSoundAndVoiceEngine:
                     break
             except Exception as e:
                 last_err = e
-                time.sleep(0.7 * (attempt + 1))
+                time.sleep(0.6 * (attempt + 1))
 
         speech_dur = cls.probe_dur(mp3_p)
         if speech_dur <= 0.20:
-            raise RuntimeError(f"Voice engine timeout on Scene {idx + 1} ({last_err or 'empty audio'}). Tip: Try ElevenLabs upload or retry render.")
+            raise RuntimeError(f"Built-in voice timeout on Scene {idx + 1} ({last_err}). Upload ElevenLabs MP3 or retry.")
 
         final_dur = round(speech_dur + 0.12, 2)
         subprocess.run(
@@ -340,13 +595,13 @@ class NexoraSoundAndVoiceEngine:
 
 
 # ==============================================================================
-# 4. RETENTION-LOCK VFX RENDERER
+# 6. HEAVY CINEMA ANIMATION & VFX RENDERER (8 DYNAMIC CAMERA STYLES + PARTICLES)
 # ==============================================================================
 class NexoraVfxRenderer:
     POWER_WORDS = {
         "raaz", "dhokha", "pyaar", "achanak", "khatra", "bhoot", "khoon",
         "sach", "ishq", "mohabbat", "intezar", "dard", "aansu", "kasam",
-        "secret", "shock", "murder", "mystery", "junoon", "barbaad",
+        "secret", "shock", "murder", "mystery", "junoon", "barbaad", "dweep", "toofan",
     }
 
     def __init__(self, width: int, height: int, genre: str = "romantic"):
@@ -357,23 +612,23 @@ class NexoraVfxRenderer:
 
         rng = np.random.default_rng(777)
         self.particles = np.column_stack([
-            rng.uniform(0, width, 55),
-            rng.uniform(0, height, 55),
-            rng.uniform(1.0, 2.6, 55),
-            rng.uniform(0.5, 1.4, 55),
+            rng.uniform(0, width, 70),
+            rng.uniform(0, height, 70),
+            rng.uniform(1.2, 3.0, 70),
+            rng.uniform(0.5, 1.5, 70),
         ])
 
     def load_scene_image(self, img_path: str) -> Image.Image:
         with Image.open(img_path) as raw_im:
             im = raw_im.convert("RGB")
-            tw, th = int(self.w * 1.26), int(self.h * 1.26)
+            tw, th = int(self.w * 1.32), int(self.h * 1.32)
             im = im.resize((tw, th), Image.Resampling.BILINEAR)
-            im = ImageEnhance.Contrast(im).enhance(1.13)
-            im = ImageEnhance.Color(im).enhance(1.16)
+            im = ImageEnhance.Contrast(im).enhance(1.14)
+            im = ImageEnhance.Color(im).enhance(1.20)
             return im
 
     @staticmethod
-    def build_word_timings(text: str) -> List[Tuple[str, float, float]]:
+    def build_proportional_timings(text: str) -> List[Tuple[str, float, float]]:
         words = str(text or "").split()
         if not words:
             return []
@@ -381,19 +636,17 @@ class NexoraVfxRenderer:
         for w in words:
             base_w = max(2.0, float(len(re.sub(r"[^a-zA-Z0-9]", "", w))))
             if w.endswith((",", ";", ":")):
-                base_w += 3.2
+                base_w += 3.0
             elif w.endswith((".", "!", "?", "।")):
-                base_w += 4.5
+                base_w += 4.2
             weights.append(base_w)
-
         total_w = sum(weights)
         timings: List[Tuple[str, float, float]] = []
         acc = 0.0
         for w, wt in zip(words, weights):
             st = acc / total_w
             acc += wt
-            en = acc / total_w
-            timings.append((w, st, en))
+            timings.append((w, st, acc / total_w))
         return timings
 
     def _draw_top_hud(self, draw: ImageDraw.Draw, is_teaser: bool, ov_prog: float):
@@ -493,28 +746,41 @@ class NexoraVfxRenderer:
         pw, ph = base_img.size
         e = ease_in_out(sc_prog)
         is_teaser = bool(scene.get("is_teaser", False))
-        anim = "hook_zoom_in" if is_teaser else scene.get("anim_type", "smooth_pan_right")
+        anim = "Flash_Impact_Zoom" if is_teaser else scene.get("anim_type", "Cinema_Pan_Right")
 
-        float_x = 0.03 * math.sin(global_t * 2.2)
-        float_y = 0.03 * math.cos(global_t * 1.8)
+        # Continuous organic handheld float
+        float_x = 0.04 * math.sin(global_t * 2.4)
+        float_y = 0.04 * math.cos(global_t * 1.9)
+        rot_deg = 0.0
 
-        if anim == "hook_zoom_in":
-            scale = 1.0 + 0.20 * min(1.0, sc_prog * 1.45)
-            pan_x, pan_y = 0.5 + float_x, 0.45 + float_y
-        elif anim == "dramatic_zoom_out":
-            scale = 1.20 - 0.17 * e
+        if anim == "3D_Zoom_Punch":
+            scale = 1.02 + 0.24 * min(1.0, sc_prog * 1.45)
+            pan_x, pan_y = 0.5 + float_x, 0.42 + float_y
+        elif anim == "Dramatic_Zoom_Out":
+            scale = 1.25 - 0.21 * e
             pan_x, pan_y = 0.5 + float_x, 0.5 + float_y
-        elif anim == "smooth_pan_right":
-            scale = 1.12
+        elif anim == "Cinema_Pan_Right":
+            scale = 1.15
             pan_x, pan_y = e, 0.48 + float_y
-        elif anim == "smooth_pan_left":
-            scale = 1.12
+        elif anim == "Cinema_Pan_Left":
+            scale = 1.15
             pan_x, pan_y = 1.0 - e, 0.48 + float_y
-        elif anim == "pulse_zoom":
-            scale = 1.08 + 0.05 * math.sin(sc_prog * math.pi * 3.0)
-            pan_x, pan_y = 0.5 + 0.15 * math.sin(sc_prog * math.pi), 0.5 + float_y
+        elif anim == "Heartbeat_Pulse":
+            scale = 1.10 + 0.08 * abs(math.sin(sc_prog * math.pi * 3.0))
+            pan_x, pan_y = 0.5 + 0.16 * math.sin(sc_prog * math.pi), 0.5 + float_y
+        elif anim == "Tilt_Rotate_Drift":
+            scale = 1.18 + 0.08 * e
+            pan_x, pan_y = e, 1.0 - e
+            rot_deg = math.sin(sc_prog * math.pi) * 2.4
+        elif anim == "Flash_Impact_Zoom":
+            scale = 1.04 + 0.24 * e
+            pan_x, pan_y = 0.5 + float_x, 0.5 + float_y
+        elif anim == "Whip_Slide_In":
+            scale = 1.15
+            whip = min(1.0, sc_prog * 4.5)
+            pan_x, pan_y = 0.15 + 0.70 * ease_in_out(whip), 0.5 + float_y
         else:
-            scale = 1.05 + 0.11 * e
+            scale = 1.06 + 0.12 * e
             pan_x, pan_y = e, e
 
         crop_w = int(pw / scale)
@@ -525,36 +791,42 @@ class NexoraVfxRenderer:
         ox = int(max_dx * max(0.0, min(1.0, pan_x)))
         oy = int(max_dy * max(0.0, min(1.0, pan_y)))
 
-        if (is_teaser or scene.get("sfx_type") in ("horror_sting", "thunder")) and sc_prog < 0.25:
-            ox = max(0, min(max_dx, ox + int(math.sin(global_t * 48.0) * 9 * self.sc)))
-            oy = max(0, min(max_dy, oy + int(math.cos(global_t * 42.0) * 6 * self.sc)))
+        # Earthquake impact shake on dramatic scenes
+        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("horror_sting", "thunder")) and sc_prog < 0.24:
+            ox = max(0, min(max_dx, ox + int(math.sin(global_t * 54.0) * 11 * self.sc)))
+            oy = max(0, min(max_dy, oy + int(math.cos(global_t * 48.0) * 8 * self.sc)))
 
         frame = base_img.crop((ox, oy, ox + crop_w, oy + crop_h)).resize((self.w, self.h), Image.Resampling.BILINEAR)
 
-        if (is_teaser or scene.get("sfx_type") in ("thunder", "horror_sting")) and sc_prog < 0.08:
-            flash_strength = 1.0 + 0.55 * (1.0 - sc_prog / 0.08)
+        if abs(rot_deg) > 0.05:
+            frame = frame.rotate(rot_deg, resample=Image.Resampling.BILINEAR, expand=False)
+
+        # Lightning / Impact Flash at scene start
+        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("thunder", "horror_sting")) and sc_prog < 0.08:
+            flash_strength = 1.0 + 0.65 * (1.0 - sc_prog / 0.08)
             frame = ImageEnhance.Brightness(frame).enhance(flash_strength)
-        elif sc_prog < 0.06:
-            frame = ImageEnhance.Brightness(frame).enhance(max(0.20, sc_prog / 0.06))
+        elif sc_prog < 0.05:
+            frame = ImageEnhance.Brightness(frame).enhance(max(0.25, sc_prog / 0.05))
 
         draw = ImageDraw.Draw(frame)
 
+        # Glowing Atmospheric Particles
         if self.genre == "horror":
             for px0, py0, pr, spd in self.particles:
-                px = (px0 + global_t * 22.0 * spd) % self.w
-                py = (py0 - global_t * 18.0 * spd) % self.h
-                r_px = max(1, int(pr * self.sc * 0.75))
+                px = (px0 + global_t * 26.0 * spd) % self.w
+                py = (py0 - global_t * 22.0 * spd) % self.h
+                r_px = max(1, int(pr * self.sc * 0.85))
                 draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(244, 63, 94))
         elif self.genre == "romantic":
             for px0, py0, pr, spd in self.particles:
-                px = (px0 + math.sin(global_t + py0) * 14.0) % self.w
-                py = (py0 - global_t * 12.0 * spd) % self.h
-                r_px = max(2, int(pr * self.sc * 1.1))
+                px = (px0 + math.sin(global_t * 1.4 + py0) * 18.0) % self.w
+                py = (py0 - global_t * 15.0 * spd) % self.h
+                r_px = max(2, int(pr * self.sc * 1.2))
                 draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(253, 224, 71))
         elif self.genre == "funny":
-            for px0, py0, pr, spd in self.particles[:25]:
-                px = (px0 + global_t * 25.0 * spd) % self.w
-                py = (py0 + math.sin(global_t * 4.0 + px0) * 15.0) % self.h
+            for px0, py0, pr, spd in self.particles[:30]:
+                px = (px0 + global_t * 28.0 * spd) % self.w
+                py = (py0 + math.sin(global_t * 4.5 + px0) * 18.0) % self.h
                 r_px = max(2, int(pr * self.sc))
                 draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(56, 189, 248))
 
@@ -569,28 +841,12 @@ class NexoraVfxRenderer:
 
 
 # ==============================================================================
-# 5. CRASH-PROOF & MEMORY-SAFE RENDER PIPELINE (HANDLES 50+ SCENES CLEANLY)
+# 7. CRASH-PROOF SERVER RENDER PIPELINE (WITH TRUE AUTO-CAPTION TRANSCRIPTION)
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
         if job_id in JOBS:
             JOBS[job_id].update(kwargs)
-
-
-def build_render_timeline(scenes: List[Dict[str, Any]], auto_hook: bool, voice_mode: str) -> List[Dict[str, Any]]:
-    if not auto_hook or len(scenes) < 4 or voice_mode == "uploaded":
-        return [dict(s) for s in scenes]
-
-    climax_idx = min(len(scenes) - 2, max(2, int(len(scenes) * 0.75)))
-    hook_sc = dict(scenes[climax_idx])
-    hook_sc["is_teaser"] = True
-    hook_sc["anim_type"] = "hook_zoom_in"
-    hook_sc["sfx_type"] = "heartbeat"
-
-    timeline = [hook_sc]
-    for s in scenes:
-        timeline.append(dict(s))
-    return timeline
 
 
 def run_final_render(job_id: str, session_id: str):
@@ -605,7 +861,7 @@ def run_final_render(job_id: str, session_id: str):
         if not sess:
             raise RuntimeError("Session expired. Please load scenes again.")
 
-        raw_scenes = sess["scenes"]
+        raw_scenes = [dict(s) for s in sess["scenes"]]
         sess_dir = os.path.join(SESSIONS_DIR, session_id)
         for sc in raw_scenes:
             img_p = os.path.join(sess_dir, sc.get("image_file", ""))
@@ -619,16 +875,15 @@ def run_final_render(job_id: str, session_id: str):
         auto_hook = bool(sess.get("auto_hook", True))
         uploaded_audio_id = sess.get("uploaded_audio_id", "")
 
-        render_scenes = build_render_timeline(raw_scenes, auto_hook, voice_mode)
-
         out_w, out_h = (540, 960) if aspect == "9:16" else (960, 540)
-        # 14 FPS cuts RAM & CPU usage by 35% while maintaining ultra-smooth motion
-        fps = 14
+        fps = 15
 
-        uploaded_audio_path: Optional[str] = None
+        master_voice = os.path.join(work_dir, "master_voice.wav")
+
         if voice_mode == "uploaded":
             if not is_safe_id(uploaded_audio_id):
-                raise RuntimeError("Please upload your ElevenLabs audio file first.")
+                raise RuntimeError("Please upload your ElevenLabs MP3/WAV file first!")
+            uploaded_audio_path = None
             for fn in os.listdir(UPLOAD_DIR):
                 if fn.startswith(uploaded_audio_id):
                     uploaded_audio_path = os.path.join(UPLOAD_DIR, fn)
@@ -636,13 +891,98 @@ def run_final_render(job_id: str, session_id: str):
             if not uploaded_audio_path:
                 raise FileNotFoundError("Uploaded ElevenLabs audio file not found.")
 
-            total_el_dur = NexoraSoundAndVoiceEngine.probe_dur(uploaded_audio_path)
+            update_job(job_id, status="running", progress=4, current_scene="Auto-Transcribing Voice & Detecting Exact Word Timestamps...")
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", uploaded_audio_path, "-ar", "16000", "-ac", "1", master_voice],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+            )
+            total_el_dur = NexoraSoundAndVoiceEngine.probe_dur(master_voice)
             if total_el_dur <= 1.0:
                 raise RuntimeError("Uploaded audio file is invalid or empty.")
-            total_weights = sum(max(1, len(s["hinglish"])) for s in render_scenes)
-            for sc in render_scenes:
-                w_cnt = max(1, len(sc["hinglish"]))
-                sc["duration_sec"] = round((w_cnt / float(total_weights)) * total_el_dur, 2)
+
+            # True Auto-Caption + Waveform Silence Pause Alignment
+            AutoCaptionAndSyncEngine.align_uploaded_audio_to_scenes(raw_scenes, master_voice, total_el_dur)
+        else:
+            # Built-in voice mode: synthesize each scene & auto-transcribe exact timings
+            voice_chunks: List[str] = []
+            for idx, sc in enumerate(raw_scenes):
+                update_job(
+                    job_id,
+                    status="running",
+                    progress=3 + int((idx / float(len(raw_scenes))) * 15),
+                    current_scene=f"Generating Voice & Auto-Captions ({idx + 1}/{len(raw_scenes)})...",
+                )
+                dub_wav, actual_dur = NexoraSoundAndVoiceEngine.dub_scene_with_retry(sc, idx, voice_mode, work_dir)
+                sc["duration_sec"] = actual_dur
+                voice_chunks.append(dub_wav)
+                # Extract exact word timings from the generated WAV
+                w_list = AutoCaptionAndSyncEngine.extract_word_timestamps(dub_wav, actual_dur)
+                if w_list:
+                    sc["word_timings"] = [
+                        (
+                            w["word"],
+                            max(0.0, min(1.0, w["start"] / actual_dur)),
+                            max(0.0, min(1.0, w["end"] / actual_dur)),
+                        )
+                        for w in w_list
+                    ]
+                else:
+                    sc["word_timings"] = NexoraVfxRenderer.build_proportional_timings(
+                        devanagari_to_hinglish(sc.get("hindi_dub", ""))
+                    )
+
+            a_list = os.path.join(work_dir, "a_list.txt")
+            with open(a_list, "w", encoding="utf-8") as af:
+                for ac in voice_chunks:
+                    af.write(f"file '{ac}'\n")
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", a_list, "-c", "copy", master_voice],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+            )
+
+        # Build final timeline (prepending 4.5s Climax Hook Teaser if enabled)
+        render_scenes: List[Dict[str, Any]] = []
+        hook_dur = 0.0
+        hook_slice_start = 0.0
+
+        if auto_hook and len(raw_scenes) >= 4:
+            climax_idx = min(len(raw_scenes) - 2, max(2, int(len(raw_scenes) * 0.75)))
+            hook_sc = dict(raw_scenes[climax_idx])
+            hook_sc["is_teaser"] = True
+            hook_sc["anim_type"] = "Flash_Impact_Zoom"
+            hook_sc["sfx_type"] = "heartbeat"
+            hook_dur = min(4.5, float(hook_sc.get("duration_sec", 4.0)))
+            hook_sc["duration_sec"] = hook_dur
+            hook_slice_start = float(hook_sc.get("start_sec", 0.0))
+            render_scenes.append(hook_sc)
+
+        for s in raw_scenes:
+            render_scenes.append(dict(s))
+
+        # If hook teaser is prepended, also prepend that climax audio slice to master_voice!
+        if hook_dur > 0.5:
+            hook_wav = os.path.join(work_dir, "hook_voice.wav")
+            joined_voice = os.path.join(work_dir, "joined_voice.wav")
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-ss", f"{hook_slice_start:.3f}", "-t", f"{hook_dur:.3f}",
+                    "-i", master_voice, "-ar", "22050", "-ac", "1", hook_wav,
+                ],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+            )
+            norm_main_wav = os.path.join(work_dir, "norm_main.wav")
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", master_voice, "-ar", "22050", "-ac", "1", norm_main_wav],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+            )
+            v_concat = os.path.join(work_dir, "v_concat.txt")
+            with open(v_concat, "w", encoding="utf-8") as f:
+                f.write(f"file '{hook_wav}'\nfile '{norm_main_wav}'\n")
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", v_concat, "-c", "copy", joined_voice],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+            )
+            master_voice = joined_voice
 
         renderer = NexoraVfxRenderer(out_w, out_h, genre=genre)
         total_sc = len(render_scenes)
@@ -651,11 +991,10 @@ def run_final_render(job_id: str, session_id: str):
         dt = 1.0 / float(fps)
 
         video_chunks: List[str] = []
-        voice_chunks: List[str] = []
         cinema_vf = (
-            "eq=contrast=1.10:brightness=-0.02:saturation=1.15,unsharp=3:3:0.5:3:3:0.0,vignette=PI/5"
+            "eq=contrast=1.10:brightness=-0.02:saturation=1.16,unsharp=3:3:0.5:3:3:0.0,vignette=PI/5"
             if genre == "horror"
-            else "eq=contrast=1.06:brightness=0.01:saturation=1.22,unsharp=3:3:0.45:3:3:0.0,vignette=PI/6"
+            else "eq=contrast=1.06:brightness=0.01:saturation=1.24,unsharp=3:3:0.45:3:3:0.0,vignette=PI/6"
         )
 
         for idx, sc in enumerate(render_scenes):
@@ -663,18 +1002,14 @@ def run_final_render(job_id: str, session_id: str):
             update_job(
                 job_id,
                 status="running",
-                progress=4 + int((idx / float(total_sc)) * 85),
+                progress=18 + int((idx / float(total_sc)) * 72),
                 current_scene=f"Rendering {lbl} ({sc['anim_type']})...",
             )
 
-            if voice_mode == "uploaded":
-                actual_dur = float(sc["duration_sec"])
-            else:
-                dub_wav, actual_dur = NexoraSoundAndVoiceEngine.dub_scene_with_retry(sc, idx, voice_mode, work_dir)
-                sc["duration_sec"] = actual_dur
-                voice_chunks.append(dub_wav)
-
-            timings = renderer.build_word_timings(sc["hinglish"])
+            actual_dur = float(sc.get("duration_sec", 4.0))
+            timings = sc.get("word_timings") or NexoraVfxRenderer.build_proportional_timings(
+                devanagari_to_hinglish(sc.get("hindi_dub", ""))
+            )
             img_path = os.path.join(sess_dir, sc["image_file"])
             base_img = renderer.load_scene_image(img_path)
 
@@ -687,7 +1022,7 @@ def run_final_render(job_id: str, session_id: str):
                     "-f", "rawvideo", "-vcodec", "rawvideo",
                     "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24", "-r", str(fps), "-i", "-",
                     "-vf", cinema_vf,
-                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "2",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
                     "-pix_fmt", "yuv420p", v_chunk,
                 ],
                 stdin=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -716,7 +1051,7 @@ def run_final_render(job_id: str, session_id: str):
             base_img = None
             gc.collect()
 
-        update_job(job_id, progress=91, current_scene="Joining Scenes, Mixing SFX & Finalizing MP4...")
+        update_job(job_id, progress=92, current_scene="Mixing SFX, Emotional BGM & Finalizing MP4...")
         v_list = os.path.join(work_dir, "v_list.txt")
         with open(v_list, "w", encoding="utf-8") as vf:
             for vc in video_chunks:
@@ -728,26 +1063,10 @@ def run_final_render(job_id: str, session_id: str):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
         )
 
-        master_voice = os.path.join(work_dir, "master_voice.wav")
-        if voice_mode == "uploaded" and uploaded_audio_path:
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", uploaded_audio_path, "-ar", "22050", "-ac", "1", master_voice],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
-            )
-        else:
-            a_list = os.path.join(work_dir, "a_list.txt")
-            with open(a_list, "w", encoding="utf-8") as af:
-                for ac in voice_chunks:
-                    af.write(f"file '{ac}'\n")
-            subprocess.run(
-                ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", a_list, "-c", "copy", master_voice],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
-            )
-
         sfx_bgm_wav = os.path.join(work_dir, "sfx_bgm.wav")
         NexoraSoundAndVoiceEngine.build_full_sfx_and_bgm_track(render_scenes, genre, sfx_bgm_wav)
 
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_V9"
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_V11"
         out_name = f"NEXORA_{genre.upper()}_{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
@@ -757,7 +1076,7 @@ def run_final_render(job_id: str, session_id: str):
                 "-i", joined_v,
                 "-i", master_voice,
                 "-i", sfx_bgm_wav,
-                "-filter_complex", "[1:a]volume=1.32[v];[2:a]volume=0.55[m];[v][m]amix=inputs=2:duration=first[aout]",
+                "-filter_complex", "[1:a]volume=1.35[v];[2:a]volume=0.52[m];[v][m]amix=inputs=2:duration=first[aout]",
                 "-map", "0:v", "-map", "[aout]",
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-shortest", out_path,
@@ -788,7 +1107,7 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 6. REST API ENDPOINTS (BATCH SORTER + SCENE SWAPPER + ELEVENLABS SCRIPT)
+# 8. REST API ENDPOINTS
 # ==============================================================================
 @app.route("/")
 def index():
@@ -797,7 +1116,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "auto_caption": HAS_WHISPER})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -817,10 +1136,10 @@ def api_audio_upload():
 def api_prepare():
     data = request.get_json(silent=True) or {}
     genre = str(data.get("genre", "romantic")).lower()
-    voice_mode = str(data.get("voice_mode", "single_storyteller"))
+    voice_mode = str(data.get("voice_mode", "uploaded"))
     scenes = parse_user_script(str(data.get("custom_script", "")), genre)
     if not scenes:
-        return jsonify({"error": "Paste a valid 4-column script first (Speaker | Image Prompt | Hinglish | Hindi)."}), 400
+        return jsonify({"error": "Paste a valid 3-column script first (Speaker | Image Prompt | Spoken Hindi)."}), 400
 
     session_id = f"ses_{uuid.uuid4().hex[:10]}"
     os.makedirs(os.path.join(SESSIONS_DIR, session_id), exist_ok=True)
@@ -899,7 +1218,6 @@ def api_replace_image(session_id: str, idx: int):
 
 @app.route("/api/session/<session_id>/batch_upload", methods=["POST"])
 def api_batch_upload(session_id: str):
-    """Smartly detects scene numbers from filenames (e.g., scene_12.jpg, 12.png) or assigns sequentially."""
     if not is_safe_id(session_id):
         return jsonify({"error": "Invalid session."}), 400
     with LOCK:
@@ -915,7 +1233,6 @@ def api_batch_upload(session_id: str):
     os.makedirs(sess_dir, exist_ok=True)
     total_scenes = len(sess["scenes"])
 
-    # Check if filenames explicitly carry 1-based scene numbers like "1.jpg", "scene_15.png"
     explicit_map: Dict[int, Any] = {}
     unmapped_files: List[Any] = []
     for f in files:
@@ -930,7 +1247,6 @@ def api_batch_upload(session_id: str):
                 continue
         unmapped_files.append(f)
 
-    # Sort remaining files naturally
     unmapped_files.sort(key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", x.filename or "")])
 
     u_ptr = 0
@@ -955,7 +1271,6 @@ def api_batch_upload(session_id: str):
 
 @app.route("/api/session/<session_id>/swap", methods=["POST"])
 def api_swap_scenes(session_id: str):
-    """Lets you swap images between any two scenes in 1 click if order needs adjustment."""
     if not is_safe_id(session_id):
         return jsonify({"error": "Invalid session."}), 400
     data = request.get_json(silent=True) or {}
@@ -971,6 +1286,21 @@ def api_swap_scenes(session_id: str):
     return jsonify({"ok": True})
 
 
+@app.route("/api/session/<session_id>/anim", methods=["POST"])
+def api_change_anim(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    data = request.get_json(silent=True) or {}
+    idx = int(data.get("idx", -1))
+    anim = str(data.get("anim", ""))
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess or not (0 <= idx < len(sess["scenes"])) or anim not in ANIM_MODES:
+            return jsonify({"error": "Invalid animation."}), 400
+        sess["scenes"][idx]["anim_type"] = anim
+    return jsonify({"ok": True})
+
+
 @app.route("/api/render", methods=["POST"])
 def api_render():
     data = request.get_json(silent=True) or {}
@@ -982,6 +1312,13 @@ def api_render():
         sess = SESSIONS.get(session_id)
         if not sess:
             return jsonify({"error": "Session expired."}), 404
+        if data.get("voice_mode"):
+            sess["voice_mode"] = str(data["voice_mode"])
+        if data.get("uploaded_audio_id"):
+            sess["uploaded_audio_id"] = str(data["uploaded_audio_id"])
+        if "auto_hook" in data:
+            sess["auto_hook"] = bool(data["auto_hook"])
+
         missing = [s["index"] + 1 for s in sess["scenes"] if not s.get("image_ready")]
         if missing:
             return jsonify({"error": f"Upload images for Scene(s): {', '.join(map(str, missing))} before rendering!"}), 400
@@ -994,7 +1331,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 2,
-            "current_scene": "Starting Crash-Proof Cinema Render...",
+            "current_scene": "Starting True Auto-Caption & Cinema Render...",
             "error": None,
         }
 
