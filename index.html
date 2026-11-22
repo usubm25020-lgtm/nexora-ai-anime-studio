@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA STUDIO ULTRA v7 — Pro VFX, SFX &amp; Human Voice Cinema Engine</title>
+  <title>NEXORA STUDIO ULTRA v8 — High-Speed Retention-Lock Engine</title>
   <style>
     :root {
       --bg: #03050c;
@@ -58,10 +58,10 @@
       border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 13px;
       outline: none; margin-bottom: 12px; font-family: inherit;
     }
-    textarea { min-height: 160px; resize: vertical; line-height: 1.5; font-size: 12px; }
+    textarea { min-height: 155px; resize: vertical; line-height: 1.5; font-size: 12px; }
     input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
-    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 720px) { .row-3 { grid-template-columns: 1fr; } }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 720px) { .row-2 { grid-template-columns: 1fr; } }
     .btn {
       width: 100%; padding: 14px; border: none; border-radius: 11px;
       font-size: 14px; font-weight: 900; cursor: pointer; text-decoration: none;
@@ -70,12 +70,12 @@
     .btn-primary { background: linear-gradient(135deg, var(--cyan), var(--violet)); color: #fff; }
     .btn-green { background: var(--emerald); color: #03050c; }
     .btn-sm {
-      padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
+      padding: 7px 11px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
       background: rgba(251, 191, 36, 0.14); color: var(--amber); font-size: 11px; font-weight: 800; cursor: pointer;
     }
     .btn-up {
-      padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
-      background: rgba(34, 211, 238, 0.14); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
+      padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
+      background: rgba(34, 211, 238, 0.16); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
       display: inline-block; text-align: center;
     }
     .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
@@ -86,7 +86,7 @@
       color: #fecdd3; font-size: 12px; display: none;
     }
     .scene-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 12px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 12px; margin-top: 12px;
     }
     .sc-card {
       background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 10px;
@@ -94,10 +94,10 @@
     }
     .sc-card.missing { border-color: rgba(251, 191, 36, 0.45); }
     .sc-thumb {
-      width: 100%; height: 135px; object-fit: cover; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
+      width: 100%; height: 130px; object-fit: cover; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
     }
     .upload-slot {
-      width: 100%; height: 135px; border-radius: 8px; border: 1px dashed rgba(34, 211, 238, 0.45);
+      width: 100%; height: 130px; border-radius: 8px; border: 1px dashed rgba(34, 211, 238, 0.45);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: 8px; text-align: center; margin-bottom: 8px; color: var(--muted); font-size: 11px;
     }
@@ -109,47 +109,57 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO ULTRA v7</div>
-        <div style="font-size:11px; color:var(--cyan);">Pro Camera VFX • Auto SFX • Single/Multi Human Voice • Exact Word Sync</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO ULTRA v8</div>
+        <div style="font-size:11px; color:var(--cyan);">Auto-Hook Teaser • 1-Click Batch Upload • Fast-Pacing Retention Engine</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: SCRIPT & VOICE SETUP -->
+    <!-- STEP 1: SCRIPT & RETENTION SETUP -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: STORY SCRIPT &amp; VOICE MODE</div>
-        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Storytelling AI Prompt</button>
+        <div class="title">STEP 1: HIGH-RETENTION STORY &amp; HOOK SETUP</div>
+        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Fast-Cut Story Prompt</button>
       </div>
 
       <label for="topic">Video Title</label>
-      <input type="text" id="topic" value="Lift 13th Floor Ka Rahasya" placeholder="Enter your story title..." />
+      <input type="text" id="topic" value="Raat Ke 2 Baje Uske Kamre Ka Raaz" placeholder="Enter your story title..." />
 
-      <div class="row-3">
+      <div class="row-2">
         <div>
           <label for="genre">Genre (Auto VFX + SFX + BGM)</label>
           <select id="genre">
-            <option value="horror" selected>Horror / Mystery (Thunder, Sting, Shake)</option>
-            <option value="romantic">Romantic / Love Story (Bokeh, Piano)</option>
+            <option value="romantic" selected>Deep Romantic / Suspense Love (Bokeh, Swell)</option>
+            <option value="horror">Horror / Mystery (Thunder, Sting, Shake)</option>
             <option value="funny">Funny / Meme Story (Boing, Pop, Bounce)</option>
-            <option value="documentary">Documentary / Suspense (Whoosh, Pulse)</option>
+            <option value="documentary">Documentary / Thriller (Whoosh, Pulse)</option>
           </select>
         </div>
         <div>
           <label for="aspect">Screen Format</label>
           <select id="aspect">
             <option value="16:9" selected>16:9 YouTube Long</option>
-            <option value="9:16">9:16 YouTube Shorts</option>
+            <option value="9:16">9:16 YouTube Shorts / Reels</option>
           </select>
         </div>
+      </div>
+
+      <div class="row-2">
         <div>
-          <label for="voice-mode">Voice Engine</label>
+          <label for="voice-mode">Voice Engine (+12% Gripping Pace)</label>
           <select id="voice-mode" onchange="toggleElBox()">
             <option value="single_storyteller" selected>Single Deep Storyteller (Human Baritone)</option>
             <option value="builtin_multi">Multi-Character (Narrator/Male/Female/Child)</option>
             <option value="uploaded">Upload ElevenLabs Audio (Single or Multi)</option>
+          </select>
+        </div>
+        <div>
+          <label for="auto-hook">0:00-0:05 Climax Hook Teaser ("AAGE DEKHIYE...")</label>
+          <select id="auto-hook">
+            <option value="true" selected>ON — Show 5s Climax Hook at 0:00 (Max Retention)</option>
+            <option value="false">OFF — Start Directly From Scene 1</option>
           </select>
         </div>
       </div>
@@ -164,27 +174,34 @@
       <label for="custom-script">Paste 4-Column Script (Speaker | English Image Prompt | Hinglish Caption | Hindi Dub)</label>
       <textarea id="custom-script" placeholder="Paste your 4-column script here..."></textarea>
 
-      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes &amp; Upload Your Images (Instant)</button>
+      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scene Slots (Instant)</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: INSTANT IMAGE UPLOAD SLOTS -->
+    <!-- STEP 2: 1-CLICK BATCH IMAGE UPLOAD & PROMPT COPIER -->
     <div class="card" id="review-card" style="display:none;">
       <div class="hdr-row">
-        <div class="title">STEP 2: UPLOAD IMAGES FOR EACH SCENE (AUTO VFX &amp; SFX ASSIGNED)</div>
-        <div id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:700;">0 Ready</div>
+        <div class="title">STEP 2: UPLOAD IMAGES (BATCH OR ONE-BY-ONE)</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn-sm" onclick="copyAllPrompts(this)">📋 Copy All Prompts</button>
+          <label class="btn-up" style="margin:0; background:rgba(16,185,129,0.18); border-color:#10b981; color:#34d399;">
+            ⚡ Batch Upload All Images
+            <input type="file" accept="image/*" multiple style="display:none;" onchange="batchUploadImages(this)" />
+          </label>
+          <span id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:800;">0 Ready</span>
+        </div>
       </div>
 
       <div class="scene-grid" id="scene-grid"></div>
 
       <div style="margin-top:16px;">
-        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Cinema Video with VFX, SFX &amp; Exact Captions</button>
+        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render High-Retention Cinema Video</button>
       </div>
     </div>
 
     <!-- STEP 3: LIVE FINAL VIDEO RENDER -->
     <div class="card" id="render-card" style="display:none;">
-      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE VFX, SFX &amp; VOICE RENDER</div>
+      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE RENDER PROGRESS</div>
       <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting render...</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
@@ -197,6 +214,7 @@
 
   <script>
     let currentSessionId = "";
+    let currentScenesCache = [];
     let uploadedAudioId = "";
     let pollTimer = null;
 
@@ -215,7 +233,7 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.voice_ready ? "NEXORA VFX v7 Ready" : "FFmpeg Ready";
+        document.getElementById("sys-status").textContent = d.voice_ready ? "NEXORA v8 Ready" : "FFmpeg Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
@@ -238,17 +256,21 @@
     }
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const topicVal = document.getElementById("topic").value.trim() || "Lift 13th Floor Ka Rahasya";
+      const topicVal = document.getElementById("topic").value.trim() || "Raat Ke 2 Baje Uske Kamre Ka Raaz";
       const genreVal = document.getElementById("genre").value;
-      const prompt = `Write a gripping, natural Hindi ${genreVal} story script on: "${topicVal}".
-Use 'narrator' lines to build tension before any character dialogue.
-Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text, using this exact 4-column format:
-Speaker(choose strictly one: narrator, male, female, child) | Detailed English Cinematic Scene Image Prompt | Matching Hinglish Subtitle | Spoken Hindi Line in Devanagari Hindi`;
+      const prompt = `Write a gripping, high-retention Hindi ${genreVal} story script on: "${topicVal}".
+CRITICAL RETENTION RULES:
+1. Keep every scene short (12 to 18 spoken words max per line) so visuals change every 4 seconds! Create 20 to 35 fast-paced scenes.
+2. Start Scene 1 with an immediate shocking hook or mystery—NEVER a slow introduction.
+3. Add an open-loop cliffhanger every 5 scenes to keep viewers hooked till the end.
+4. Introduce who is speaking inside the Hindi narration before any dialogue.
+5. Output ONLY pipe-separated lines with NO numbering, NO markdown, and NO extra text in this exact 4-column format:
+narrator | Detailed English Cinematic Scene Image Prompt (8k photorealistic, dramatic lighting) | Crisp Hinglish Subtitle | Expressive Spoken Hindi Line in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Storytelling Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy Storytelling AI Prompt", 3000);
+        btn.textContent = "✅ Fast-Cut Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy Fast-Cut Story Prompt", 3000);
       });
     };
 
@@ -258,6 +280,28 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
         btnEl.textContent = "✅ Copied!";
         setTimeout(() => btnEl.textContent = old, 2000);
       });
+    }
+
+    function copyAllPrompts(btnEl) {
+      if (!currentScenesCache.length) return;
+      const all = currentScenesCache.map((s, i) => `Scene ${i + 1}: ${s.visual_prompt}`).join("\n");
+      copyText(all, btnEl);
+    }
+
+    async function batchUploadImages(inputEl) {
+      if (!inputEl.files || !inputEl.files.length || !currentSessionId) return;
+      document.getElementById("prep-msg").textContent = `Uploading ${inputEl.files.length} images...`;
+      const fd = new FormData();
+      // Sort files alphabetically/numerically by filename so they map cleanly to Scene 1..N
+      const sorted = Array.from(inputEl.files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      sorted.forEach(file => fd.append("images", file));
+
+      const r = await fetch(`/api/session/${currentSessionId}/batch_upload`, { method: "POST", body: fd });
+      if (r.ok) {
+        refreshSessionGrid();
+      } else {
+        alert("Batch upload failed.");
+      }
     }
 
     async function uploadSceneImg(idx, inputEl) {
@@ -277,37 +321,38 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
       const r = await fetch(`/api/session/${currentSessionId}`);
       if (!r.ok) return;
       const sess = await r.json();
+      currentScenesCache = sess.scenes || [];
 
-      const readyCnt = sess.scenes.filter(s => s.image_ready).length;
-      document.getElementById("prep-msg").textContent = `${readyCnt}/${sess.scenes.length} Images Uploaded`;
+      const readyCnt = currentScenesCache.filter(s => s.image_ready).length;
+      document.getElementById("prep-msg").textContent = `${readyCnt}/${currentScenesCache.length} Ready`;
 
       const grid = document.getElementById("scene-grid");
       grid.innerHTML = "";
       const ts = Date.now();
 
-      sess.scenes.forEach((sc, idx) => {
+      currentScenesCache.forEach((sc, idx) => {
         const card = document.createElement("div");
         card.className = "sc-card" + (sc.image_ready ? "" : " missing");
 
         const visualHtml = sc.image_ready
           ? `<img class="sc-thumb" src="/api/session/${currentSessionId}/image/${idx}?t=${ts}" alt="Scene ${idx + 1}" />`
           : `<div class="upload-slot">
-               <div style="font-weight:900; color:var(--amber); margin-bottom:4px;">SCENE ${idx + 1} IMAGE SLOT</div>
-               <div>VFX: <b>${sc.anim_type}</b> • SFX: <b>${sc.sfx_type}</b></div>
+               <div style="font-weight:900; color:var(--amber); margin-bottom:4px;">SCENE ${idx + 1}</div>
+               <div>${sc.anim_type} • ${sc.sfx_type}</div>
              </div>`;
 
         const safePrompt = sc.visual_prompt.replace(/'/g, "\\'").replace(/"/g, "&quot;");
         card.innerHTML = `
           <div>
             <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; margin-bottom:6px;">
-              <span style="color:var(--cyan);">SCENE ${idx + 1} (${sc.speaker.toUpperCase()})</span>
-              <span style="color:${sc.image_ready ? '#34d399' : '#fbbf24'};">${sc.image_ready ? 'READY' : 'UPLOAD'}</span>
+              <span style="color:var(--cyan);">SCENE ${idx + 1}</span>
+              <span style="color:${sc.image_ready ? '#34d399' : '#fbbf24'};">${sc.image_ready ? 'READY' : 'EMPTY'}</span>
             </div>
             ${visualHtml}
             <div style="font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.35;">"${sc.hinglish}"</div>
           </div>
-          <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button type="button" class="btn-sm" style="flex:1;" onclick="copyText('${safePrompt}', this)">📋 Copy Prompt</button>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn-sm" style="flex:1;" onclick="copyText('${safePrompt}', this)">📋 Prompt</button>
             <label class="btn-up" style="flex:1; margin:0;">
               ${sc.image_ready ? '🔄 Change' : '⬆ Upload'}
               <input type="file" accept="image/*" style="display:none;" onchange="uploadSceneImg(${idx}, this)" />
@@ -331,6 +376,7 @@ Speaker(choose strictly one: narrator, male, female, child) | Detailed English C
         genre: document.getElementById("genre").value,
         aspect_ratio: document.getElementById("aspect").value,
         voice_mode: document.getElementById("voice-mode").value,
+        auto_hook: document.getElementById("auto-hook").value === "true",
         uploaded_audio_id: uploadedAudioId,
         custom_script: script
       };
