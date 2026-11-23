@@ -12,6 +12,7 @@ import subprocess
 import threading
 from typing import Dict, List, Any, Optional, Tuple
 
+import requests
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from flask import Flask, request, jsonify, send_file
@@ -23,7 +24,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. APEX STUDIO CONFIGURATION & MEMORY-SAFE WORKSPACE
+# 1. ROMANCE APEX STUDIO CONFIGURATION & MEMORY-SAFE WORKSPACE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -47,14 +48,13 @@ HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 
 def is_safe_id(val: str) -> bool:
     return bool(val and SAFE_ID_RE.match(val))
 
 
-def purge_expired(max_age_sec: int = 1800):
+def purge_expired(max_age_sec: int = 3600):
     now = time.time()
     for folder in (OUTPUT_DIR, UPLOAD_DIR):
         try:
@@ -172,7 +172,7 @@ def devanagari_to_hinglish(text: str) -> str:
 
 
 # ==============================================================================
-# 3. SCRIPT PARSER + B-ROLL KEYWORD EXTRACTOR + EMOTION/SFX DETECTOR
+# 3. ROMANTIC SCRIPT PARSER + B-ROLL KEYWORD + PHONE OVERLAY DETECTOR
 # ==============================================================================
 ANIM_MODES = [
     "3D_Zoom_Punch",
@@ -187,53 +187,68 @@ ANIM_MODES = [
 
 _STOP_WORDS = {
     "24-year-old", "26-year-old", "27-year-old", "28-year-old", "indian", "man", "woman",
-    "aarav", "meera", "riya", "photorealistic", "8k", "cinematic", "dramatic", "lighting",
-    "no", "text", "with", "and", "the", "in", "on", "of", "a", "an", "to", "from", "wearing",
+    "aarav", "meera", "riya", "kabir", "photorealistic", "8k", "cinematic", "dramatic",
+    "lighting", "no", "text", "with", "and", "the", "in", "on", "of", "a", "an", "to", "from",
 }
 
 
 def extract_broll_query(visual_prompt: str) -> str:
-    """Extracts clean 3-word stock video search keywords from a detailed AI prompt."""
     clean = re.sub(r"[^a-zA-Z\s]", " ", visual_prompt.lower())
     words = [w for w in clean.split() if len(w) > 2 and w not in _STOP_WORDS]
-    # Prioritize strong visual nouns/settings near the end of prompt
     picked = words[-4:] if len(words) >= 4 else words
-    return " ".join(picked[:3]) or "dark mystery night"
+    return " ".join(picked[:3]) or "romantic night rain couple"
 
 
-def detect_scene_sfx(text_blob: str, genre: str) -> str:
+def detect_romantic_sfx(text_blob: str, mood: str) -> str:
     low = text_blob.lower()
-    if any(k in low for k in ("thunder", "bijli", "lightning", "toofan", "storm", "barish", "garaj", "rain")):
-        return "thunder"
-    if any(k in low for k in ("door", "darwaza", "gate", "khula", "band", "kamre", "kundi")):
-        return "door_creak"
-    if any(k in low for k in ("clock", "ghadi", "raat ke 2", "raat ke 12", "aadhi raat", "waqt")):
+    if any(k in low for k in ("message", "msg", "phone", "call", "notification", "ring", "screen")):
+        return "phone_chime"
+    if any(k in low for k in ("rain", "barish", "boond", "window", "khidki", "bheeg")):
+        return "soft_rain"
+    if any(k in low for k in ("heartbeat", "dil", "saansein", "dhadkan", "kareeb", "chhua", "kiss", "baahon", "seene")):
+        return "soft_heartbeat"
+    if any(k in low for k in ("clock", "ghadi", "raat ke 2", "aadhi raat", "waqt", "intezaar")):
         return "clock_tick"
-    if any(k in low for k in ("crash", "patthar", "collapse", "toot", "gir", "dhakka", "shisha", "fall")):
-        return "impact_slam"
-    if any(k in low for k in ("funny", "meme", "joke", "hasne", "pagal", "mazak", "comedy")):
-        return "meme_boing"
-    if any(k in low for k in ("scream", "chilla", "bhoot", "khauf", "dar", "ghost", "blood", "khoon", "raaz", "dhokha", "khatra", "saaya", "terror")):
-        return "horror_sting"
-    if any(k in low for k in ("heartbeat", "dil", "saansein", "dhadkan", "kareeb", "pyaar", "aankhon", "kaamp")):
-        return "heartbeat"
-    if genre in ("horror", "mystery"):
-        return "night_wind"
+    if any(k in low for k in ("door", "darwaza", "khula", "band", "kamre")):
+        return "door_creak"
+    if any(k in low for k in ("thunder", "bijli", "toofan", "storm")):
+        return "thunder"
+    if any(k in low for k in ("raaz", "dhokha", "sach", "aansu", "ro ", "dard", "secret")):
+        return "emotional_swell"
+    if mood == "sad_heartbreak":
+        return "soft_rain"
     return "whoosh"
 
 
 def detect_line_emotion(hinglish_txt: str, speaker: str) -> str:
     low = hinglish_txt.lower()
-    if any(k in low for k in ("dheeme", "chup", "sannata", "raaz", "saaya", "bhoot", "khauf", "kaamp", "aahat", "andar")):
-        return "chilling_whisper"
-    if "!" in hinglish_txt or any(k in low for k in ("achanak", "bhaag", "cheekh", "bacha", "khatra", "toot", "gir", "rok")):
-        return "urgent_shock"
+    if any(k in low for k in ("dheeme", "chup", "kareeb", "saansein", "raaz", "chhua", "baahon", "khamosh", "ishq", "pyaar")):
+        return "intimate_whisper"
+    if any(k in low for k in ("aansu", "ro ", "dard", "toot", "alvida", "chhod", "judai", "tanha")):
+        return "emotional_ache"
+    if "!" in hinglish_txt or any(k in low for k in ("achanak", "rok", "kya", "sach", "darwaza")):
+        return "urgent_passion"
     if speaker in ("male", "female"):
-        return "dramatic_dialogue"
-    return "deep_suspense"
+        return "warm_dialogue"
+    return "late_night_fm"
 
 
-def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
+def detect_phone_popup(hinglish_txt: str, speaker: str) -> Optional[Dict[str, str]]:
+    """Detects if a scene involves a late-night text message or incoming call for animated UI overlay."""
+    low = hinglish_txt.lower()
+    if any(k in low for k in ("message", "msg", "likha tha", "text aaya", "whatsapp")):
+        sender = "Riya ❤️" if speaker == "male" else "Kabir 🖤"
+        # Extract quoted part if present, otherwise use crisp snippet
+        m = re.search(r"[—:-]\s*(.+)$", hinglish_txt)
+        snippet = (m.group(1) if m else hinglish_txt)[:44]
+        return {"type": "message", "sender": sender, "text": snippet}
+    if any(k in low for k in ("phone baja", "call aaya", "incoming call", "ring")):
+        sender = "Unknown Night Call" if "unknown" in low else ("Riya ❤️" if speaker == "male" else "Kabir 🖤")
+        return {"type": "call", "sender": sender, "text": "Incoming Audio Call • 02:14 AM"}
+    return None
+
+
+def parse_user_script(custom_script: str, mood: str) -> List[Dict[str, Any]]:
     scenes: List[Dict[str, Any]] = []
     for line in str(custom_script or "").splitlines():
         line = line.strip()
@@ -258,11 +273,14 @@ def parse_user_script(custom_script: str, genre: str) -> List[Dict[str, Any]]:
                 "broll_query": extract_broll_query(visual_prompt),
                 "hindi_dub": spoken_hindi,
                 "auto_caption": auto_caption,
+                "phone_popup": detect_phone_popup(auto_caption, sp),
                 "anim_type": "3D_Zoom_Punch" if idx == 0 else ANIM_MODES[idx % len(ANIM_MODES)],
-                "sfx_type": detect_scene_sfx(combined_txt, genre),
+                "sfx_type": detect_romantic_sfx(combined_txt, mood),
                 "media_ready": False,
-                "media_type": "image",  # "image" or "video"
+                "media_type": "image",  # "image", "video", or "remote_video"
                 "media_file": "",
+                "remote_video_url": "",
+                "thumb_url": "",
                 "thumb_file": "",
             })
     return scenes
@@ -281,7 +299,7 @@ def build_elevenlabs_script(scenes: List[Dict[str, Any]], voice_mode: str) -> st
 
 
 # ==============================================================================
-# 4. 0.5-SECOND ULTRAFAST ACOUSTIC SYNC ENGINE
+# 4. 0.5-SECOND ACOUSTIC SYNC ENGINE
 # ==============================================================================
 class FastAcousticSyncEngine:
     @staticmethod
@@ -375,7 +393,7 @@ class FastAcousticSyncEngine:
                 if inside:
                     active_start = max(0.0, (inside[0][0] - st) / span)
                     active_end = min(1.0, max(active_start + 0.15, (inside[-1][1] - st) / span))
-            sc["word_timings"] = NexoraVfxRenderer.build_word_timings(
+            sc["word_timings"] = NexoraRomanceRenderer.build_word_timings(
                 sc.get("auto_caption", ""),
                 win_start=active_start,
                 win_end=active_end,
@@ -383,9 +401,9 @@ class FastAcousticSyncEngine:
 
 
 # ==============================================================================
-# 5. "SUNDAY SUSPENSE" STUDIO VOICE & FOLEY SFX ENGINE
+# 5. LATE-NIGHT INTIMATE VOICE & ROMANTIC SOUNDSCAPE ENGINE
 # ==============================================================================
-class NexoraSoundAndVoiceEngine:
+class NexoraRomanceAudioEngine:
     @staticmethod
     def probe_dur(path: str) -> float:
         if not HAS_FFPROBE or not os.path.exists(path):
@@ -400,40 +418,41 @@ class NexoraSoundAndVoiceEngine:
             return 0.0
 
     @classmethod
-    def get_dynamic_voice_profile(cls, sc: Dict[str, Any], voice_mode: str, genre: str) -> Dict[str, str]:
+    def get_romantic_voice_profile(cls, sc: Dict[str, Any], voice_mode: str) -> Dict[str, str]:
         sp = sc.get("speaker", "narrator").lower()
-        emo = sc.get("emotion", "deep_suspense")
+        emo = sc.get("emotion", "late_night_fm")
 
         if voice_mode == "builtin_multi":
             if sp == "female":
-                if emo == "urgent_shock":
-                    return {"voice": "hi-IN-SwaraNeural", "rate": "+14%", "pitch": "+3Hz"}
-                if emo == "chilling_whisper":
-                    return {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "-3Hz"}
-                return {"voice": "hi-IN-SwaraNeural", "rate": "+7%", "pitch": "-1Hz"}
+                if emo == "intimate_whisper":
+                    return {"voice": "hi-IN-SwaraNeural", "rate": "-3%", "pitch": "-3Hz"}
+                if emo == "emotional_ache":
+                    return {"voice": "hi-IN-SwaraNeural", "rate": "-1%", "pitch": "-2Hz"}
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+5%", "pitch": "-1Hz"}
             if sp == "male":
-                if emo == "urgent_shock":
-                    return {"voice": "hi-IN-MadhurNeural", "rate": "+14%", "pitch": "-2Hz"}
-                if emo == "chilling_whisper":
+                if emo == "intimate_whisper":
                     return {"voice": "hi-IN-MadhurNeural", "rate": "-4%", "pitch": "-9Hz"}
-                return {"voice": "hi-IN-MadhurNeural", "rate": "+7%", "pitch": "-5Hz"}
+                if emo == "emotional_ache":
+                    return {"voice": "hi-IN-MadhurNeural", "rate": "-1%", "pitch": "-7Hz"}
+                return {"voice": "hi-IN-MadhurNeural", "rate": "+5%", "pitch": "-6Hz"}
             if sp == "child":
-                return {"voice": "hi-IN-SwaraNeural", "rate": "+10%", "pitch": "+14Hz"}
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+9%", "pitch": "+14Hz"}
 
-        if emo == "chilling_whisper":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "-3%", "pitch": "-14Hz"}
-        if emo == "urgent_shock":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "+14%", "pitch": "-7Hz"}
-        if genre in ("horror", "mystery"):
-            return {"voice": "hi-IN-MadhurNeural", "rate": "+5%", "pitch": "-12Hz"}
-        return {"voice": "hi-IN-MadhurNeural", "rate": "+7%", "pitch": "-10Hz"}
+        # Late-Night FM Romantic Whisper Narrator
+        if emo == "intimate_whisper":
+            return {"voice": "hi-IN-MadhurNeural", "rate": "-4%", "pitch": "-11Hz"}
+        if emo == "emotional_ache":
+            return {"voice": "hi-IN-MadhurNeural", "rate": "-2%", "pitch": "-9Hz"}
+        if emo == "urgent_passion":
+            return {"voice": "hi-IN-MadhurNeural", "rate": "+10%", "pitch": "-7Hz"}
+        return {"voice": "hi-IN-MadhurNeural", "rate": "+3%", "pitch": "-9Hz"}
 
     @classmethod
-    def dub_scene_studio(cls, sc: Dict[str, Any], idx: int, voice_mode: str, genre: str, work_dir: str) -> Tuple[str, float]:
+    def dub_scene_romantic(cls, sc: Dict[str, Any], idx: int, voice_mode: str, work_dir: str) -> Tuple[str, float]:
         if not HAS_EDGE_TTS:
             raise RuntimeError("edge-tts is not installed on the server.")
 
-        prof = cls.get_dynamic_voice_profile(sc, voice_mode, genre)
+        prof = cls.get_romantic_voice_profile(sc, voice_mode)
         text = str(sc.get("hindi_dub") or "").strip() or "कहानी आगे बढ़ती है..."
 
         mp3_p = os.path.join(work_dir, f"v_{idx:03d}.mp3")
@@ -460,16 +479,18 @@ class NexoraSoundAndVoiceEngine:
 
         speech_dur = cls.probe_dur(mp3_p)
         if speech_dur <= 0.20:
-            raise RuntimeError(f"Voice synthesis timeout on Scene {idx + 1} ({last_err}).")
+            raise RuntimeError(f"Voice timeout on Scene {idx + 1} ({last_err}).")
 
-        final_dur = round(speech_dur + 0.24, 2)
+        # Emotional breath pause (0.28s) for intimate FM storytelling feel
+        final_dur = round(speech_dur + 0.28, 2)
 
+        # Warm Close-Mic FM Mastering: Silky Sub-Bass (+4.5dB @ 120Hz), Soft Air (+2dB @ 3.5kHz), Gentle Velvet Reverb
         studio_af = (
-            "highpass=f=65,"
-            "equalizer=f=115:t=q:w=1.1:g=5.0,"
-            "equalizer=f=3200:t=q:w=1.4:g=2.5,"
-            "aecho=0.8:0.85:28:0.14,"
-            "acompressor=threshold=-19dB:ratio=3.2:attack=5:release=110,"
+            "highpass=f=68,"
+            "equalizer=f=120:t=q:w=1.1:g=4.5,"
+            "equalizer=f=3500:t=q:w=1.4:g=2.0,"
+            "aecho=0.85:0.88:22:0.10,"
+            "acompressor=threshold=-19dB:ratio=2.8:attack=6:release=115,"
             f"apad=whole_dur={final_dur:.3f}"
         )
         subprocess.run(
@@ -486,79 +507,69 @@ class NexoraSoundAndVoiceEngine:
         return wav_p, final_dur
 
     @staticmethod
-    def generate_foley_sfx(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
+    def generate_romantic_sfx(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
         out = np.zeros(n_samples, dtype=np.float32)
-        sfx_len = min(n_samples, int(rate * 1.80))
+        sfx_len = min(n_samples, int(rate * 1.90))
         if sfx_len <= 10:
             return out
         t = np.linspace(0, sfx_len / float(rate), sfx_len, endpoint=False, dtype=np.float32)
-        rng = np.random.default_rng(108)
+        rng = np.random.default_rng(202)
 
-        if sfx_type == "thunder":
-            rumble = rng.normal(0.0, 0.55, sfx_len).astype(np.float32)
-            kernel = np.ones(34, dtype=np.float32) / 34.0
-            rumble = np.convolve(rumble, kernel, mode="same")
-            crack = np.exp(-t * 18.0) * rng.normal(0.0, 0.6, sfx_len).astype(np.float32)
-            env = np.exp(-t * 1.8) * (1.0 - np.exp(-t * 50.0))
-            out[:sfx_len] = (rumble * env * 0.90) + (crack * 0.45)
+        if sfx_type == "phone_chime":
+            # Soft romantic message chime (E5 -> B5)
+            c1 = np.exp(-t * 8.0) * np.sin(2.0 * np.pi * 659.25 * t)
+            c2 = np.exp(-np.maximum(0.0, t - 0.14) * 7.0) * np.sin(2.0 * np.pi * 987.77 * t) * (t >= 0.14)
+            out[:sfx_len] = (c1 + c2) * 0.28
 
-        elif sfx_type == "horror_sting":
-            f1 = np.sin(2.0 * np.pi * 196.00 * t)
-            f2 = np.sin(2.0 * np.pi * 207.65 * t)
-            f3 = np.sin(2.0 * np.pi * 587.33 * t)
-            sub = np.sin(2.0 * np.pi * 49.00 * t)
-            env = np.exp(-t * 2.4) * (1.0 - np.exp(-t * 65.0))
-            out[:sfx_len] = (0.4 * f1 + 0.4 * f2 + 0.35 * f3 + 0.6 * sub) * env * 0.42
+        elif sfx_type == "soft_rain":
+            rain = rng.normal(0.0, 0.22, sfx_len).astype(np.float32)
+            kernel = np.ones(18, dtype=np.float32) / 18.0
+            rain = np.convolve(rain, kernel, mode="same")
+            env = np.sin(np.pi * (t / (sfx_len / float(rate))))
+            out[:sfx_len] = rain * env * 0.55
 
-        elif sfx_type == "door_creak":
-            freq = 165.0 + 110.0 * np.sin(2.0 * np.pi * 3.8 * t) + 40.0 * np.sin(2.0 * np.pi * 11.0 * t)
-            phase = 2.0 * np.pi * np.cumsum(freq) / float(rate)
-            env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.4
-            out[:sfx_len] = np.sin(phase) * env * 0.32
+        elif sfx_type == "soft_heartbeat":
+            b1 = np.exp(-t * 13.0) * np.sin(2.0 * np.pi * 54.0 * t)
+            b2 = np.exp(-np.maximum(0.0, t - 0.30) * 13.0) * np.sin(2.0 * np.pi * 48.0 * t) * (t >= 0.30)
+            out[:sfx_len] = (b1 + b2) * 0.65
+
+        elif sfx_type == "emotional_swell":
+            # Warm cello/piano harmonic swell
+            f1 = np.sin(2.0 * np.pi * 220.00 * t)
+            f2 = np.sin(2.0 * np.pi * 261.63 * t)
+            f3 = np.sin(2.0 * np.pi * 329.63 * t)
+            env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.6
+            out[:sfx_len] = (0.45 * f1 + 0.35 * f2 + 0.30 * f3) * env * 0.24
 
         elif sfx_type == "clock_tick":
-            for tick_t in (0.1, 0.7, 1.3):
-                mask = (t >= tick_t) & (t < tick_t + 0.06)
+            for tick_t in (0.15, 0.85, 1.55):
+                mask = (t >= tick_t) & (t < tick_t + 0.05)
                 lt = np.maximum(0.0, t - tick_t)
-                out[:sfx_len] += mask * np.exp(-lt * 85.0) * np.sin(2.0 * np.pi * 1200.0 * lt) * 0.45
+                out[:sfx_len] += mask * np.exp(-lt * 90.0) * np.sin(2.0 * np.pi * 1150.0 * lt) * 0.35
 
-        elif sfx_type == "impact_slam":
-            sub_drop = np.sin(2.0 * np.pi * (95.0 * np.exp(-t * 6.0) + 28.0) * t) * np.exp(-t * 4.5)
-            debris = np.convolve(rng.normal(0.0, 0.4, sfx_len).astype(np.float32), np.ones(12) / 12.0, mode="same") * np.exp(-t * 5.5)
-            out[:sfx_len] = (sub_drop * 0.85 + debris * 0.50)
-
-        elif sfx_type == "heartbeat":
-            b1 = np.exp(-t * 14.0) * np.sin(2.0 * np.pi * 52.0 * t)
-            b2 = np.exp(-np.maximum(0.0, t - 0.28) * 14.0) * np.sin(2.0 * np.pi * 46.0 * t) * (t >= 0.28)
-            out[:sfx_len] = (b1 + b2) * 0.75
-
-        elif sfx_type == "night_wind":
-            noise = rng.normal(0.0, 0.28, sfx_len).astype(np.float32)
-            kernel = np.ones(45, dtype=np.float32) / 45.0
-            wind = np.convolve(noise, kernel, mode="same")
-            env = np.sin(np.pi * (t / (sfx_len / float(rate))))
-            out[:sfx_len] = wind * env * 0.55
-
-        elif sfx_type in ("meme_boing", "meme_pop"):
-            freq = 190.0 + 380.0 * (t / (sfx_len / float(rate))) + 70.0 * np.sin(2.0 * np.pi * 18.0 * t)
+        elif sfx_type == "door_creak":
+            freq = 175.0 + 90.0 * np.sin(2.0 * np.pi * 3.8 * t)
             phase = 2.0 * np.pi * np.cumsum(freq) / float(rate)
-            env = np.exp(-t * 4.8)
-            out[:sfx_len] = np.sin(phase) * env * 0.35
+            env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.5
+            out[:sfx_len] = np.sin(phase) * env * 0.25
+
+        elif sfx_type == "thunder":
+            rumble = np.convolve(rng.normal(0.0, 0.45, sfx_len).astype(np.float32), np.ones(32) / 32.0, mode="same")
+            env = np.exp(-t * 1.9) * (1.0 - np.exp(-t * 45.0))
+            out[:sfx_len] = rumble * env * 0.72
 
         else:
-            noise = rng.normal(0.0, 0.32, sfx_len).astype(np.float32)
-            kernel = np.ones(16, dtype=np.float32) / 16.0
-            filtered = np.convolve(noise, kernel, mode="same")
+            noise = np.convolve(rng.normal(0.0, 0.26, sfx_len).astype(np.float32), np.ones(16) / 16.0, mode="same")
             env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 2.0
-            out[:sfx_len] = filtered * env * 0.52
+            out[:sfx_len] = noise * env * 0.40
 
         return out
 
     @classmethod
-    def build_full_sfx_and_bgm_track(
+    def build_romantic_soundscape(
         cls,
         render_scenes: List[Dict[str, Any]],
-        genre: str,
+        mood: str,
         out_wav: str,
         custom_bgm_path: Optional[str] = None,
         work_dir: str = "",
@@ -577,34 +588,40 @@ class NexoraSoundAndVoiceEngine:
                 n = max(1, int(round(dur * rate)))
                 t = np.linspace(cur_t, cur_t + dur, n, endpoint=False, dtype=np.float32)
                 local_p = np.linspace(0.0, 1.0, n, endpoint=False, dtype=np.float32)
-                swell = 1.0 + 0.45 * (np.exp(-local_p * 5.5) + np.exp(-(1.0 - local_p) * 5.5))
+                swell = 1.0 + 0.42 * (np.exp(-local_p * 5.0) + np.exp(-(1.0 - local_p) * 5.0))
 
                 if custom_bgm_path and os.path.exists(custom_bgm_path):
                     bgm = np.zeros(n, dtype=np.float32)
-                elif genre in ("horror", "mystery"):
-                    lfo = 0.75 + 0.25 * np.sin(2.0 * np.pi * 0.4 * t)
-                    drone = (
-                        0.55 * np.sin(2.0 * np.pi * 32.70 * t)
-                        + 0.30 * np.sin(2.0 * np.pi * 49.00 * t)
-                        + 0.20 * np.sin(2.0 * np.pi * 77.78 * t)
-                    )
-                    bgm = drone * 0.14 * swell * lfo
-                elif genre == "romantic":
+                elif mood == "sad_heartbreak":
+                    # Deep emotional Dm7/Am piano-cello pad
                     pad = (
-                        0.45 * np.sin(2.0 * np.pi * 110.00 * t)
-                        + 0.32 * np.sin(2.0 * np.pi * 130.81 * t)
-                        + 0.25 * np.sin(2.0 * np.pi * 164.81 * t)
-                        + 0.20 * np.sin(2.0 * np.pi * 55.00 * t)
+                        0.45 * np.sin(2.0 * np.pi * 146.83 * t)
+                        + 0.35 * np.sin(2.0 * np.pi * 174.61 * t)
+                        + 0.28 * np.sin(2.0 * np.pi * 220.00 * t)
+                        + 0.25 * np.sin(2.0 * np.pi * 73.42 * t)
                     )
                     bgm = pad * 0.13 * swell
-                elif genre == "funny":
-                    beat = np.exp(-((t % 0.45) * 10.0)) * np.sin(2.0 * np.pi * 196.0 * t)
-                    bgm = beat * 0.12
+                elif mood == "secret_suspense":
+                    # Intimate Am7 + subtle midnight tension pulse
+                    pulse = 0.8 + 0.2 * np.sin(2.0 * np.pi * 0.6 * t)
+                    pad = (
+                        0.42 * np.sin(2.0 * np.pi * 110.00 * t)
+                        + 0.32 * np.sin(2.0 * np.pi * 130.81 * t)
+                        + 0.25 * np.sin(2.0 * np.pi * 164.81 * t)
+                        + 0.22 * np.sin(2.0 * np.pi * 55.00 * t)
+                    )
+                    bgm = pad * 0.13 * swell * pulse
                 else:
-                    drone = 0.50 * np.sin(2.0 * np.pi * 43.65 * t) + 0.30 * np.sin(2.0 * np.pi * 65.41 * t)
-                    bgm = drone * 0.13 * swell
+                    # Warm Candlelight Fmaj7/Am romantic velvet chord
+                    pad = (
+                        0.42 * np.sin(2.0 * np.pi * 130.81 * t)
+                        + 0.34 * np.sin(2.0 * np.pi * 164.81 * t)
+                        + 0.28 * np.sin(2.0 * np.pi * 196.00 * t)
+                        + 0.22 * np.sin(2.0 * np.pi * 65.41 * t)
+                    )
+                    bgm = pad * 0.13 * swell
 
-                sfx = cls.generate_foley_sfx(sc.get("sfx_type", "whoosh"), n, rate=rate)
+                sfx = cls.generate_romantic_sfx(sc.get("sfx_type", "whoosh"), n, rate=rate)
                 mix = bgm + sfx
                 wf.writeframes((np.clip(mix, -0.95, 0.95) * 32767.0).astype(np.int16).tobytes())
                 cur_t += dur
@@ -616,7 +633,7 @@ class NexoraSoundAndVoiceEngine:
                     "ffmpeg", "-y",
                     "-stream_loop", "-1", "-i", custom_bgm_path,
                     "-i", sfx_only_wav,
-                    "-filter_complex", "[0:a]volume=0.28[bg];[1:a]volume=1.0[sx];[bg][sx]amix=inputs=2:duration=shortest[out]",
+                    "-filter_complex", "[0:a]volume=0.30[bg];[1:a]volume=1.0[sx];[bg][sx]amix=inputs=2:duration=shortest[out]",
                     "-map", "[out]", "-ar", "22050", "-ac", "1", out_wav,
                 ],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
@@ -624,56 +641,54 @@ class NexoraSoundAndVoiceEngine:
 
 
 # ==============================================================================
-# 6. HYBRID VIDEO CLIP + IMAGE VFX RENDERER (3-WORD VIRAL CAPTIONS + CLIMAX TIMESTAMP)
+# 6. ROMANCE APEX VISUAL ENGINE (CROSS-DISSOLVE + PHONE POPUP + BOKEH + CLIFFHANGER)
 # ==============================================================================
-class NexoraVfxRenderer:
+class NexoraRomanceRenderer:
     POWER_WORDS = {
-        "raaz", "dhokha", "pyaar", "achanak", "khatra", "bhoot", "khoon",
-        "sach", "ishq", "mohabbat", "intezar", "dard", "aansu", "kasam",
-        "secret", "shock", "murder", "mystery", "junoon", "barbaad", "dweep", "toofan", "saaya",
+        "pyaar", "ishq", "mohabbat", "raaz", "dil", "saansein", "kareeb",
+        "intezar", "dard", "aansu", "kasam", "junoon", "dhokha", "sach",
+        "chhua", "baahon", "kiss", "secret", "adhura", "tanha", "alvida", "raat",
     }
 
-    def __init__(self, width: int, height: int, genre: str = "mystery"):
+    def __init__(self, width: int, height: int, mood: str = "deep_romance"):
         self.w = width
         self.h = height
-        self.genre = genre
+        self.mood = mood
         self.sc = min(width, height) / 540.0
 
-        rng = np.random.default_rng(777)
+        rng = np.random.default_rng(999)
         self.particles = np.column_stack([
-            rng.uniform(0, width, 75),
-            rng.uniform(0, height, 75),
-            rng.uniform(1.2, 3.0, 75),
-            rng.uniform(0.5, 1.5, 75),
+            rng.uniform(0, width, 65),
+            rng.uniform(0, height, 65),
+            rng.uniform(1.5, 3.6, 65),
+            rng.uniform(0.4, 1.3, 65),
         ])
 
     def prepare_scaled_image(self, raw_im: Image.Image) -> Image.Image:
         im = raw_im.convert("RGB")
         tw, th = int(self.w * 1.32), int(self.h * 1.32)
         im = im.resize((tw, th), Image.Resampling.BILINEAR)
-        im = ImageEnhance.Contrast(im).enhance(1.16)
-        im = ImageEnhance.Color(im).enhance(1.20)
+        im = ImageEnhance.Contrast(im).enhance(1.13)
+        im = ImageEnhance.Color(im).enhance(1.22)
         return im
 
     def extract_video_frames_for_scene(self, video_path: str, dur_sec: float, fps: int, out_dir: str) -> List[str]:
-        """Extracts & loops real B-roll video frames cleanly scaled to 1.32x for camera VFX."""
         os.makedirs(out_dir, exist_ok=True)
         tw, th = int(self.w * 1.32), int(self.h * 1.32)
-        # Ensure even dimensions for FFmpeg
         tw += tw % 2
         th += th % 2
         pattern = os.path.join(out_dir, "f_%05d.jpg")
         vf = (
             f"scale={tw}:{th}:force_original_aspect_ratio=increase,"
             f"crop={tw}:{th},"
-            "eq=contrast=1.14:saturation=1.18"
+            "eq=contrast=1.12:saturation=1.20"
         )
         subprocess.run(
             [
                 "ffmpeg", "-y",
                 "-stream_loop", "-1",
                 "-i", video_path,
-                "-t", f"{dur_sec + 0.25:.3f}",
+                "-t", f"{dur_sec + 0.35:.3f}",
                 "-r", str(fps),
                 "-vf", vf,
                 "-q:v", "3",
@@ -681,12 +696,7 @@ class NexoraVfxRenderer:
             ],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
         )
-        frames = sorted(
-            os.path.join(out_dir, fn)
-            for fn in os.listdir(out_dir)
-            if fn.endswith(".jpg")
-        )
-        return frames
+        return sorted(os.path.join(out_dir, fn) for fn in os.listdir(out_dir) if fn.endswith(".jpg"))
 
     @staticmethod
     def build_word_timings(text: str, win_start: float = 0.0, win_end: float = 1.0) -> List[Tuple[str, float, float]]:
@@ -718,22 +728,45 @@ class NexoraVfxRenderer:
         pad_y = bar_h + int(10 * self.sc)
 
         if is_teaser:
-            badge = f"🔥 AAGE DEKHIYE ({climax_ts_label} PE ASLI RAAZ)..."
+            badge = f"🔥 AAGE DEKHIYE ({climax_ts_label} PE ASLI MOD)..."
             bb = draw.textbbox((0, 0), badge, font=f_hud)
             bw = (bb[2] - bb[0]) + int(24 * self.sc)
             bh = (bb[3] - bb[1]) + int(12 * self.sc)
-            draw.rounded_rectangle([pad_x, pad_y, pad_x + bw, pad_y + bh], radius=8, fill=(225, 29, 72), outline=(255, 255, 255), width=2)
+            draw.rounded_rectangle([pad_x, pad_y, pad_x + bw, pad_y + bh], radius=8, fill=(219, 39, 119), outline=(255, 255, 255), width=2)
             draw.text((pad_x + int(12 * self.sc), pad_y + int(5 * self.sc)), badge, font=f_hud, fill=(255, 255, 255))
         else:
-            stage = "01. SHURUAT" if ov_prog < 0.34 else ("02. GEHRA RAAZ" if ov_prog < 0.72 else "03. ASLI ANJAAM")
+            stage = "01. PEHLI MULAKAT" if ov_prog < 0.34 else ("02. GEHRA RAAZ" if ov_prog < 0.72 else "03. ASLI ANJAAM")
             bb = draw.textbbox((0, 0), stage, font=f_hud)
             bw = (bb[2] - bb[0]) + int(20 * self.sc)
             bh = (bb[3] - bb[1]) + int(10 * self.sc)
-            draw.rounded_rectangle([pad_x, pad_y, pad_x + bw, pad_y + bh], radius=8, fill=(8, 13, 26), outline=(34, 211, 238), width=1)
-            draw.text((pad_x + int(10 * self.sc), pad_y + int(4 * self.sc)), stage, font=f_hud, fill=(34, 211, 238))
+            draw.rounded_rectangle([pad_x, pad_y, pad_x + bw, pad_y + bh], radius=8, fill=(10, 12, 24), outline=(244, 114, 182), width=1)
+            draw.text((pad_x + int(10 * self.sc), pad_y + int(4 * self.sc)), stage, font=f_hud, fill=(244, 114, 182))
+
+    def _draw_phone_notification_popup(self, draw: ImageDraw.Draw, popup: Dict[str, str], sc_prog: float, bar_h: int):
+        """Renders an animated late-night smartphone message/call notification card."""
+        if sc_prog < 0.08 or sc_prog > 0.92:
+            return
+        slide = min(1.0, (sc_prog - 0.08) / 0.14)
+        e = ease_in_out(slide)
+
+        f_sender = get_font(max(12, int(13 * self.sc)), bold=True)
+        f_msg = get_font(max(11, int(12 * self.sc)), bold=False)
+
+        card_w = int(275 * self.sc)
+        card_h = int(56 * self.sc)
+        cx1 = self.w - int(16 * self.sc)
+        cx0 = cx1 - card_w
+        cy0 = bar_h + int((10 + (1.0 - e) * -45) * self.sc)
+        cy1 = cy0 + card_h
+
+        border_c = (16, 185, 129) if popup["type"] == "call" else (244, 114, 182)
+        draw.rounded_rectangle([cx0, cy0, cx1, cy1], radius=12, fill=(12, 16, 30), outline=border_c, width=2)
+
+        icon = "📞" if popup["type"] == "call" else "💬"
+        draw.text((cx0 + int(12 * self.sc), cy0 + int(8 * self.sc)), f"{icon} {popup['sender']}", font=f_sender, fill=border_c)
+        draw.text((cx0 + int(12 * self.sc), cy0 + int(30 * self.sc)), popup["text"], font=f_msg, fill=(241, 245, 249))
 
     def _draw_punchy_3word_captions(self, draw: ImageDraw.Draw, timings: List[Tuple[str, float, float]], sc_prog: float, voice_mode: str, speaker: str, bar_h: int):
-        """Renders high-retention 3-word punchy karaoke captions."""
         if not timings:
             return
 
@@ -756,11 +789,7 @@ class NexoraVfxRenderer:
         pw = bb[2] - bb[0]
         ph = bb[3] - bb[1]
 
-        accent = (
-            (251, 191, 36) if self.genre == "funny"
-            else ((244, 114, 182) if self.genre == "romantic"
-                  else ((244, 63, 94) if self.genre in ("horror", "mystery") else (34, 211, 238)))
-        )
+        accent = (244, 114, 182) if self.mood == "deep_romance" else ((56, 189, 248) if self.mood == "sad_heartbreak" else (251, 113, 133))
 
         show_tag = voice_mode == "builtin_multi"
         box_w = min(int(self.w * 0.92), pw + int(48 * self.sc))
@@ -769,10 +798,10 @@ class NexoraVfxRenderer:
         by1 = self.h - bar_h - int(14 * self.sc)
         by0 = by1 - box_h
 
-        draw.rounded_rectangle([bx0, by0, bx0 + box_w, by1], radius=14, fill=(6, 9, 18), outline=accent, width=2)
+        draw.rounded_rectangle([bx0, by0, bx0 + box_w, by1], radius=14, fill=(8, 10, 20), outline=accent, width=2)
 
         if show_tag:
-            sp_map = {"narrator": "KATHAVACHAK", "male": "MALE", "female": "FEMALE", "child": "CHILD"}
+            sp_map = {"narrator": "LATE-NIGHT STORY", "male": "HE", "female": "SHE", "child": "CHILD"}
             draw.text((bx0 + int(14 * self.sc), by0 + int(5 * self.sc)), sp_map.get(speaker, "STORY"), font=f_tag, fill=accent)
 
         tx = (self.w - pw) // 2
@@ -796,54 +825,38 @@ class NexoraVfxRenderer:
             draw.text((tx, ty), word_str, font=f_sub, fill=w_col)
             tx += draw.textbbox((0, 0), word_str + " ", font=f_sub)[2]
 
-    def render_frame(
-        self,
-        scene: Dict[str, Any],
-        timings: List[Tuple[str, float, float]],
-        sc_idx: int,
-        sc_prog: float,
-        global_t: float,
-        ov_prog: float,
-        voice_mode: str,
-        base_img: Image.Image,
-    ) -> bytes:
+    def compose_camera_crop(self, base_img: Image.Image, anim: str, sc_prog: float, global_t: float, is_video: bool, is_teaser: bool, sfx_type: str) -> Image.Image:
         pw, ph = base_img.size
         e = ease_in_out(sc_prog)
-        is_teaser = bool(scene.get("is_teaser", False))
-        is_video = scene.get("media_type") == "video"
-        anim = "Flash_Impact_Zoom" if is_teaser else scene.get("anim_type", "Cinema_Pan_Right")
-
-        float_x = 0.03 * math.sin(global_t * 2.4)
-        float_y = 0.03 * math.cos(global_t * 1.9)
+        float_x = 0.03 * math.sin(global_t * 2.2)
+        float_y = 0.03 * math.cos(global_t * 1.8)
         rot_deg = 0.0
-
-        # If real B-roll video clip is used, apply subtler optical camera stabilization + push-in
-        motion_mult = 0.55 if is_video else 1.0
+        motion_mult = 0.52 if is_video else 1.0
 
         if anim == "3D_Zoom_Punch":
-            scale = 1.02 + (0.24 * motion_mult) * min(1.0, sc_prog * 1.45)
-            pan_x, pan_y = 0.5 + float_x, 0.42 + float_y
+            scale = 1.02 + (0.22 * motion_mult) * min(1.0, sc_prog * 1.45)
+            pan_x, pan_y = 0.5 + float_x, 0.44 + float_y
         elif anim == "Dramatic_Zoom_Out":
-            scale = 1.24 - (0.20 * motion_mult) * e
+            scale = 1.22 - (0.18 * motion_mult) * e
             pan_x, pan_y = 0.5 + float_x, 0.5 + float_y
         elif anim == "Cinema_Pan_Right":
-            scale = 1.14
+            scale = 1.13
             pan_x, pan_y = 0.5 + (e - 0.5) * motion_mult, 0.48 + float_y
         elif anim == "Cinema_Pan_Left":
-            scale = 1.14
+            scale = 1.13
             pan_x, pan_y = 0.5 + (0.5 - e) * motion_mult, 0.48 + float_y
         elif anim == "Heartbeat_Pulse":
-            scale = 1.09 + 0.08 * abs(math.sin(sc_prog * math.pi * 3.0))
-            pan_x, pan_y = 0.5 + 0.14 * math.sin(sc_prog * math.pi) * motion_mult, 0.5 + float_y
+            scale = 1.08 + 0.07 * abs(math.sin(sc_prog * math.pi * 3.0))
+            pan_x, pan_y = 0.5 + 0.12 * math.sin(sc_prog * math.pi) * motion_mult, 0.5 + float_y
         elif anim == "Tilt_Rotate_Drift":
-            scale = 1.16 + 0.07 * e
+            scale = 1.15 + 0.06 * e
             pan_x, pan_y = 0.5 + (e - 0.5) * motion_mult, 0.5 + (0.5 - e) * motion_mult
-            rot_deg = math.sin(sc_prog * math.pi) * 2.1 * motion_mult
+            rot_deg = math.sin(sc_prog * math.pi) * 1.9 * motion_mult
         elif anim == "Flash_Impact_Zoom":
-            scale = 1.04 + 0.22 * e
+            scale = 1.04 + 0.20 * e
             pan_x, pan_y = 0.5 + float_x, 0.5 + float_y
         elif anim == "Whip_Slide_In":
-            scale = 1.14
+            scale = 1.13
             whip = min(1.0, sc_prog * 4.5)
             pan_x, pan_y = 0.15 + 0.70 * ease_in_out(whip), 0.5 + float_y
         else:
@@ -858,61 +871,95 @@ class NexoraVfxRenderer:
         ox = int(max_dx * max(0.0, min(1.0, pan_x)))
         oy = int(max_dy * max(0.0, min(1.0, pan_y)))
 
-        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("horror_sting", "thunder", "impact_slam")) and sc_prog < 0.24:
-            ox = max(0, min(max_dx, ox + int(math.sin(global_t * 54.0) * 11 * self.sc)))
-            oy = max(0, min(max_dy, oy + int(math.cos(global_t * 48.0) * 8 * self.sc)))
+        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or sfx_type == "thunder") and sc_prog < 0.22:
+            ox = max(0, min(max_dx, ox + int(math.sin(global_t * 50.0) * 9 * self.sc)))
+            oy = max(0, min(max_dy, oy + int(math.cos(global_t * 45.0) * 7 * self.sc)))
 
         frame = base_img.crop((ox, oy, ox + crop_w, oy + crop_h)).resize((self.w, self.h), Image.Resampling.BILINEAR)
-
         if abs(rot_deg) > 0.05:
             frame = frame.rotate(rot_deg, resample=Image.Resampling.BILINEAR, expand=False)
+        return frame
 
-        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch") or scene.get("sfx_type") in ("thunder", "horror_sting", "impact_slam")) and sc_prog < 0.08:
-            flash_strength = 1.0 + 0.65 * (1.0 - sc_prog / 0.08)
-            frame = ImageEnhance.Brightness(frame).enhance(flash_strength)
-        elif sc_prog < 0.05:
-            frame = ImageEnhance.Brightness(frame).enhance(max(0.25, sc_prog / 0.05))
+    def render_frame(
+        self,
+        scene: Dict[str, Any],
+        timings: List[Tuple[str, float, float]],
+        sc_idx: int,
+        sc_prog: float,
+        global_t: float,
+        ov_prog: float,
+        voice_mode: str,
+        base_img: Image.Image,
+        prev_frame_img: Optional[Image.Image] = None,
+    ) -> Tuple[bytes, Image.Image]:
+        is_teaser = bool(scene.get("is_teaser", False))
+        is_video = scene.get("media_type") in ("video", "remote_video")
+        anim = "Flash_Impact_Zoom" if is_teaser else scene.get("anim_type", "Cinema_Pan_Right")
+
+        raw_crop = self.compose_camera_crop(base_img, anim, sc_prog, global_t, is_video, is_teaser, scene.get("sfx_type", ""))
+
+        # Smooth 0.35s Cross-Dissolve Transition from previous scene!
+        if prev_frame_img is not None and sc_prog < 0.10:
+            blend_alpha = ease_in_out(sc_prog / 0.10)
+            frame = Image.blend(prev_frame_img, raw_crop, blend_alpha)
+        else:
+            frame = raw_crop
+
+        if (is_teaser or anim in ("Flash_Impact_Zoom", "3D_Zoom_Punch")) and sc_prog < 0.07:
+            frame = ImageEnhance.Brightness(frame).enhance(1.0 + 0.55 * (1.0 - sc_prog / 0.07))
 
         draw = ImageDraw.Draw(frame)
 
-        # Atmospheric Particles
-        if self.genre in ("horror", "mystery"):
+        # Romantic Golden Bokeh / Midnight Rain Particles
+        if self.mood == "sad_heartbreak" or scene.get("sfx_type") == "soft_rain":
             for px0, py0, pr, spd in self.particles:
-                px = (px0 + global_t * 26.0 * spd) % self.w
-                py = (py0 - global_t * 22.0 * spd) % self.h
-                r_px = max(1, int(pr * self.sc * 0.85))
-                col = (244, 63, 94) if self.genre == "horror" else (56, 189, 248)
+                px = (px0 - global_t * 18.0 * spd) % self.w
+                py = (py0 + global_t * 95.0 * spd) % self.h
+                draw.line([(px, py), (px - 2 * self.sc, py + 11 * self.sc)], fill=(186, 230, 253), width=max(1, int(self.sc)))
+        else:
+            for px0, py0, pr, spd in self.particles:
+                px = (px0 + math.sin(global_t * 1.3 + py0) * 20.0) % self.w
+                py = (py0 - global_t * 14.0 * spd) % self.h
+                r_px = max(2, int(pr * self.sc * 1.25))
+                col = (253, 224, 71) if self.mood == "deep_romance" else (244, 114, 182)
                 draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=col)
-        elif self.genre == "romantic":
-            for px0, py0, pr, spd in self.particles:
-                px = (px0 + math.sin(global_t * 1.4 + py0) * 18.0) % self.w
-                py = (py0 - global_t * 15.0 * spd) % self.h
-                r_px = max(2, int(pr * self.sc * 1.2))
-                draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(253, 224, 71))
-        elif self.genre == "funny":
-            for px0, py0, pr, spd in self.particles[:30]:
-                px = (px0 + global_t * 28.0 * spd) % self.w
-                py = (py0 + math.sin(global_t * 4.5 + px0) * 18.0) % self.h
-                r_px = max(2, int(pr * self.sc))
-                draw.ellipse([px - r_px, py - r_px, px + r_px, py + r_px], fill=(56, 189, 248))
 
         bar_h = int(self.h * 0.055) if self.w > self.h else 0
         if bar_h > 0:
-            draw.rectangle([0, 0, self.w, bar_h], fill=(3, 5, 10))
-            draw.rectangle([0, self.h - bar_h, self.w, self.h], fill=(3, 5, 10))
+            draw.rectangle([0, 0, self.w, bar_h], fill=(4, 6, 12))
+            draw.rectangle([0, self.h - bar_h, self.w, self.h], fill=(4, 6, 12))
 
         self._draw_top_hud(draw, is_teaser, scene.get("climax_ts_label", "01:45"), ov_prog, bar_h)
+
+        if scene.get("phone_popup"):
+            self._draw_phone_notification_popup(draw, scene["phone_popup"], sc_prog, bar_h)
+
         self._draw_punchy_3word_captions(draw, timings, sc_prog, voice_mode, scene.get("speaker", "narrator"), bar_h)
 
+        # Cliffhanger End-Card overlay on the final 2.5 seconds of the video!
+        if ov_prog > 0.965 and not is_teaser:
+            fade = min(1.0, (ov_prog - 0.965) / 0.035)
+            dark_ov = Image.new("RGB", (self.w, self.h), (5, 7, 15))
+            frame = Image.blend(frame, dark_ov, fade * 0.82)
+            d2 = ImageDraw.Draw(frame)
+            f_end = get_font(max(20, int(28 * self.sc)), bold=True)
+            f_sub2 = get_font(max(13, int(16 * self.sc)), bold=True)
+            t1 = "KAHANI ABHI BAAKI HAI..."
+            t2 = "Agle Part Ke Liye Subscribe Zaroor Karein ❤️"
+            w1 = d2.textbbox((0, 0), t1, font=f_end)[2]
+            w2 = d2.textbbox((0, 0), t2, font=f_sub2)[2]
+            d2.text(((self.w - w1) // 2, int(self.h * 0.42)), t1, font=f_end, fill=(244, 114, 182))
+            d2.text(((self.w - w2) // 2, int(self.h * 0.53)), t2, font=f_sub2, fill=(253, 224, 71))
+
         bar_w = int(self.w * ov_prog)
-        accent_c = (244, 63, 94) if self.genre in ("horror", "mystery") else ((244, 114, 182) if self.genre == "romantic" else (34, 211, 238))
+        accent_c = (244, 114, 182) if self.mood == "deep_romance" else ((56, 189, 248) if self.mood == "sad_heartbreak" else (251, 113, 133))
         draw.rectangle([0, self.h - 4, bar_w, self.h], fill=accent_c)
 
-        return frame.tobytes()
+        return frame.tobytes(), raw_crop
 
 
 # ==============================================================================
-# 7. APEX RENDER PIPELINE (FIXED CLIMAX AUDIO SYNC + HYBRID VIDEO/IMAGE)
+# 7. APEX RENDER PIPELINE (STREAMING B-ROLL DOWNLOAD + CROSS-DISSOLVE + SIDECHAIN)
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
@@ -925,26 +972,38 @@ def fmt_mmss(sec: float) -> str:
     return f"{s // 60:02d}:{s % 60:02d}"
 
 
+def download_remote_broll_to_temp(url: str, out_path: str):
+    with requests.get(url, stream=True, timeout=25) as r:
+        r.raise_for_status()
+        with open(out_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=65536):
+                if chunk:
+                    f.write(chunk)
+
+
 def run_final_render(job_id: str, session_id: str):
     work_dir = tempfile.mkdtemp(prefix=f"nxr_{job_id}_", dir=TMP_ROOT)
     try:
-        purge_expired(1800)
+        purge_expired(3600)
         if not HAS_FFMPEG:
             raise RuntimeError("FFmpeg not available on server.")
 
         with LOCK:
             sess = SESSIONS.get(session_id)
         if not sess:
-            raise RuntimeError("Session expired. Please load scenes again.")
+            raise RuntimeError("Session expired. Please reload scenes.")
 
         raw_scenes = [dict(s) for s in sess["scenes"]]
         sess_dir = os.path.join(SESSIONS_DIR, session_id)
         for sc in raw_scenes:
-            med_p = os.path.join(sess_dir, sc.get("media_file", ""))
-            if not sc.get("media_ready") or not os.path.exists(med_p):
-                raise RuntimeError(f"Scene {sc['index'] + 1} is missing a video clip or image. Upload it first!")
+            if not sc.get("media_ready"):
+                raise RuntimeError(f"Scene {sc['index'] + 1} has no video or image yet. Use Auto-Fill HD Videos or upload one!")
+            if sc.get("media_type") != "remote_video":
+                med_p = os.path.join(sess_dir, sc.get("media_file", ""))
+                if not os.path.exists(med_p):
+                    raise RuntimeError(f"Scene {sc['index'] + 1} file missing. Re-upload or Auto-Fill.")
 
-        genre = sess["genre"]
+        mood = sess["genre"]
         topic = sess["topic"]
         aspect = sess["aspect_ratio"]
         voice_mode = sess["voice_mode"]
@@ -960,7 +1019,7 @@ def run_final_render(job_id: str, session_id: str):
 
         if voice_mode == "uploaded":
             if not is_safe_id(uploaded_audio_id):
-                raise RuntimeError("Please upload your MP3/WAV audio file first!")
+                raise RuntimeError("Please upload your MP3/WAV voiceover first!")
             uploaded_audio_path = None
             for fn in os.listdir(UPLOAD_DIR):
                 if fn.startswith(uploaded_audio_id):
@@ -974,7 +1033,7 @@ def run_final_render(job_id: str, session_id: str):
                 ["ffmpeg", "-y", "-i", uploaded_audio_path, "-ar", "22050", "-ac", "1", master_voice],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
-            total_el_dur = NexoraSoundAndVoiceEngine.probe_dur(master_voice)
+            total_el_dur = NexoraRomanceAudioEngine.probe_dur(master_voice)
             if total_el_dur <= 1.0:
                 raise RuntimeError("Uploaded audio file is invalid or empty.")
             FastAcousticSyncEngine.align_scenes_and_words(raw_scenes, master_voice, total_el_dur)
@@ -985,15 +1044,15 @@ def run_final_render(job_id: str, session_id: str):
                     job_id,
                     status="running",
                     progress=4 + int((idx / float(len(raw_scenes))) * 15),
-                    current_scene=f"Dubbing Studio Voice ({idx + 1}/{len(raw_scenes)}) [{sc['emotion']}]...",
+                    current_scene=f"Dubbing Intimate Voice ({idx + 1}/{len(raw_scenes)}) [{sc['emotion']}]...",
                 )
-                dub_wav, actual_dur = NexoraSoundAndVoiceEngine.dub_scene_studio(sc, idx, voice_mode, genre, work_dir)
+                dub_wav, actual_dur = NexoraRomanceAudioEngine.dub_scene_romantic(sc, idx, voice_mode, work_dir)
                 sc["start_sec"] = running_t
                 sc["end_sec"] = running_t + actual_dur
                 sc["duration_sec"] = actual_dur
                 sc["wav_file"] = dub_wav
                 running_t += actual_dur
-                sc["word_timings"] = NexoraVfxRenderer.build_word_timings(sc.get("auto_caption", ""), 0.02, 0.94)
+                sc["word_timings"] = NexoraRomanceRenderer.build_word_timings(sc.get("auto_caption", ""), 0.02, 0.94)
                 voice_chunks.append(dub_wav)
 
             a_list = os.path.join(work_dir, "a_list.txt")
@@ -1005,7 +1064,6 @@ def run_final_render(job_id: str, session_id: str):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
-        # Build Final Timeline with 100% EXACT Climax Hook Audio + Visual Match!
         render_scenes: List[Dict[str, Any]] = []
         hook_dur = 0.0
 
@@ -1015,13 +1073,12 @@ def run_final_render(job_id: str, session_id: str):
             hook_sc = dict(climax_sc)
             hook_sc["is_teaser"] = True
             hook_sc["anim_type"] = "Flash_Impact_Zoom"
-            hook_sc["sfx_type"] = "heartbeat"
+            hook_sc["sfx_type"] = "soft_heartbeat"
             hook_dur = min(4.5, float(climax_sc.get("duration_sec", 4.0)))
             hook_sc["duration_sec"] = hook_dur
             hook_sc["climax_ts_label"] = fmt_mmss(float(climax_sc.get("start_sec", 60.0)) + hook_dur)
             render_scenes.append(hook_sc)
 
-            # Prepend the EXACT climax voice clip to master_voice!
             hook_wav = os.path.join(work_dir, "hook_voice.wav")
             joined_voice = os.path.join(work_dir, "joined_voice.wav")
             if voice_mode != "uploaded" and climax_sc.get("wav_file") and os.path.exists(climax_sc["wav_file"]):
@@ -1054,32 +1111,35 @@ def run_final_render(job_id: str, session_id: str):
         for s in raw_scenes:
             render_scenes.append(dict(s))
 
-        renderer = NexoraVfxRenderer(out_w, out_h, genre=genre)
+        renderer = NexoraRomanceRenderer(out_w, out_h, mood=mood)
         total_sc = len(render_scenes)
         est_total_dur = sum(float(s.get("duration_sec", 4.0)) for s in render_scenes)
         global_t = 0.0
         dt = 1.0 / float(fps)
 
         video_chunks: List[str] = []
+        # Warm Candlelight / Midnight Rain Romantic Color Grading + Subtle 35mm Film Grain
         cinema_vf = (
-            "eq=contrast=1.12:brightness=-0.03:saturation=1.18,noise=alls=6:allf=t+u,unsharp=3:3:0.55:3:3:0.0,vignette=PI/4.5"
-            if genre in ("horror", "mystery")
-            else "eq=contrast=1.08:brightness=0.01:saturation=1.24,noise=alls=4:allf=t+u,unsharp=3:3:0.5:3:3:0.0,vignette=PI/5.5"
+            "eq=contrast=1.08:brightness=-0.01:saturation=1.22,"
+            "colorbalance=rs=0.04:gs=0.01:bs=-0.03,"
+            "noise=alls=4:allf=t+u,"
+            "unsharp=3:3:0.45:3:3:0.0,"
+            "vignette=PI/5"
         )
 
+        last_scene_end_frame: Optional[Image.Image] = None
+
         for idx, sc in enumerate(render_scenes):
-            lbl = "Auto-Hook Teaser" if sc.get("is_teaser") else f"Scene {idx + 1}/{total_sc}"
-            m_tag = "VIDEO B-ROLL" if sc.get("media_type") == "video" else "AI IMAGE"
+            lbl = "Climax Hook Teaser" if sc.get("is_teaser") else f"Scene {idx + 1}/{total_sc}"
             update_job(
                 job_id,
                 status="running",
                 progress=19 + int((idx / float(total_sc)) * 73),
-                current_scene=f"Rendering {lbl} [{m_tag} • {sc['anim_type']}]...",
+                current_scene=f"Rendering {lbl} ({sc['anim_type']} + Cross-Dissolve)...",
             )
 
             actual_dur = float(sc.get("duration_sec", 4.0))
-            timings = sc.get("word_timings") or NexoraVfxRenderer.build_word_timings(sc.get("auto_caption", ""))
-            med_path = os.path.join(sess_dir, sc["media_file"])
+            timings = sc.get("word_timings") or NexoraRomanceRenderer.build_word_timings(sc.get("auto_caption", ""))
 
             n_frames = max(1, int(round(actual_dur * fps)))
             v_chunk = os.path.join(work_dir, f"v_{idx:03d}.mp4")
@@ -1087,12 +1147,19 @@ def run_final_render(job_id: str, session_id: str):
             extracted_frames: List[str] = []
             static_img: Optional[Image.Image] = None
             sc_frame_dir = os.path.join(work_dir, f"vidf_{idx:03d}")
+            temp_dl_vid = os.path.join(work_dir, f"dl_{idx:03d}.mp4")
 
-            if sc.get("media_type") == "video":
+            mtype = sc.get("media_type", "image")
+            if mtype == "remote_video":
+                download_remote_broll_to_temp(sc["remote_video_url"], temp_dl_vid)
+                extracted_frames = renderer.extract_video_frames_for_scene(temp_dl_vid, actual_dur, fps, sc_frame_dir)
+                if os.path.exists(temp_dl_vid):
+                    os.remove(temp_dl_vid)
+            elif mtype == "video":
+                med_path = os.path.join(sess_dir, sc["media_file"])
                 extracted_frames = renderer.extract_video_frames_for_scene(med_path, actual_dur, fps, sc_frame_dir)
-                if not extracted_frames:
-                    raise RuntimeError(f"Could not decode video clip on {lbl}.")
             else:
+                med_path = os.path.join(sess_dir, sc["media_file"])
                 with Image.open(med_path) as raw_im:
                     static_img = renderer.prepare_scaled_image(raw_im)
 
@@ -1108,31 +1175,22 @@ def run_final_render(job_id: str, session_id: str):
                 stdin=subprocess.PIPE, stderr=subprocess.DEVNULL,
             )
 
+            latest_crop: Optional[Image.Image] = None
             for f_i in range(n_frames):
+                sc_prog = f_i / float(max(1, n_frames - 1))
+                ov_prog = min(1.0, global_t / max(1.0, est_total_dur))
                 if extracted_frames:
                     fp = extracted_frames[f_i % len(extracted_frames)]
                     with Image.open(fp) as vf_im:
                         cur_base = vf_im.convert("RGB")
-                        raw = renderer.render_frame(
-                            sc,
-                            timings,
-                            idx,
-                            f_i / float(max(1, n_frames - 1)),
-                            global_t,
-                            min(1.0, global_t / max(1.0, est_total_dur)),
-                            voice_mode,
-                            base_img=cur_base,
+                        raw, latest_crop = renderer.render_frame(
+                            sc, timings, idx, sc_prog, global_t, ov_prog, voice_mode,
+                            base_img=cur_base, prev_frame_img=last_scene_end_frame,
                         )
                 else:
-                    raw = renderer.render_frame(
-                        sc,
-                        timings,
-                        idx,
-                        f_i / float(max(1, n_frames - 1)),
-                        global_t,
-                        min(1.0, global_t / max(1.0, est_total_dur)),
-                        voice_mode,
-                        base_img=static_img,
+                    raw, latest_crop = renderer.render_frame(
+                        sc, timings, idx, sc_prog, global_t, ov_prog, voice_mode,
+                        base_img=static_img, prev_frame_img=last_scene_end_frame,
                     )
                 proc.stdin.write(raw)
                 global_t += dt
@@ -1141,6 +1199,7 @@ def run_final_render(job_id: str, session_id: str):
             if proc.wait() != 0:
                 raise RuntimeError(f"FFmpeg encoding error on {lbl}.")
 
+            last_scene_end_frame = latest_crop
             video_chunks.append(v_chunk)
             if static_img is not None:
                 static_img.close()
@@ -1149,7 +1208,7 @@ def run_final_render(job_id: str, session_id: str):
                 shutil.rmtree(sc_frame_dir, ignore_errors=True)
             gc.collect()
 
-        update_job(job_id, progress=93, current_scene="Mastering Studio Sidechain Audio, Foley SFX & MP4...")
+        update_job(job_id, progress=93, current_scene="Mastering Romantic Soundscape, Sidechain Audio & MP4...")
         v_list = os.path.join(work_dir, "v_list.txt")
         with open(v_list, "w", encoding="utf-8") as vf:
             for vc in video_chunks:
@@ -1169,19 +1228,19 @@ def run_final_render(job_id: str, session_id: str):
                     break
 
         sfx_bgm_wav = os.path.join(work_dir, "sfx_bgm.wav")
-        NexoraSoundAndVoiceEngine.build_full_sfx_and_bgm_track(
-            render_scenes, genre, sfx_bgm_wav, custom_bgm_path=custom_bgm_path, work_dir=work_dir
+        NexoraRomanceAudioEngine.build_romantic_soundscape(
+            render_scenes, mood, sfx_bgm_wav, custom_bgm_path=custom_bgm_path, work_dir=work_dir
         )
 
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_APEX"
-        out_name = f"NEXORA_{genre.upper()}_{slug}_{job_id}.mp4"
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_ROMANCE"
+        out_name = f"NEXORA_LOVE_{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         filter_audio = (
             "[1:a]asplit=2[v_main][v_sc];"
             "[2:a][v_sc]sidechaincompress=threshold=0.03:ratio=4:attack=15:release=250[bg_ducked];"
             "[v_main]volume=1.38[v_loud];"
-            "[bg_ducked]volume=0.68[bg_loud];"
+            "[bg_ducked]volume=0.66[bg_loud];"
             "[v_loud][bg_loud]amix=inputs=2:duration=first[aout]"
         )
 
@@ -1199,7 +1258,7 @@ def run_final_render(job_id: str, session_id: str):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
         )
 
-        actual_total_dur = NexoraSoundAndVoiceEngine.probe_dur(out_path) or global_t
+        actual_total_dur = NexoraRomanceAudioEngine.probe_dur(out_path) or global_t
         size_mb = round(os.path.getsize(out_path) / (1024.0 * 1024.0), 2)
         dur_min = round(actual_total_dur / 60.0, 2)
         update_job(
@@ -1222,10 +1281,9 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 8. REST API ENDPOINTS (HYBRID VIDEO + IMAGE + CUSTOM BGM)
+# 8. REST API ENDPOINTS (AUTO PEXELS B-ROLL FETCHER + HYBRID UPLOAD)
 # ==============================================================================
 def save_uploaded_media(file_storage, sess_dir: str, idx: int) -> Tuple[str, str, str]:
-    """Saves either an uploaded video clip (.mp4/.mov) or image (.jpg/.png) and generates a preview thumbnail."""
     ext = os.path.splitext(file_storage.filename or "")[1].lower()
     uid = uuid.uuid4().hex[:6]
     if ext in VIDEO_EXTS:
@@ -1258,7 +1316,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "apex_v15": True})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v16": True})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -1290,9 +1348,9 @@ def api_bgm_upload():
 @app.route("/api/prepare", methods=["POST"])
 def api_prepare():
     data = request.get_json(silent=True) or {}
-    genre = str(data.get("genre", "mystery")).lower()
+    mood = str(data.get("genre", "deep_romance")).lower()
     voice_mode = str(data.get("voice_mode", "builtin_multi"))
-    scenes = parse_user_script(str(data.get("custom_script", "")), genre)
+    scenes = parse_user_script(str(data.get("custom_script", "")), mood)
     if not scenes:
         return jsonify({"error": "Paste a valid 3-column script first (Speaker | Visual Prompt | Spoken Hindi)."}), 400
 
@@ -1303,8 +1361,8 @@ def api_prepare():
     with LOCK:
         SESSIONS[session_id] = {
             "session_id": session_id,
-            "topic": str(data.get("topic", "NEXORA Story")).strip() or "NEXORA Story",
-            "genre": genre,
+            "topic": str(data.get("topic", "NEXORA Love Story")).strip() or "NEXORA Love Story",
+            "genre": mood,
             "aspect_ratio": str(data.get("aspect_ratio", "16:9")),
             "voice_mode": voice_mode,
             "auto_hook": bool(data.get("auto_hook", True)),
@@ -1315,6 +1373,77 @@ def api_prepare():
         }
 
     return jsonify({"ok": True, "session_id": session_id, "elevenlabs_script": el_script})
+
+
+@app.route("/api/session/<session_id>/autofill_pexels", methods=["POST"])
+def api_autofill_pexels(session_id: str):
+    """Automatically searches Pexels API for every empty scene and assigns matching HD B-Roll video clips!"""
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session ID."}), 400
+    data = request.get_json(silent=True) or {}
+    api_key = str(data.get("pexels_key", "")).strip()
+    if not api_key:
+        return jsonify({"error": "Enter your free Pexels API Key first!"}), 400
+
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess:
+            return jsonify({"error": "Session expired."}), 404
+        scenes_copy = [dict(s) for s in sess["scenes"]]
+        orientation = "portrait" if sess.get("aspect_ratio") == "9:16" else "landscape"
+
+    headers = {"Authorization": api_key}
+    used_ids = set()
+    filled_count = 0
+
+    for sc in scenes_copy:
+        if sc.get("media_ready"):
+            continue
+        query = sc.get("broll_query") or "romantic night couple"
+        try:
+            resp = requests.get(
+                "https://api.pexels.com/videos/search",
+                headers=headers,
+                params={"query": query, "orientation": orientation, "per_page": 6, "size": "medium"},
+                timeout=10,
+            )
+            if resp.status_code == 401:
+                return jsonify({"error": "Invalid Pexels API Key. Please check your key."}), 401
+            if resp.status_code != 200:
+                continue
+            vids = resp.json().get("videos", [])
+            chosen = None
+            for v in vids:
+                if v.get("id") not in used_ids:
+                    chosen = v
+                    break
+            if not chosen and vids:
+                chosen = vids[0]
+            if not chosen:
+                continue
+
+            used_ids.add(chosen.get("id"))
+            # Pick clean ~720p/540p MP4 stream for fast zero-bloat rendering
+            vfiles = chosen.get("video_files", [])
+            mp4s = [vf for vf in vfiles if vf.get("file_type") == "video/mp4" and vf.get("link")]
+            mp4s.sort(key=lambda x: abs((x.get("width") or 960) - 960))
+            if not mp4s:
+                continue
+
+            best_link = mp4s[0]["link"]
+            thumb_pic = chosen.get("image") or ""
+            idx = sc["index"]
+            with LOCK:
+                if session_id in SESSIONS:
+                    SESSIONS[session_id]["scenes"][idx]["media_ready"] = True
+                    SESSIONS[session_id]["scenes"][idx]["media_type"] = "remote_video"
+                    SESSIONS[session_id]["scenes"][idx]["remote_video_url"] = best_link
+                    SESSIONS[session_id]["scenes"][idx]["thumb_url"] = thumb_pic
+                    filled_count += 1
+        except Exception:
+            continue
+
+    return jsonify({"ok": True, "filled": filled_count})
 
 
 @app.route("/api/session/<session_id>")
@@ -1365,6 +1494,8 @@ def api_replace_media(session_id: str, idx: int):
         sess["scenes"][idx]["media_type"] = mtype
         sess["scenes"][idx]["media_file"] = mfile
         sess["scenes"][idx]["thumb_file"] = tfile
+        sess["scenes"][idx]["remote_video_url"] = ""
+        sess["scenes"][idx]["thumb_url"] = ""
     return jsonify({"ok": True})
 
 
@@ -1414,6 +1545,8 @@ def api_batch_upload(session_id: str):
                 sess["scenes"][idx]["media_type"] = mtype
                 sess["scenes"][idx]["media_file"] = mfile
                 sess["scenes"][idx]["thumb_file"] = tfile
+                sess["scenes"][idx]["remote_video_url"] = ""
+                sess["scenes"][idx]["thumb_url"] = ""
 
     return jsonify({"ok": True})
 
@@ -1430,7 +1563,7 @@ def api_swap_scenes(session_id: str):
         if not sess or not (0 <= a < len(sess["scenes"]) and 0 <= b < len(sess["scenes"])):
             return jsonify({"error": "Invalid scene indices."}), 400
         sa, sb = sess["scenes"][a], sess["scenes"][b]
-        for k in ("media_ready", "media_type", "media_file", "thumb_file"):
+        for k in ("media_ready", "media_type", "media_file", "thumb_file", "remote_video_url", "thumb_url"):
             sa[k], sb[k] = sb[k], sa[k]
     return jsonify({"ok": True})
 
@@ -1472,7 +1605,7 @@ def api_render():
 
         missing = [s["index"] + 1 for s in sess["scenes"] if not s.get("media_ready")]
         if missing:
-            return jsonify({"error": f"Upload video clip or image for Scene(s): {', '.join(map(str, missing))} before rendering!"}), 400
+            return jsonify({"error": f"Scene(s) {', '.join(map(str, missing))} are empty. Use Auto-Fill HD Videos or upload media!"}), 400
         if len(ACTIVE_JOBS) >= 1:
             return jsonify({"error": "Server is currently rendering another video. Please wait."}), 429
 
@@ -1482,7 +1615,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 3,
-            "current_scene": "Starting APEX Hybrid Cinema Render...",
+            "current_scene": "Starting Romance APEX Cinema Render...",
             "error": None,
         }
 
