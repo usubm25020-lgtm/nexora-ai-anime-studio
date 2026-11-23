@@ -3,15 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA STUDIO APEX v15 — Hybrid B-Roll Video &amp; Cinema Engine</title>
+  <title>NEXORA STUDIO ROMANCE APEX v16 — Deep &amp; Secret Love Cinema Engine</title>
   <style>
     :root {
-      --bg: #03050c;
-      --card: rgba(11, 18, 36, 0.96);
-      --input: #060a15;
-      --border: rgba(34, 211, 238, 0.28);
+      --bg: #04050c;
+      --card: rgba(14, 15, 32, 0.96);
+      --input: #070914;
+      --border: rgba(244, 114, 182, 0.30);
+      --pink: #f472b6;
+      --rose: #fb7185;
       --cyan: #22d3ee;
-      --violet: #a855f7;
       --amber: #fbbf24;
       --emerald: #10b981;
       --crimson: #f43f5e;
@@ -20,7 +21,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at top right, #1f123d 0%, var(--bg) 66%);
+      background: radial-gradient(circle at top right, #2b102f 0%, var(--bg) 68%);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
@@ -30,20 +31,20 @@
       position: sticky; top: 0; z-index: 40;
       display: flex; align-items: center; justify-content: space-between;
       padding: 13px 18px;
-      background: rgba(3, 5, 12, 0.96);
+      background: rgba(4, 5, 12, 0.96);
       backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
     }
     .brand { display: flex; align-items: center; gap: 10px; }
     .logo {
       width: 36px; height: 36px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--cyan), var(--violet));
-      display: grid; place-items: center; font-weight: 900; color: #03050c;
+      background: linear-gradient(135deg, var(--pink), #9333ea);
+      display: grid; place-items: center; font-weight: 900; color: #fff;
     }
     .chip-live {
       font-size: 11px; font-weight: 800; padding: 5px 11px; border-radius: 99px;
-      background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.45);
-      color: #34d399;
+      background: rgba(244, 114, 182, 0.16); border: 1px solid rgba(244, 114, 182, 0.5);
+      color: var(--pink);
     }
     .wrap { max-width: 1080px; margin: 18px auto; padding: 0 16px; display: grid; gap: 16px; }
     .card {
@@ -51,15 +52,15 @@
       border-radius: 14px; padding: 16px;
     }
     .hdr-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
-    .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--cyan); }
+    .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--pink); }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-    input[type="text"], select, textarea {
+    input[type="text"], input[type="password"], select, textarea {
       width: 100%; background: var(--input); border: 1px solid rgba(148, 163, 184, 0.24);
       border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 13px;
       outline: none; margin-bottom: 12px; font-family: inherit;
     }
     textarea { min-height: 150px; resize: vertical; line-height: 1.5; font-size: 12px; }
-    input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
+    input:focus, select:focus, textarea:focus { border-color: var(--pink); }
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 720px) { .row-2 { grid-template-columns: 1fr; } }
     .btn {
@@ -67,17 +68,17 @@
       font-size: 14px; font-weight: 900; cursor: pointer; text-decoration: none;
       display: inline-flex; align-items: center; justify-content: center;
     }
-    .btn-primary { background: linear-gradient(135deg, var(--cyan), var(--violet)); color: #fff; }
+    .btn-primary { background: linear-gradient(135deg, var(--pink), #9333ea); color: #fff; }
     .btn-green { background: var(--emerald); color: #03050c; }
+    .btn-auto {
+      padding: 9px 14px; border-radius: 9px; border: none;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6); color: #fff;
+      font-size: 12px; font-weight: 900; cursor: pointer;
+    }
     .btn-sm {
       padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
       background: rgba(251, 191, 36, 0.14); color: var(--amber); font-size: 11px; font-weight: 800; cursor: pointer;
       text-decoration: none; text-align: center;
-    }
-    .btn-vid {
-      padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.55);
-      background: rgba(168, 85, 247, 0.18); color: #e9d5ff; font-size: 11px; font-weight: 800; cursor: pointer;
-      text-decoration: none; text-align: center; display: inline-block;
     }
     .btn-up {
       padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
@@ -89,7 +90,7 @@
       background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
     }
     .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width 0.25s; }
+    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--pink), #9333ea); transition: width 0.25s; }
     .err {
       margin-top: 10px; padding: 11px; border-radius: 9px;
       background: rgba(244, 63, 94, 0.18); border: 1px solid var(--crimson);
@@ -107,7 +108,7 @@
       width: 100%; height: 130px; object-fit: cover; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
     }
     .upload-slot {
-      width: 100%; height: 130px; border-radius: 8px; border: 1px dashed rgba(34, 211, 238, 0.45);
+      width: 100%; height: 130px; border-radius: 8px; border: 1px dashed rgba(244, 114, 182, 0.45);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: 8px; text-align: center; margin-bottom: 8px; color: var(--muted); font-size: 11px;
     }
@@ -119,37 +120,36 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA STUDIO APEX v15</div>
-        <div style="font-size:11px; color:var(--cyan);">Hybrid Video B-Roll + Image Engine • 3-Word Viral Captions • Fixed Climax Hook</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA ROMANCE APEX v16</div>
+        <div style="font-size:11px; color:var(--pink);">Auto B-Roll Videos • Cross-Dissolve • Late-Night Whisper • Phone Chat Popups</div>
       </div>
     </div>
-    <div class="chip-live" id="sys-status">Checking APEX...</div>
+    <div class="chip-live" id="sys-status">Checking Studio...</div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: SCRIPT, VOICE & CUSTOM BGM SETUP -->
+    <!-- STEP 1: DEEP LOVE STORY, VOICE & AUTO-SESSION -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: STORY, VOICE &amp; DARK BGM SETUP</div>
-        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy ChatGPT Script Prompt</button>
+        <div class="title">STEP 1: DEEP &amp; SECRET LOVE STORY SETUP</div>
+        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Love Story ChatGPT Prompt</button>
       </div>
 
-      <label for="topic">Video Title</label>
-      <input type="text" id="topic" value="Raat Ke 2 Baje Uske Kamre Ka Raaz" placeholder="Enter your story title..." />
+      <label for="topic">Story Title</label>
+      <input type="text" id="topic" value="Raat Ke 2 Baje Uske Kamre Ki Khamoshi" placeholder="Enter your romantic story title..." oninput="saveDraftLocal()" />
 
       <div class="row-2">
         <div>
-          <label for="genre">Cinema Genre (Film Grain + Foley SFX + BGM)</label>
-          <select id="genre">
-            <option value="mystery" selected>Dark Mystery / Suspense Thriller (Sunday Suspense)</option>
-            <option value="horror">Pure Horror / Ghost (Stings, Thunder, Red Embers)</option>
-            <option value="romantic">Dark Romantic Suspense (Minor Pad, Golden Bokeh)</option>
-            <option value="funny">Funny / Meme Story (Boing, Pop, Bounce)</option>
+          <label for="genre">Romantic Mood (LUT + Soundscape + Particles)</label>
+          <select id="genre" onchange="saveDraftLocal()">
+            <option value="deep_romance" selected>Deep &amp; Intimate Love (Candlelight Warmth + Golden Bokeh)</option>
+            <option value="secret_suspense">Secret / Private Love Suspense (Midnight Tension + Heartbeat)</option>
+            <option value="sad_heartbreak">Emotional Heartbreak / Judai (Rain on Glass + Sad Piano)</option>
           </select>
         </div>
         <div>
           <label for="aspect">Screen Format</label>
-          <select id="aspect">
+          <select id="aspect" onchange="saveDraftLocal()">
             <option value="16:9" selected>16:9 YouTube Widescreen Cinema</option>
             <option value="9:16">9:16 YouTube Shorts / Reels</option>
           </select>
@@ -158,16 +158,16 @@
 
       <div class="row-2">
         <div>
-          <label for="voice-mode">Studio Voice Engine</label>
-          <select id="voice-mode" onchange="toggleElBox()">
-            <option value="builtin_multi" selected>Multi-Character Radio Drama (Deep Narrator + Male + Female)</option>
-            <option value="single_storyteller">Deep Horror/Mystery Baritone Narrator (-12Hz Radio Bass)</option>
+          <label for="voice-mode">Intimate Voice Engine</label>
+          <select id="voice-mode" onchange="toggleElBox(); saveDraftLocal();">
+            <option value="builtin_multi" selected>Multi-Character Love Drama (Late-Night FM + He + She)</option>
+            <option value="single_storyteller">Late-Night FM Whisper Narrator (Warm Close-Mic)</option>
             <option value="uploaded">Optional: Upload External MP3/WAV Voiceover</option>
           </select>
         </div>
         <div>
-          <label for="auto-hook">0:00-0:04.5 Climax Hook Teaser (Exact Voice + Video Match)</label>
-          <select id="auto-hook">
+          <label for="auto-hook">0:00-0:04.5 Climax Hook Teaser</label>
+          <select id="auto-hook" onchange="saveDraftLocal()">
             <option value="true" selected>ON — Climax Preview + Timestamp Badge at 0:00</option>
             <option value="false">OFF — Start Directly From Scene 1</option>
           </select>
@@ -175,9 +175,9 @@
       </div>
 
       <div style="padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
-        <label for="bgm-file">Optional: Upload Custom Dark Thriller / Piano BGM MP3 (Auto-Ducked Under Voice!)</label>
+        <label for="bgm-file">Optional: Upload Custom Romantic Piano / Guitar BGM MP3 (Auto-Ducked Under Voice)</label>
         <input type="file" id="bgm-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:4px; font-size:12px;" onchange="uploadBgmAudio()" />
-        <div id="bgm-msg" style="font-size:11px; color:var(--muted);">Leave empty to use built-in Sunday Suspense dark drone &amp; Foley SFX.</div>
+        <div id="bgm-msg" style="font-size:11px; color:var(--muted);">Leave empty to use built-in romantic velvet chords, rain &amp; heartbeat SFX.</div>
       </div>
 
       <div id="el-upload-box" style="display:none; padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
@@ -187,16 +187,16 @@
       </div>
 
       <label for="custom-script">Paste 3-Column Script: Speaker(narrator/male/female) | Visual Prompt | Spoken Hindi Line</label>
-      <textarea id="custom-script" placeholder="narrator | Dark rainy night outside a locked door, lightning, 8k photorealistic | रात के ठीक दो बजे बंद कमरे की घड़ी अचानक रुक गई, और बाहर तेज़ बिजली कड़की!"></textarea>
+      <textarea id="custom-script" oninput="saveDraftLocal()" placeholder="narrator | Raindrops falling on bedroom window at midnight, warm candle glow, 8k photorealistic | रात के दो बजे जब पूरा शहर सो रहा था, रिया के फोन पर एक अनजान मैसेज आया..."></textarea>
 
-      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes &amp; Generate B-Roll Search Links</button>
+      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes (Auto-Saved Against Reload)</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: HYBRID VIDEO CLIP + IMAGE UPLOADER -->
+    <!-- STEP 2: 1-CLICK AUTO-FETCH HD VIDEOS + AI IMAGES -->
     <div class="card" id="review-card" style="display:none;">
       <div class="hdr-row">
-        <div class="title">STEP 2: MIX REAL VIDEO CLIPS (.MP4) + AI IMAGES</div>
+        <div class="title">STEP 2: AUTO-FETCH HD VIDEOS &amp; MIX AI IMAGES</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <button type="button" class="btn-sm" onclick="copyAllPrompts(this)">📋 Copy All Prompts</button>
           <label class="btn-up" style="margin:0; background:rgba(16,185,129,0.18); border-color:#10b981; color:#34d399;">
@@ -207,20 +207,22 @@
         </div>
       </div>
 
-      <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">
-        🔥 <b>Pro Tip for 10M+ Views:</b> Click <b>🎥 Free Video</b> on any card to grab copyright-free HD video clips from Pexels, and mix them with your AI images!
+      <!-- 1-CLICK AUTO PEXELS B-ROLL FETCHER BAR -->
+      <div style="background:var(--input); border:1px solid rgba(244,114,182,0.4); border-radius:11px; padding:11px; margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <input type="password" id="pexels-key" placeholder="Paste Free Pexels API Key once (saved automatically)..." style="flex:1; min-width:210px; margin:0;" oninput="localStorage.setItem('nx_pexels_key', this.value.trim())" />
+        <button type="button" class="btn-auto" id="btn-autofill" onclick="autoFillPexelsVideos()">✨ 1-Click Auto-Fill HD Videos For All Empty Scenes</button>
       </div>
 
       <div class="scene-grid" id="scene-grid"></div>
 
       <div style="margin-top:16px;">
-        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Hybrid Cinema MP4</button>
+        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Ultra-Realistic Love Story MP4</button>
       </div>
     </div>
 
     <!-- STEP 3: LIVE FINAL VIDEO RENDER -->
     <div class="card" id="render-card" style="display:none;">
-      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE APEX RENDER PROGRESS</div>
+      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE ROMANCE APEX RENDER PROGRESS</div>
       <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting render...</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
@@ -233,7 +235,7 @@
   </main>
 
   <script>
-    let currentSessionId = "";
+    let currentSessionId = localStorage.getItem("nx_last_session") || "";
     let currentScenesCache = [];
     let uploadedAudioId = "";
     let uploadedBgmId = "";
@@ -249,6 +251,27 @@
       "Flash_Impact_Zoom",
       "Whip_Slide_In"
     ];
+
+    function saveDraftLocal() {
+      localStorage.setItem("nx_draft_topic", document.getElementById("topic").value);
+      localStorage.setItem("nx_draft_genre", document.getElementById("genre").value);
+      localStorage.setItem("nx_draft_aspect", document.getElementById("aspect").value);
+      localStorage.setItem("nx_draft_voice", document.getElementById("voice-mode").value);
+      localStorage.setItem("nx_draft_script", document.getElementById("custom-script").value);
+    }
+
+    function restoreDraftLocal() {
+      const k = localStorage.getItem("nx_pexels_key");
+      if (k) document.getElementById("pexels-key").value = k;
+      if (localStorage.getItem("nx_draft_topic")) document.getElementById("topic").value = localStorage.getItem("nx_draft_topic");
+      if (localStorage.getItem("nx_draft_genre")) document.getElementById("genre").value = localStorage.getItem("nx_draft_genre");
+      if (localStorage.getItem("nx_draft_aspect")) document.getElementById("aspect").value = localStorage.getItem("nx_draft_aspect");
+      if (localStorage.getItem("nx_draft_voice")) {
+        document.getElementById("voice-mode").value = localStorage.getItem("nx_draft_voice");
+        toggleElBox();
+      }
+      if (localStorage.getItem("nx_draft_script")) document.getElementById("custom-script").value = localStorage.getItem("nx_draft_script");
+    }
 
     function toggleElBox() {
       const v = document.getElementById("voice-mode").value;
@@ -268,12 +291,21 @@
     }
 
     async function checkHealth() {
+      restoreDraftLocal();
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.apex_v15 ? "APEX v15 Ready" : "NEXORA Ready";
+        document.getElementById("sys-status").textContent = d.romance_v16 ? "Romance APEX v16 Ready" : "NEXORA Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
+      }
+      // Auto-recover session if browser tab reloaded!
+      if (currentSessionId) {
+        const sr = await fetch(`/api/session/${currentSessionId}`);
+        if (sr.ok) {
+          document.getElementById("review-card").style.display = "block";
+          refreshSessionGrid();
+        }
       }
     }
 
@@ -311,20 +343,21 @@
     }
 
     document.getElementById("btn-copy-prompt").onclick = () => {
-      const topicVal = document.getElementById("topic").value.trim() || "Raat Ke 2 Baje Uske Kamre Ka Raaz";
-      const genreVal = document.getElementById("genre").value;
-      const prompt = `Write a gripping, high-retention Hindi radio-drama script (like Sunday Suspense) in ${genreVal} genre on: "${topicVal}".
-CRITICAL RULES FOR NEXORA STUDIO APEX v15:
+      const topicVal = document.getElementById("topic").value.trim() || "Raat Ke 2 Baje Uske Kamre Ki Khamoshi";
+      const moodVal = document.getElementById("genre").value;
+      const prompt = `Write a deeply emotional, high-retention Hindi romantic suspense story script in ${moodVal} mood on: "${topicVal}".
+CRITICAL RULES FOR NEXORA ROMANCE APEX v16:
 1. Create 22 to 28 fast-paced scenes (12 to 16 spoken words max per line) so visuals change every 3.5 to 4 seconds!
-2. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female'.
-3. Start Scene 1 with an immediate shocking hook—NEVER a slow intro. Add a chilling twist every 5 scenes.
-4. Output ONLY 3 pipe-separated columns per line (NO caption column, NO numbering, NO markdown):
-narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photorealistic, consistent character face/clothes, dramatic dark lighting, no text) | Expressive Spoken Hindi Line in Devanagari Hindi`;
+2. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female' for intimate late-night radio drama chemistry.
+3. Start Scene 1 with an immediate emotional or mysterious hook—NEVER a slow intro. Include a late-night phone message or call scene (use words like "message" or "phone baja") to trigger animated screen overlays!
+4. Keep the 75% mark super intense and emotional so the 0:00 climax hook grabs viewers instantly.
+5. Output ONLY 3 pipe-separated columns per line (NO caption column, NO numbering, NO markdown):
+narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photorealistic, consistent character face/clothes, warm candlelight or moody rain lighting, no text) | Expressive Spoken Hindi Line in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ APEX Script Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy ChatGPT Script Prompt", 3000);
+        btn.textContent = "✅ Love Story Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy Love Story ChatGPT Prompt", 3000);
       });
     };
 
@@ -340,6 +373,34 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
       if (!currentScenesCache.length) return;
       const all = currentScenesCache.map((s, i) => `Scene ${i + 1}: ${s.visual_prompt}`).join("\n");
       copyText(all, btnEl);
+    }
+
+    async function autoFillPexelsVideos() {
+      const key = document.getElementById("pexels-key").value.trim();
+      if (!key) {
+        alert("Paste your free Pexels API Key in the box first!");
+        return;
+      }
+      if (!currentSessionId) return;
+      const btn = document.getElementById("btn-autofill");
+      btn.disabled = true;
+      btn.textContent = "⏳ Fetching HD Romantic Videos...";
+      try {
+        const r = await fetch(`/api/session/${currentSessionId}/autofill_pexels`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pexels_key: key })
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          alert(d.error || "Auto-fill failed.");
+        } else {
+          refreshSessionGrid();
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "✨ 1-Click Auto-Fill HD Videos For All Empty Scenes";
+      }
     }
 
     async function batchUploadMedia(inputEl) {
@@ -401,15 +462,23 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
         const card = document.createElement("div");
         card.className = "sc-card" + (sc.media_ready ? "" : " missing");
 
+        const isVid = sc.media_type === "video" || sc.media_type === "remote_video";
         const typeBadge = sc.media_ready
-          ? `<span class="badge-type">${sc.media_type === "video" ? "🎬 VIDEO CLIP" : "🖼 IMAGE"}</span>`
+          ? `<span class="badge-type">${isVid ? "🎬 HD VIDEO" : "🖼 AI IMAGE"}</span>`
           : "";
 
+        let thumbSrc = "";
+        if (sc.media_ready) {
+          thumbSrc = sc.media_type === "remote_video" && sc.thumb_url
+            ? sc.thumb_url
+            : `/api/session/${currentSessionId}/thumb/${idx}?t=${ts}`;
+        }
+
         const visualHtml = sc.media_ready
-          ? `<img class="sc-thumb" src="/api/session/${currentSessionId}/thumb/${idx}?t=${ts}" alt="Scene ${idx + 1}" />`
+          ? `<img class="sc-thumb" src="${thumbSrc}" alt="Scene ${idx + 1}" />`
           : `<div class="upload-slot">
-               <div style="font-weight:900; color:var(--amber); margin-bottom:4px;">SCENE ${idx + 1} (${sc.speaker.toUpperCase()})</div>
-               <div>Upload .MP4 Video Clip or Image</div>
+               <div style="font-weight:900; color:var(--pink); margin-bottom:4px;">SCENE ${idx + 1} (${sc.speaker.toUpperCase()})</div>
+               <div>Click Auto-Fill Videos or Upload Image/Clip</div>
              </div>`;
 
         let swapOpts = `<option value="">Swap...</option>`;
@@ -423,23 +492,21 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
         }
 
         const safePrompt = sc.visual_prompt.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-        const pexelsUrl = `https://www.pexels.com/search/videos/${encodeURIComponent(sc.broll_query || "dark night")}/`;
 
         card.innerHTML = `
           <div>
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:6px; gap:4px;">
-              <span style="color:var(--cyan);">SCENE ${idx + 1} ${typeBadge}</span>
+              <span style="color:var(--pink);">SCENE ${idx + 1} ${typeBadge}</span>
               <select style="width:auto; padding:2px 4px; margin:0; font-size:10px;" onchange="swapScene(${idx}, this.value)">${swapOpts}</select>
             </div>
             ${visualHtml}
             <select style="padding:4px 6px; font-size:10px; margin-bottom:6px;" onchange="changeAnim(${idx}, this.value)">${animOpts}</select>
             <div style="font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.35;">"${sc.hindi_dub}"</div>
           </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;">
-            <a class="btn-vid" href="${pexelsUrl}" target="_blank" rel="noopener">🎥 Free Video</a>
-            <button type="button" class="btn-sm" onclick="copyText('${safePrompt}', this)">📋 Prompt</button>
-            <label class="btn-up" style="margin:0;">
-              ${sc.media_ready ? '🔄 Swap' : '⬆ Upload'}
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn-sm" style="flex:1;" onclick="copyText('${safePrompt}', this)">📋 AI Prompt</button>
+            <label class="btn-up" style="flex:1; margin:0;">
+              ${sc.media_ready ? '🔄 Replace' : '⬆ Upload'}
               <input type="file" accept="video/*,image/*" style="display:none;" onchange="uploadSceneMedia(${idx}, this)" />
             </label>
           </div>
@@ -450,6 +517,7 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
 
     async function loadSceneSlots() {
       showErr("");
+      saveDraftLocal();
       const script = document.getElementById("custom-script").value.trim();
       if (!script) {
         showErr("Paste your 3-column script first!");
@@ -479,6 +547,7 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
       }
 
       currentSessionId = d.session_id;
+      localStorage.setItem("nx_last_session", currentSessionId);
       document.getElementById("review-card").style.display = "block";
       document.getElementById("render-card").style.display = "none";
       refreshSessionGrid();
@@ -543,7 +612,7 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
             const dlUrl = `/api/video/${jobId}?dl=1`;
             autoDownload(dlUrl, st.file_name);
             document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download APEX Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
+              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Love Story Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
               <video src="/api/video/${jobId}" controls playsinline></video>
             `;
           } else if (st.status === "error") {
