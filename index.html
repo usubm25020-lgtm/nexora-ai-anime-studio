@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA ROMANCE APEX v17 — 100% Autonomous Motion Video Engine</title>
+  <title>NEXORA ROMANCE APEX v18 — 100% Zero-Key Autonomous Video Engine</title>
   <style>
     :root {
       --bg: #04050c;
@@ -54,7 +54,7 @@
     .hdr-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
     .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--pink); }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-    input[type="text"], input[type="password"], select, textarea {
+    input[type="text"], select, textarea {
       width: 100%; background: var(--input); border: 1px solid rgba(148, 163, 184, 0.24);
       border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 13px;
       outline: none; margin-bottom: 12px; font-family: inherit;
@@ -120,24 +120,19 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA ROMANCE APEX v17</div>
-        <div style="font-size:11px; color:var(--pink);">100% Autonomous HD Motion Videos • Zero Static Images • Cross-Dissolve</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA ROMANCE APEX v18</div>
+        <div style="font-size:11px; color:var(--pink);">Zero-API-Key Auto Motion Videos • 100% Free Unlimited • Cross-Dissolve</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: DEEP LOVE STORY & 1-TIME API KEY -->
+    <!-- STEP 1: ZERO-KEY DEEP LOVE STORY SETUP -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: 100% AUTO MOTION-VIDEO LOVE STORY SETUP</div>
+        <div class="title">STEP 1: 100% AUTO MOTION-VIDEO LOVE STORY SETUP (NO API KEY NEEDED!)</div>
         <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Love Story ChatGPT Prompt</button>
-      </div>
-
-      <div style="background:var(--input); border:1px solid rgba(244,114,182,0.45); border-radius:10px; padding:10px; margin-bottom:12px;">
-        <label for="pixabay-key" style="color:var(--pink);">Free Pixabay API Key (Paste once — automatically selects &amp; loads HD video clips for every scene!)</label>
-        <input type="password" id="pixabay-key" placeholder="Paste your free key from pixabay.com/api/docs..." style="margin-bottom:0;" oninput="localStorage.setItem('nx_pixabay_key', this.value.trim())" />
       </div>
 
       <label for="topic">Story Title</label>
@@ -194,7 +189,7 @@
       <label for="custom-script">Paste 3-Column Script: Speaker(narrator/male/female) | Scene Context | Spoken Hindi Line</label>
       <textarea id="custom-script" oninput="saveDraftLocal()" placeholder="narrator | Raindrops sliding down a dark bedroom window at midnight, warm candle glow | रात के दो बजे जब पूरा शहर सो रहा था, आरव के फोन पर एक अनजान मैसेज आया..."></textarea>
 
-      <button class="btn btn-primary" id="btn-load" onclick="loadSceneSlots()">⚡ Step 1: Auto-Select HD Video Clips &amp; Prepare Scenes</button>
+      <button class="btn btn-primary" id="btn-load" onclick="loadSceneSlots()">⚡ Step 1: Auto-Select Free HD Video Clips &amp; Prepare Scenes</button>
       <div class="err" id="err-box"></div>
     </div>
 
@@ -256,8 +251,6 @@
     }
 
     function restoreDraftLocal() {
-      const k = localStorage.getItem("nx_pixabay_key");
-      if (k) document.getElementById("pixabay-key").value = k;
       if (localStorage.getItem("nx_draft_topic")) document.getElementById("topic").value = localStorage.getItem("nx_draft_topic");
       if (localStorage.getItem("nx_draft_genre")) document.getElementById("genre").value = localStorage.getItem("nx_draft_genre");
       if (localStorage.getItem("nx_draft_aspect")) document.getElementById("aspect").value = localStorage.getItem("nx_draft_aspect");
@@ -290,7 +283,7 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.romance_v17 ? "APEX v17 Video-Only Ready" : "NEXORA Ready";
+        document.getElementById("sys-status").textContent = d.romance_v18 ? "APEX v18 Zero-Key Ready" : "NEXORA Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
@@ -340,7 +333,7 @@
       const topicVal = document.getElementById("topic").value.trim() || "Raat Ke 2 Baje Uske Kamre Ki Khamoshi";
       const moodVal = document.getElementById("genre").value;
       const prompt = `Write a deeply emotional, high-retention Hindi romantic suspense story script in ${moodVal} mood on: "${topicVal}".
-CRITICAL RULES FOR NEXORA ROMANCE APEX v17 (100% MOTION VIDEO ENGINE):
+CRITICAL RULES FOR NEXORA ROMANCE APEX v18 (100% MOTION VIDEO ENGINE):
 1. Create 22 to 26 fast-paced scenes (12 to 16 spoken words max per line) so video clips change every 3.5 to 4 seconds!
 2. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female' for intimate late-night radio drama chemistry.
 3. In Column 2, describe clear real-world visual settings (e.g., rain on window at night, couple holding hands in candlelight, car driving in night rain, smartphone message screen, sad woman looking out window) so our automated video matcher selects the exact HD video clips.
@@ -356,21 +349,12 @@ narrator/male/female | Clear Real-World Scene Visual Description | Expressive Sp
     };
 
     async function autoFillVideos() {
-      const key = document.getElementById("pixabay-key").value.trim();
-      if (!key) {
-        alert("Paste your free Pixabay API Key in Step 1 first!");
-        return;
-      }
       if (!currentSessionId) return;
       const btn = document.getElementById("btn-autofill");
       btn.disabled = true;
       btn.textContent = "⏳ Selecting Best HD Videos...";
       try {
-        const r = await fetch(`/api/session/${currentSessionId}/autofill_videos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pixabay_key: key })
-        });
+        const r = await fetch(`/api/session/${currentSessionId}/autofill_videos`, { method: "POST" });
         const d = await r.json();
         if (!r.ok) alert(d.error || "Auto-fill failed.");
         else refreshSessionGrid();
@@ -381,19 +365,10 @@ narrator/male/female | Clear Real-World Scene Visual Description | Expressive Sp
     }
 
     async function nextClip(idx, btnEl) {
-      const key = document.getElementById("pixabay-key").value.trim();
-      if (!key) {
-        alert("Paste your free Pixabay API Key in Step 1 first!");
-        return;
-      }
       btnEl.disabled = true;
       btnEl.textContent = "⏳...";
       try {
-        const r = await fetch(`/api/session/${currentSessionId}/next_clip/${idx}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pixabay_key: key })
-        });
+        const r = await fetch(`/api/session/${currentSessionId}/next_clip/${idx}`, { method: "POST" });
         if (r.ok) refreshSessionGrid();
       } finally {
         btnEl.disabled = false;
@@ -510,7 +485,7 @@ narrator/male/female | Clear Real-World Scene Visual Description | Expressive Sp
 
       const btn = document.getElementById("btn-load");
       btn.disabled = true;
-      btn.textContent = "⏳ Auto-Matching HD Video Clips...";
+      btn.textContent = "⏳ Auto-Selecting Free HD Videos...";
 
       try {
         const payload = {
@@ -519,7 +494,6 @@ narrator/male/female | Clear Real-World Scene Visual Description | Expressive Sp
           aspect_ratio: document.getElementById("aspect").value,
           voice_mode: document.getElementById("voice-mode").value,
           auto_hook: document.getElementById("auto-hook").value === "true",
-          pixabay_key: document.getElementById("pixabay-key").value.trim(),
           uploaded_audio_id: uploadedAudioId,
           uploaded_bgm_id: uploadedBgmId,
           custom_script: script
@@ -543,7 +517,7 @@ narrator/male/female | Clear Real-World Scene Visual Description | Expressive Sp
         refreshSessionGrid();
       } finally {
         btn.disabled = false;
-        btn.textContent = "⚡ Step 1: Auto-Select HD Video Clips & Prepare Scenes";
+        btn.textContent = "⚡ Step 1: Auto-Select Free HD Video Clips & Prepare Scenes";
       }
     }
 
