@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA STUDIO ROMANCE APEX v16 — Deep &amp; Secret Love Cinema Engine</title>
+  <title>NEXORA ROMANCE APEX v17 — 100% Autonomous Motion Video Engine</title>
   <style>
     :root {
       --bg: #04050c;
@@ -81,7 +81,7 @@
       text-decoration: none; text-align: center;
     }
     .btn-up {
-      padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
+      padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
       background: rgba(34, 211, 238, 0.16); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
       display: inline-block; text-align: center;
     }
@@ -120,19 +120,24 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA ROMANCE APEX v16</div>
-        <div style="font-size:11px; color:var(--pink);">Auto B-Roll Videos • Cross-Dissolve • Late-Night Whisper • Phone Chat Popups</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA ROMANCE APEX v17</div>
+        <div style="font-size:11px; color:var(--pink);">100% Autonomous HD Motion Videos • Zero Static Images • Cross-Dissolve</div>
       </div>
     </div>
-    <div class="chip-live" id="sys-status">Checking Studio...</div>
+    <div class="chip-live" id="sys-status">Checking Engine...</div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: DEEP LOVE STORY, VOICE & AUTO-SESSION -->
+    <!-- STEP 1: DEEP LOVE STORY & 1-TIME API KEY -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: DEEP &amp; SECRET LOVE STORY SETUP</div>
+        <div class="title">STEP 1: 100% AUTO MOTION-VIDEO LOVE STORY SETUP</div>
         <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Love Story ChatGPT Prompt</button>
+      </div>
+
+      <div style="background:var(--input); border:1px solid rgba(244,114,182,0.45); border-radius:10px; padding:10px; margin-bottom:12px;">
+        <label for="pixabay-key" style="color:var(--pink);">Free Pixabay API Key (Paste once — automatically selects &amp; loads HD video clips for every scene!)</label>
+        <input type="password" id="pixabay-key" placeholder="Paste your free key from pixabay.com/api/docs..." style="margin-bottom:0;" oninput="localStorage.setItem('nx_pixabay_key', this.value.trim())" />
       </div>
 
       <label for="topic">Story Title</label>
@@ -158,7 +163,7 @@
 
       <div class="row-2">
         <div>
-          <label for="voice-mode">Intimate Voice Engine</label>
+          <label for="voice-mode">Intimate Voice Engine (100% Free Unlimited)</label>
           <select id="voice-mode" onchange="toggleElBox(); saveDraftLocal();">
             <option value="builtin_multi" selected>Multi-Character Love Drama (Late-Night FM + He + She)</option>
             <option value="single_storyteller">Late-Night FM Whisper Narrator (Warm Close-Mic)</option>
@@ -168,7 +173,7 @@
         <div>
           <label for="auto-hook">0:00-0:04.5 Climax Hook Teaser</label>
           <select id="auto-hook" onchange="saveDraftLocal()">
-            <option value="true" selected>ON — Climax Preview + Timestamp Badge at 0:00</option>
+            <option value="true" selected>ON — Climax Video Preview + Timestamp at 0:00</option>
             <option value="false">OFF — Start Directly From Scene 1</option>
           </select>
         </div>
@@ -186,43 +191,33 @@
         <div id="el-msg" style="font-size:11px; color:#34d399;">Select audio file above — uploads automatically!</div>
       </div>
 
-      <label for="custom-script">Paste 3-Column Script: Speaker(narrator/male/female) | Visual Prompt | Spoken Hindi Line</label>
-      <textarea id="custom-script" oninput="saveDraftLocal()" placeholder="narrator | Raindrops falling on bedroom window at midnight, warm candle glow, 8k photorealistic | रात के दो बजे जब पूरा शहर सो रहा था, रिया के फोन पर एक अनजान मैसेज आया..."></textarea>
+      <label for="custom-script">Paste 3-Column Script: Speaker(narrator/male/female) | Scene Context | Spoken Hindi Line</label>
+      <textarea id="custom-script" oninput="saveDraftLocal()" placeholder="narrator | Raindrops sliding down a dark bedroom window at midnight, warm candle glow | रात के दो बजे जब पूरा शहर सो रहा था, आरव के फोन पर एक अनजान मैसेज आया..."></textarea>
 
-      <button class="btn btn-primary" onclick="loadSceneSlots()">⚡ Step 1: Load Scenes (Auto-Saved Against Reload)</button>
+      <button class="btn btn-primary" id="btn-load" onclick="loadSceneSlots()">⚡ Step 1: Auto-Select HD Video Clips &amp; Prepare Scenes</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: 1-CLICK AUTO-FETCH HD VIDEOS + AI IMAGES -->
+    <!-- STEP 2: AUTO-SELECTED MOTION VIDEO CLIPS -->
     <div class="card" id="review-card" style="display:none;">
       <div class="hdr-row">
-        <div class="title">STEP 2: AUTO-FETCH HD VIDEOS &amp; MIX AI IMAGES</div>
+        <div class="title">STEP 2: AUTO-SELECTED HD MOTION VIDEO CLIPS (100% VIDEO)</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button type="button" class="btn-sm" onclick="copyAllPrompts(this)">📋 Copy All Prompts</button>
-          <label class="btn-up" style="margin:0; background:rgba(16,185,129,0.18); border-color:#10b981; color:#34d399;">
-            ⚡ Batch Upload Videos/Images
-            <input type="file" accept="video/*,image/*" multiple style="display:none;" onchange="batchUploadMedia(this)" />
-          </label>
+          <button type="button" class="btn-auto" id="btn-autofill" onclick="autoFillVideos()">✨ Auto-Fill Missing Video Clips</button>
           <span id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:800;">0 Ready</span>
         </div>
-      </div>
-
-      <!-- 1-CLICK AUTO PEXELS B-ROLL FETCHER BAR -->
-      <div style="background:var(--input); border:1px solid rgba(244,114,182,0.4); border-radius:11px; padding:11px; margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <input type="password" id="pexels-key" placeholder="Paste Free Pexels API Key once (saved automatically)..." style="flex:1; min-width:210px; margin:0;" oninput="localStorage.setItem('nx_pexels_key', this.value.trim())" />
-        <button type="button" class="btn-auto" id="btn-autofill" onclick="autoFillPexelsVideos()">✨ 1-Click Auto-Fill HD Videos For All Empty Scenes</button>
       </div>
 
       <div class="scene-grid" id="scene-grid"></div>
 
       <div style="margin-top:16px;">
-        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Ultra-Realistic Love Story MP4</button>
+        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Full Cinema Love Story MP4</button>
       </div>
     </div>
 
     <!-- STEP 3: LIVE FINAL VIDEO RENDER -->
     <div class="card" id="render-card" style="display:none;">
-      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE ROMANCE APEX RENDER PROGRESS</div>
+      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE MOTION-VIDEO RENDER PROGRESS</div>
       <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting render...</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
@@ -261,8 +256,8 @@
     }
 
     function restoreDraftLocal() {
-      const k = localStorage.getItem("nx_pexels_key");
-      if (k) document.getElementById("pexels-key").value = k;
+      const k = localStorage.getItem("nx_pixabay_key");
+      if (k) document.getElementById("pixabay-key").value = k;
       if (localStorage.getItem("nx_draft_topic")) document.getElementById("topic").value = localStorage.getItem("nx_draft_topic");
       if (localStorage.getItem("nx_draft_genre")) document.getElementById("genre").value = localStorage.getItem("nx_draft_genre");
       if (localStorage.getItem("nx_draft_aspect")) document.getElementById("aspect").value = localStorage.getItem("nx_draft_aspect");
@@ -295,11 +290,10 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.romance_v16 ? "Romance APEX v16 Ready" : "NEXORA Ready";
+        document.getElementById("sys-status").textContent = d.romance_v17 ? "APEX v17 Video-Only Ready" : "NEXORA Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
-      // Auto-recover session if browser tab reloaded!
       if (currentSessionId) {
         const sr = await fetch(`/api/session/${currentSessionId}`);
         if (sr.ok) {
@@ -346,13 +340,13 @@
       const topicVal = document.getElementById("topic").value.trim() || "Raat Ke 2 Baje Uske Kamre Ki Khamoshi";
       const moodVal = document.getElementById("genre").value;
       const prompt = `Write a deeply emotional, high-retention Hindi romantic suspense story script in ${moodVal} mood on: "${topicVal}".
-CRITICAL RULES FOR NEXORA ROMANCE APEX v16:
-1. Create 22 to 28 fast-paced scenes (12 to 16 spoken words max per line) so visuals change every 3.5 to 4 seconds!
+CRITICAL RULES FOR NEXORA ROMANCE APEX v17 (100% MOTION VIDEO ENGINE):
+1. Create 22 to 26 fast-paced scenes (12 to 16 spoken words max per line) so video clips change every 3.5 to 4 seconds!
 2. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female' for intimate late-night radio drama chemistry.
-3. Start Scene 1 with an immediate emotional or mysterious hook—NEVER a slow intro. Include a late-night phone message or call scene (use words like "message" or "phone baja") to trigger animated screen overlays!
-4. Keep the 75% mark super intense and emotional so the 0:00 climax hook grabs viewers instantly.
+3. In Column 2, describe clear real-world visual settings (e.g., rain on window at night, couple holding hands in candlelight, car driving in night rain, smartphone message screen, sad woman looking out window) so our automated video matcher selects the exact HD video clips.
+4. Include a late-night phone message or call scene (using words like "message" or "phone baja") to trigger animated screen overlays!
 5. Output ONLY 3 pipe-separated columns per line (NO caption column, NO numbering, NO markdown):
-narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photorealistic, consistent character face/clothes, warm candlelight or moody rain lighting, no text) | Expressive Spoken Hindi Line in Devanagari Hindi`;
+narrator/male/female | Clear Real-World Scene Visual Description | Expressive Spoken Hindi Line in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
@@ -361,57 +355,49 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
       });
     };
 
-    function copyText(txt, btnEl) {
-      navigator.clipboard.writeText(txt).then(() => {
-        const old = btnEl.textContent;
-        btnEl.textContent = "✅ Copied!";
-        setTimeout(() => btnEl.textContent = old, 2200);
-      });
-    }
-
-    function copyAllPrompts(btnEl) {
-      if (!currentScenesCache.length) return;
-      const all = currentScenesCache.map((s, i) => `Scene ${i + 1}: ${s.visual_prompt}`).join("\n");
-      copyText(all, btnEl);
-    }
-
-    async function autoFillPexelsVideos() {
-      const key = document.getElementById("pexels-key").value.trim();
+    async function autoFillVideos() {
+      const key = document.getElementById("pixabay-key").value.trim();
       if (!key) {
-        alert("Paste your free Pexels API Key in the box first!");
+        alert("Paste your free Pixabay API Key in Step 1 first!");
         return;
       }
       if (!currentSessionId) return;
       const btn = document.getElementById("btn-autofill");
       btn.disabled = true;
-      btn.textContent = "⏳ Fetching HD Romantic Videos...";
+      btn.textContent = "⏳ Selecting Best HD Videos...";
       try {
-        const r = await fetch(`/api/session/${currentSessionId}/autofill_pexels`, {
+        const r = await fetch(`/api/session/${currentSessionId}/autofill_videos`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pexels_key: key })
+          body: JSON.stringify({ pixabay_key: key })
         });
         const d = await r.json();
-        if (!r.ok) {
-          alert(d.error || "Auto-fill failed.");
-        } else {
-          refreshSessionGrid();
-        }
+        if (!r.ok) alert(d.error || "Auto-fill failed.");
+        else refreshSessionGrid();
       } finally {
         btn.disabled = false;
-        btn.textContent = "✨ 1-Click Auto-Fill HD Videos For All Empty Scenes";
+        btn.textContent = "✨ Auto-Fill Missing Video Clips";
       }
     }
 
-    async function batchUploadMedia(inputEl) {
-      if (!inputEl.files || !inputEl.files.length || !currentSessionId) return;
-      document.getElementById("prep-msg").textContent = `Uploading ${inputEl.files.length} files...`;
-      const fd = new FormData();
-      Array.from(inputEl.files).forEach(file => fd.append("media", file));
-
-      const r = await fetch(`/api/session/${currentSessionId}/batch_upload`, { method: "POST", body: fd });
-      if (r.ok) refreshSessionGrid();
-      else alert("Batch upload failed.");
+    async function nextClip(idx, btnEl) {
+      const key = document.getElementById("pixabay-key").value.trim();
+      if (!key) {
+        alert("Paste your free Pixabay API Key in Step 1 first!");
+        return;
+      }
+      btnEl.disabled = true;
+      btnEl.textContent = "⏳...";
+      try {
+        const r = await fetch(`/api/session/${currentSessionId}/next_clip/${idx}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pixabay_key: key })
+        });
+        if (r.ok) refreshSessionGrid();
+      } finally {
+        btnEl.disabled = false;
+      }
     }
 
     async function swapScene(fromIdx, toIdxStr) {
@@ -434,13 +420,14 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
       });
     }
 
-    async function uploadSceneMedia(idx, inputEl) {
+    async function uploadSceneVideo(idx, inputEl) {
       if (!inputEl.files || !inputEl.files[0] || !currentSessionId) return;
       const fd = new FormData();
       fd.append("media", inputEl.files[0]);
       const r = await fetch(`/api/session/${currentSessionId}/replace/${idx}`, { method: "POST", body: fd });
+      const d = await r.json();
       if (r.ok) refreshSessionGrid();
-      else alert("Failed to upload file.");
+      else alert(d.error || "Upload failed.");
     }
 
     async function refreshSessionGrid() {
@@ -451,7 +438,7 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
       currentScenesCache = sess.scenes || [];
 
       const readyCnt = currentScenesCache.filter(s => s.media_ready).length;
-      document.getElementById("prep-msg").textContent = `${readyCnt}/${currentScenesCache.length} Ready`;
+      document.getElementById("prep-msg").textContent = `${readyCnt}/${currentScenesCache.length} HD Videos Ready`;
 
       const grid = document.getElementById("scene-grid");
       grid.innerHTML = "";
@@ -462,9 +449,8 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
         const card = document.createElement("div");
         card.className = "sc-card" + (sc.media_ready ? "" : " missing");
 
-        const isVid = sc.media_type === "video" || sc.media_type === "remote_video";
         const typeBadge = sc.media_ready
-          ? `<span class="badge-type">${isVid ? "🎬 HD VIDEO" : "🖼 AI IMAGE"}</span>`
+          ? `<span class="badge-type">🎬 HD VIDEO</span>`
           : "";
 
         let thumbSrc = "";
@@ -478,7 +464,7 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
           ? `<img class="sc-thumb" src="${thumbSrc}" alt="Scene ${idx + 1}" />`
           : `<div class="upload-slot">
                <div style="font-weight:900; color:var(--pink); margin-bottom:4px;">SCENE ${idx + 1} (${sc.speaker.toUpperCase()})</div>
-               <div>Click Auto-Fill Videos or Upload Image/Clip</div>
+               <div>Tag: ${sc.broll_query}</div>
              </div>`;
 
         let swapOpts = `<option value="">Swap...</option>`;
@@ -491,8 +477,6 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
           animOpts += `<option value="${a}" ${sc.anim_type === a ? "selected" : ""}>${a.replace(/_/g, " ")}</option>`;
         }
 
-        const safePrompt = sc.visual_prompt.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-
         card.innerHTML = `
           <div>
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:6px; gap:4px;">
@@ -504,10 +488,10 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
             <div style="font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.35;">"${sc.hindi_dub}"</div>
           </div>
           <div style="display:flex; gap:6px;">
-            <button type="button" class="btn-sm" style="flex:1;" onclick="copyText('${safePrompt}', this)">📋 AI Prompt</button>
+            <button type="button" class="btn-sm" style="flex:1;" onclick="nextClip(${idx}, this)">🔄 Next Clip</button>
             <label class="btn-up" style="flex:1; margin:0;">
-              ${sc.media_ready ? '🔄 Replace' : '⬆ Upload'}
-              <input type="file" accept="video/*,image/*" style="display:none;" onchange="uploadSceneMedia(${idx}, this)" />
+              ⬆ .MP4 Clip
+              <input type="file" accept="video/*" style="display:none;" onchange="uploadSceneVideo(${idx}, this)" />
             </label>
           </div>
         `;
@@ -524,33 +508,43 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
         return;
       }
 
-      const payload = {
-        topic: document.getElementById("topic").value.trim(),
-        genre: document.getElementById("genre").value,
-        aspect_ratio: document.getElementById("aspect").value,
-        voice_mode: document.getElementById("voice-mode").value,
-        auto_hook: document.getElementById("auto-hook").value === "true",
-        uploaded_audio_id: uploadedAudioId,
-        uploaded_bgm_id: uploadedBgmId,
-        custom_script: script
-      };
+      const btn = document.getElementById("btn-load");
+      btn.disabled = true;
+      btn.textContent = "⏳ Auto-Matching HD Video Clips...";
 
-      const r = await fetch("/api/prepare", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const d = await r.json();
-      if (!r.ok) {
-        showErr(d.error || "Failed to load scenes.");
-        return;
+      try {
+        const payload = {
+          topic: document.getElementById("topic").value.trim(),
+          genre: document.getElementById("genre").value,
+          aspect_ratio: document.getElementById("aspect").value,
+          voice_mode: document.getElementById("voice-mode").value,
+          auto_hook: document.getElementById("auto-hook").value === "true",
+          pixabay_key: document.getElementById("pixabay-key").value.trim(),
+          uploaded_audio_id: uploadedAudioId,
+          uploaded_bgm_id: uploadedBgmId,
+          custom_script: script
+        };
+
+        const r = await fetch("/api/prepare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          showErr(d.error || "Failed to load scenes.");
+          return;
+        }
+
+        currentSessionId = d.session_id;
+        localStorage.setItem("nx_last_session", currentSessionId);
+        document.getElementById("review-card").style.display = "block";
+        document.getElementById("render-card").style.display = "none";
+        refreshSessionGrid();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "⚡ Step 1: Auto-Select HD Video Clips & Prepare Scenes";
       }
-
-      currentSessionId = d.session_id;
-      localStorage.setItem("nx_last_session", currentSessionId);
-      document.getElementById("review-card").style.display = "block";
-      document.getElementById("render-card").style.display = "none";
-      refreshSessionGrid();
     }
 
     function autoDownload(url, filename) {
@@ -612,7 +606,7 @@ narrator/male/female | Detailed English Cinematic Scene Visual Prompt (8k photor
             const dlUrl = `/api/video/${jobId}?dl=1`;
             autoDownload(dlUrl, st.file_name);
             document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Love Story Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
+              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Full Motion-Video MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
               <video src="/api/video/${jobId}" controls playsinline></video>
             `;
           } else if (st.status === "error") {
