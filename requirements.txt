@@ -3,3 +3,4 @@ gunicorn
 numpy
 Pillow
 edge-tts
+requests
