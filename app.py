@@ -14,7 +14,7 @@ from typing import Dict, List, Any, Optional, Tuple
 
 import requests
 import numpy as np
-from PIL import Image, ImageEnhance
+from PIL import Image
 from flask import Flask, request, jsonify, send_file
 
 try:
@@ -24,7 +24,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v21 — BULLETPROOF AI + GOOGLE FLOW HYBRID CINEMA ENGINE
+# 1. NEXORA ROMANCE APEX v22 — 8-SECOND GOOGLE FLOW SYNC & ZERO-STACK ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -48,7 +48,7 @@ HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
-HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) NexoraApex/21.0"}
+HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) NexoraApex/22.0"}
 
 
 def is_safe_id(val: str) -> bool:
@@ -101,7 +101,6 @@ _MATRAS = {
 def devanagari_to_hinglish(text: str) -> str:
     if not text:
         return ""
-    # Normalize composed nukta characters before transliteration
     replacements = {
         "ज़": "ज़", "फ़": "फ़", "ड़": "ड़", "ढ़": "ढ़",
         "क़": "क़", "ख़": "ख़", "ग़": "ग़", "—": "-", "–": "-",
@@ -140,7 +139,6 @@ def devanagari_to_hinglish(text: str) -> str:
                 res.append(ch)
                 i += 1
         word_str = re.sub(r"aa+", "aa", "".join(res))
-        # Strip any non-ASCII glyph so DejaVu Sans never renders a missing-glyph box
         word_str = re.sub(r"[^\x20-\x7E]", "", word_str)
         if word_str:
             out_words.append(word_str)
@@ -148,7 +146,7 @@ def devanagari_to_hinglish(text: str) -> str:
 
 
 # ==============================================================================
-# 3. GOOGLE FLOW CINEMA PROMPT BUILDER & FREE AI SCENE GENERATOR
+# 3. CLEAN GOOGLE FLOW MOTION PROMPT BUILDER (NO '8K' WATERMARK ARTIFACTS)
 # ==============================================================================
 MOTION_MODES = [
     "Zoom_In_Push",
@@ -159,21 +157,24 @@ MOTION_MODES = [
 ]
 
 
-def build_google_flow_prompt(visual_prompt: str, aspect: str, idx: int) -> str:
-    """Formats a high-precision, cinematic motion prompt optimized for Google Flow / Veo."""
+def build_google_flow_prompt(visual_prompt: str, idx: int) -> str:
     cam_moves = [
-        "slow cinematic dolly push-in, subtle breathing and hair movement in breeze",
+        "slow cinematic dolly push-in, subtle breathing and hair moving gently in night breeze",
         "smooth slow horizontal camera pan, flickering candlelight shadows, shallow depth of field",
         "gentle close-up focus pull, raindrops glistening in warm bokeh light, emotional micro-expressions",
-        "slow dramatic zoom out, moody rain mist drifting across frame, 35mm anamorphic film lens",
+        "slow dramatic zoom out, moody rain mist drifting across frame, anamorphic film lens",
     ]
     cam = cam_moves[idx % len(cam_moves)]
-    base = re.sub(r"\s+", " ", visual_prompt).strip().rstrip(".")
-    return f"{base}, {cam}, 8k photorealistic Bollywood cinema aesthetic, rich contrast, warm candle and moonlight tones, no text, no watermark"
+    # Remove any '8k' / '4k' tokens that cause Flow to render corner text artifacts
+    base = re.sub(r"\b[48]k\b", "", visual_prompt, flags=re.IGNORECASE)
+    base = re.sub(r"\bno\s+text\b", "", base, flags=re.IGNORECASE)
+    base = re.sub(r"\s+", " ", base).strip(" ,.")
+    return f"{base}, {cam}, cinematic Indian romantic drama film still, rich contrast, warm candle and moonlight tones, clean frame without text or numbers"
 
 
 def build_pollinations_url(visual_prompt: str, out_w: int, out_h: int, seed: int) -> str:
-    clean_p = f"{visual_prompt}, cinematic 8k photorealistic movie still, dramatic moody lighting, shallow depth of field, no text"
+    clean_base = re.sub(r"\b[48]k\b", "", visual_prompt, flags=re.IGNORECASE).strip(" ,.")
+    clean_p = f"{clean_base}, cinematic photorealistic movie still, dramatic moody lighting, shallow depth of field"
     encoded = urllib.parse.quote(clean_p)
     return f"https://image.pollinations.ai/prompt/{encoded}?width={out_w}&height={out_h}&seed={seed}&nologo=true&model=flux"
 
@@ -232,7 +233,7 @@ def parse_user_script(custom_script: str, mood: str, aspect: str) -> List[Dict[s
             idx = len(scenes)
             combined_txt = f"{visual_prompt} {auto_caption}"
             ai_url = build_pollinations_url(visual_prompt, out_w, out_h, seed=base_seed + idx * 17)
-            flow_prompt = build_google_flow_prompt(visual_prompt, aspect, idx)
+            flow_prompt = build_google_flow_prompt(visual_prompt, idx)
 
             scenes.append({
                 "index": idx,
@@ -267,7 +268,7 @@ def build_elevenlabs_script(scenes: List[Dict[str, Any]], voice_mode: str) -> st
 
 
 # ==============================================================================
-# 4. ZERO-OVERLAP ASS SUBTITLE & CLEAN CINEMA HUD GENERATOR
+# 4. STRICT ZERO-STACK ASS KARAOKE SUBTITLE ENGINE (FIXED END-TIME BOUNDARIES)
 # ==============================================================================
 def build_word_timings(text: str, dur_sec: float) -> List[Tuple[str, float, float]]:
     words = str(text or "").split()
@@ -282,7 +283,7 @@ def build_word_timings(text: str, dur_sec: float) -> List[Tuple[str, float, floa
             base_w += 3.2
         weights.append(base_w)
     total_w = sum(weights) or 1.0
-    span = max(0.3, dur_sec - 0.16)
+    span = max(0.3, dur_sec - 0.18)
     timings: List[Tuple[str, float, float]] = []
     acc = 0.0
     for w, wt in zip(words, weights):
@@ -309,13 +310,13 @@ def generate_ass_subtitle_file(
     mood: str,
 ):
     """
-    Generates crystal-clear, zero-overlap, zero-tag, zero-broken-glyph karaoke captions
-    and clean top cinema stage badges.
+    Strictly terminates every 3-word caption chunk before the next chunk or scene begins,
+    eliminating any stacked or leftover words on screen.
     """
     accent_bgr = "&H00B472F4&" if mood == "deep_romance" else ("&H00F8BD38&" if mood == "sad_heartbreak" else "&H008571FB&")
     font_sz = 34 if out_w > out_h else 30
     hud_sz = 17 if out_w > out_h else 15
-    margin_v = 46 if out_w > out_h else 115
+    margin_v = 44 if out_w > out_h else 115
 
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -344,35 +345,37 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         is_teaser = bool(sc.get("is_teaser", False))
         ov_p = st_abs / total_dur
 
-        # Clean ASCII-only Cinema HUD Badge (no broken emoji boxes!)
         if is_teaser:
             ts_lbl = sc.get("climax_ts_label", "01:45")
             events.append(
-                f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs)},HookStyle,,0,0,0,,AAGE DEKHIYE ({ts_lbl} PE ASLI MOD)..."
+                f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs - 0.02)},HookStyle,,0,0,0,,AAGE DEKHIYE ({ts_lbl} PE ASLI MOD)..."
             )
         else:
             stage = "01. PEHLI MULAKAT" if ov_p < 0.34 else ("02. GEHRA RAAZ" if ov_p < 0.72 else "03. ASLI ANJAAM")
             events.append(
-                f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs)},StageStyle,,0,0,0,,{stage}"
+                f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs - 0.02)},StageStyle,,0,0,0,,{stage}"
             )
 
-        # Strict non-overlapping 3-word karaoke captions (NO [HE]/[SHE] tags!)
         timings = build_word_timings(sc.get("auto_caption", ""), dur)
         group_size = 3
-        for g_start in range(0, len(timings), group_size):
+        total_w_cnt = len(timings)
+
+        for g_start in range(0, total_w_cnt, group_size):
             grp = timings[g_start : g_start + group_size]
-            grp_end_limit = st_abs + (
-                timings[g_start + group_size][1] - 0.01
-                if (g_start + group_size) < len(timings)
-                else (en_abs - 0.04)
-            )
+            next_g_idx = g_start + group_size
+            if next_g_idx < total_w_cnt:
+                grp_end_abs = st_abs + timings[next_g_idx][1] - 0.01
+            else:
+                grp_end_abs = en_abs - 0.05
+
             for local_i, (w_str, w_st, w_en) in enumerate(grp):
                 seg_s = st_abs + w_st
                 if local_i + 1 < len(grp):
                     seg_e = st_abs + grp[local_i + 1][1] - 0.005
                 else:
-                    seg_e = grp_end_limit
+                    seg_e = grp_end_abs
 
+                seg_e = min(grp_end_abs, seg_e)
                 if seg_e <= seg_s + 0.03:
                     continue
 
@@ -431,13 +434,13 @@ class NexoraRomanceAudioEngine:
                     return {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "-3Hz"}
                 if emo == "emotional_ache":
                     return {"voice": "hi-IN-SwaraNeural", "rate": "+0%", "pitch": "-2Hz"}
-                return {"voice": "hi-IN-SwaraNeural", "rate": "+6%", "pitch": "-1Hz"}
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+5%", "pitch": "-1Hz"}
             if sp == "male":
                 if emo == "intimate_whisper":
                     return {"voice": "hi-IN-MadhurNeural", "rate": "-3%", "pitch": "-9Hz"}
                 if emo == "emotional_ache":
                     return {"voice": "hi-IN-MadhurNeural", "rate": "+0%", "pitch": "-7Hz"}
-                return {"voice": "hi-IN-MadhurNeural", "rate": "+6%", "pitch": "-6Hz"}
+                return {"voice": "hi-IN-MadhurNeural", "rate": "+5%", "pitch": "-6Hz"}
             if sp == "child":
                 return {"voice": "hi-IN-SwaraNeural", "rate": "+9%", "pitch": "+14Hz"}
 
@@ -446,8 +449,8 @@ class NexoraRomanceAudioEngine:
         if emo == "emotional_ache":
             return {"voice": "hi-IN-MadhurNeural", "rate": "-1%", "pitch": "-9Hz"}
         if emo == "urgent_passion":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "+10%", "pitch": "-7Hz"}
-        return {"voice": "hi-IN-MadhurNeural", "rate": "+4%", "pitch": "-9Hz"}
+            return {"voice": "hi-IN-MadhurNeural", "rate": "+9%", "pitch": "-7Hz"}
+        return {"voice": "hi-IN-MadhurNeural", "rate": "+3%", "pitch": "-9Hz"}
 
     @classmethod
     def dub_scene_romantic(cls, sc: Dict[str, Any], idx: int, voice_mode: str, work_dir: str) -> Tuple[str, float]:
@@ -483,7 +486,7 @@ class NexoraRomanceAudioEngine:
         if speech_dur <= 0.20:
             raise RuntimeError(f"Voice timeout on Scene {idx + 1} ({last_err}).")
 
-        final_dur = round(speech_dur + 0.26, 2)
+        final_dur = round(speech_dur + 0.28, 2)
 
         studio_af = (
             "highpass=f=68,"
@@ -628,7 +631,7 @@ class NexoraRomanceAudioEngine:
 
 
 # ==============================================================================
-# 6. NATIVE FFMPEG 3D MOTION RENDERER (HANDLES BOTH GOOGLE FLOW MP4 & AI SCENES)
+# 6. SMART 8-SECOND GOOGLE FLOW OPTICAL FIT & 3D MOTION RENDERER
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
@@ -654,35 +657,58 @@ def download_ai_scene_image(url: str, out_jpg: str) -> bool:
     return False
 
 
-def render_user_video_clip(src_video: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
-    """Processes user-uploaded Google Flow / Veo .MP4 clips with cinema grading & smooth cross-fades."""
-    fade_out_st = max(0.1, dur_sec - 0.22)
-    vf = (
-        f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
-        f"crop={out_w}:{out_h},"
-        "fps=24,"
-        "eq=contrast=1.08:brightness=-0.01:saturation=1.20,"
-        "colorbalance=rs=0.03:gs=0.01:bs=-0.02,"
-        "vignette=PI/5,"
-        f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
-    )
-    subprocess.run(
-        [
+def render_user_video_clip(src_video: str, dst_mp4: str, target_dur: float, out_w: int, out_h: int):
+    """
+    Smart 8-Second Flow Optical Fit:
+    If your Google Flow clip is 8.0s and the scene voice is 6.0s–9.5s, instead of cutting off
+    the action mid-way, it smoothly time-stretches the entire 8s clip to match the exact voice duration!
+    """
+    src_dur = NexoraRomanceAudioEngine.probe_dur(src_video)
+    fade_out_st = max(0.1, target_dur - 0.22)
+
+    if src_dur > 1.0 and 0.55 <= (target_dur / src_dur) <= 1.65:
+        pts_mult = target_dur / src_dur
+        vf = (
+            f"setpts={pts_mult:.4f}*PTS,"
+            f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
+            f"crop={out_w}:{out_h},"
+            "fps=24,"
+            "eq=contrast=1.08:brightness=-0.01:saturation=1.20,"
+            "colorbalance=rs=0.03:gs=0.01:bs=-0.02,"
+            "vignette=PI/5,"
+            f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
+        )
+        cmd = [
             "ffmpeg", "-y",
-            "-stream_loop", "-1",
             "-i", src_video,
-            "-t", f"{dur_sec:.3f}",
-            "-an",
-            "-vf", vf,
+            "-t", f"{target_dur:.3f}",
+            "-an", "-vf", vf,
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
             "-pix_fmt", "yuv420p", dst_mp4,
-        ],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
-    )
+        ]
+    else:
+        vf = (
+            f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
+            f"crop={out_w}:{out_h},"
+            "fps=24,"
+            "eq=contrast=1.08:brightness=-0.01:saturation=1.20,"
+            "colorbalance=rs=0.03:gs=0.01:bs=-0.02,"
+            "vignette=PI/5,"
+            f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-i", src_video,
+            "-t", f"{target_dur:.3f}",
+            "-an", "-vf", vf,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
+            "-pix_fmt", "yuv420p", dst_mp4,
+        ]
+
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
 
 def render_animated_image_clip(src_img: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int, motion: str):
-    """Applies smooth 3D Ken Burns parallax zoom/pan + cinema color LUT to AI/Flow still frames."""
     fps = 24
     total_f = max(24, int(round(dur_sec * fps)))
     fade_out_st = max(0.1, dur_sec - 0.22)
@@ -965,7 +991,7 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 7. REST API ENDPOINTS (GOOGLE FLOW PROMPTS + AI AUTO-SCENES + BATCH UPLOAD)
+# 7. REST API ENDPOINTS
 # ==============================================================================
 def save_uploaded_media(file_storage, sess_dir: str, idx: int) -> Tuple[str, str, str]:
     ext = os.path.splitext(file_storage.filename or "")[1].lower()
@@ -1000,7 +1026,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v21": True})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v22": True})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -1242,7 +1268,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 3,
-            "current_scene": "Starting APEX v21 Cinema Render...",
+            "current_scene": "Starting APEX v22 Cinema Render...",
             "error": None,
         }
 
