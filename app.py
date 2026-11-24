@@ -9,10 +9,12 @@ import asyncio
 import tempfile
 import subprocess
 import threading
+import urllib.parse
 from typing import Dict, List, Any, Optional, Tuple
 
+import requests
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageEnhance
 from flask import Flask, request, jsonify, send_file
 
 try:
@@ -22,7 +24,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v20.1 — ZERO-DEPENDENCY BULLETPROOF CINEMA ENGINE
+# 1. NEXORA ROMANCE APEX v21 — BULLETPROOF AI + GOOGLE FLOW HYBRID CINEMA ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -46,6 +48,7 @@ HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
+HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) NexoraApex/21.0"}
 
 
 def is_safe_id(val: str) -> bool:
@@ -72,7 +75,7 @@ def purge_expired(max_age_sec: int = 1800):
 
 
 # ==============================================================================
-# 2. DEVANAGARI -> CLEAN HINGLISH AUTO-CAPTION GENERATOR
+# 2. CLEAN DEVANAGARI -> ASCII HINGLISH CONVERTER (ZERO BROKEN BOXES)
 # ==============================================================================
 _CONSONANTS = {
     "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "ng",
@@ -91,15 +94,21 @@ _VOWELS_INDEP = {
 _MATRAS = {
     "ा": "aa", "ि": "i", "ी": "ee", "ु": "u", "ू": "oo",
     "ृ": "ri", "े": "e", "ै": "ai", "ो": "o", "ौ": "au",
-    "ं": "n", "ँ": "n", "ः": "h", "्": "",
+    "ं": "n", "ँ": "n", "ः": "h", "्": "", "़": "",
 }
 
 
 def devanagari_to_hinglish(text: str) -> str:
     if not text:
         return ""
-    if not any("\u0900" <= ch <= "\u097F" for ch in text):
-        return text
+    # Normalize composed nukta characters before transliteration
+    replacements = {
+        "ज़": "ज़", "फ़": "फ़", "ड़": "ड़", "ढ़": "ढ़",
+        "क़": "क़", "ख़": "ख़", "ग़": "ग़", "—": "-", "–": "-",
+        "‘": "'", "’": "'", "“": '"', "”": '"', "…": "...",
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
 
     out_words: List[str] = []
     for token in text.split():
@@ -131,36 +140,42 @@ def devanagari_to_hinglish(text: str) -> str:
                 res.append(ch)
                 i += 1
         word_str = re.sub(r"aa+", "aa", "".join(res))
-        out_words.append(word_str)
+        # Strip any non-ASCII glyph so DejaVu Sans never renders a missing-glyph box
+        word_str = re.sub(r"[^\x20-\x7E]", "", word_str)
+        if word_str:
+            out_words.append(word_str)
     return " ".join(out_words)
 
 
 # ==============================================================================
-# 3. PROCEDURAL CINEMA ATMOSPHERE ENGINE (100% SELF-CONTAINED MOTION SCENES)
+# 3. GOOGLE FLOW CINEMA PROMPT BUILDER & FREE AI SCENE GENERATOR
 # ==============================================================================
-ATMOSPHERE_THEMES = [
-    "Midnight_Rain_Bokeh",
-    "Candlelight_Velvet_Glow",
-    "Crimson_Passion_Pulse",
-    "Moonlit_Mist_Drift",
-    "Golden_Sunrise_Aura",
-    "Deep_Violet_Dream",
+MOTION_MODES = [
+    "Zoom_In_Push",
+    "Pan_Right_Drift",
+    "Zoom_Out_Reveal",
+    "Pan_Left_Drift",
+    "Dramatic_Pulse_Zoom",
 ]
 
 
-def detect_atmosphere_theme(visual_prompt: str, hinglish_caption: str, idx: int) -> str:
-    blob = f"{visual_prompt} {hinglish_caption}".lower()
-    if any(k in blob for k in ("rain", "barish", "boond", "window", "khidki", "cry", "aansu", "sad")):
-        return "Midnight_Rain_Bokeh"
-    if any(k in blob for k in ("candle", "lamp", "warm", "coffee", "kiss", "hug", "baahon", "pyaar", "love")):
-        return "Candlelight_Velvet_Glow"
-    if any(k in blob for k in ("heartbeat", "dil", "saansein", "phone", "message", "call", "raaz", "danger")):
-        return "Crimson_Passion_Pulse"
-    if any(k in blob for k in ("sunrise", "morning", "subah", "golden", "hills", "sky")):
-        return "Golden_Sunrise_Aura"
-    if any(k in blob for k in ("shadow", "night", "dark", "clock", "corridor", "fog", "mist")):
-        return "Moonlit_Mist_Drift"
-    return ATMOSPHERE_THEMES[idx % len(ATMOSPHERE_THEMES)]
+def build_google_flow_prompt(visual_prompt: str, aspect: str, idx: int) -> str:
+    """Formats a high-precision, cinematic motion prompt optimized for Google Flow / Veo."""
+    cam_moves = [
+        "slow cinematic dolly push-in, subtle breathing and hair movement in breeze",
+        "smooth slow horizontal camera pan, flickering candlelight shadows, shallow depth of field",
+        "gentle close-up focus pull, raindrops glistening in warm bokeh light, emotional micro-expressions",
+        "slow dramatic zoom out, moody rain mist drifting across frame, 35mm anamorphic film lens",
+    ]
+    cam = cam_moves[idx % len(cam_moves)]
+    base = re.sub(r"\s+", " ", visual_prompt).strip().rstrip(".")
+    return f"{base}, {cam}, 8k photorealistic Bollywood cinema aesthetic, rich contrast, warm candle and moonlight tones, no text, no watermark"
+
+
+def build_pollinations_url(visual_prompt: str, out_w: int, out_h: int, seed: int) -> str:
+    clean_p = f"{visual_prompt}, cinematic 8k photorealistic movie still, dramatic moody lighting, shallow depth of field, no text"
+    encoded = urllib.parse.quote(clean_p)
+    return f"https://image.pollinations.ai/prompt/{encoded}?width={out_w}&height={out_h}&seed={seed}&nologo=true&model=flux"
 
 
 def detect_romantic_sfx(text_blob: str, mood: str) -> str:
@@ -197,8 +212,11 @@ def detect_line_emotion(hinglish_txt: str, speaker: str) -> str:
     return "late_night_fm"
 
 
-def parse_user_script(custom_script: str, mood: str) -> List[Dict[str, Any]]:
+def parse_user_script(custom_script: str, mood: str, aspect: str) -> List[Dict[str, Any]]:
+    out_w, out_h = (576, 1024) if aspect == "9:16" else (1024, 576)
+    base_seed = int(time.time()) % 100000
     scenes: List[Dict[str, Any]] = []
+
     for line in str(custom_script or "").splitlines():
         line = line.strip()
         if not line or "|" not in line:
@@ -213,20 +231,23 @@ def parse_user_script(custom_script: str, mood: str) -> List[Dict[str, Any]]:
             auto_caption = devanagari_to_hinglish(spoken_hindi)
             idx = len(scenes)
             combined_txt = f"{visual_prompt} {auto_caption}"
-            theme = detect_atmosphere_theme(visual_prompt, auto_caption, idx)
+            ai_url = build_pollinations_url(visual_prompt, out_w, out_h, seed=base_seed + idx * 17)
+            flow_prompt = build_google_flow_prompt(visual_prompt, aspect, idx)
+
             scenes.append({
                 "index": idx,
                 "is_teaser": False,
                 "speaker": sp,
                 "emotion": detect_line_emotion(auto_caption, sp),
                 "visual_prompt": visual_prompt,
-                "broll_query": theme.replace("_", " "),
+                "flow_prompt": flow_prompt,
                 "hindi_dub": spoken_hindi,
                 "auto_caption": auto_caption,
-                "anim_type": theme,
+                "anim_type": MOTION_MODES[idx % len(MOTION_MODES)],
                 "sfx_type": detect_romantic_sfx(combined_txt, mood),
                 "media_ready": True,
-                "media_type": "synth_cinema",
+                "media_type": "ai_image",
+                "remote_img_url": ai_url,
                 "media_file": "",
                 "thumb_file": "",
             })
@@ -246,7 +267,7 @@ def build_elevenlabs_script(scenes: List[Dict[str, Any]], voice_mode: str) -> st
 
 
 # ==============================================================================
-# 4. NATIVE ASS KARAOKE SUBTITLE & HUD GENERATOR
+# 4. ZERO-OVERLAP ASS SUBTITLE & CLEAN CINEMA HUD GENERATOR
 # ==============================================================================
 def build_word_timings(text: str, dur_sec: float) -> List[Tuple[str, float, float]]:
     words = str(text or "").split()
@@ -256,18 +277,18 @@ def build_word_timings(text: str, dur_sec: float) -> List[Tuple[str, float, floa
     for w in words:
         base_w = max(2.0, float(len(re.sub(r"[^a-zA-Z0-9]", "", w))))
         if w.endswith((",", ";", ":")):
-            base_w += 2.5
+            base_w += 2.2
         elif w.endswith((".", "!", "?", "।")):
-            base_w += 3.5
+            base_w += 3.2
         weights.append(base_w)
     total_w = sum(weights) or 1.0
-    span = max(0.3, dur_sec - 0.15)
+    span = max(0.3, dur_sec - 0.16)
     timings: List[Tuple[str, float, float]] = []
     acc = 0.0
     for w, wt in zip(words, weights):
-        st = 0.05 + (acc / total_w) * span
+        st = 0.06 + (acc / total_w) * span
         acc += wt
-        en = 0.05 + (acc / total_w) * span
+        en = 0.06 + (acc / total_w) * span
         timings.append((w, st, en))
     return timings
 
@@ -286,12 +307,15 @@ def generate_ass_subtitle_file(
     out_w: int,
     out_h: int,
     mood: str,
-    voice_mode: str,
 ):
+    """
+    Generates crystal-clear, zero-overlap, zero-tag, zero-broken-glyph karaoke captions
+    and clean top cinema stage badges.
+    """
     accent_bgr = "&H00B472F4&" if mood == "deep_romance" else ("&H00F8BD38&" if mood == "sad_heartbreak" else "&H008571FB&")
     font_sz = 34 if out_w > out_h else 30
-    hud_sz = 18 if out_w > out_h else 16
-    margin_v = 48 if out_w > out_h else 110
+    hud_sz = 17 if out_w > out_h else 15
+    margin_v = 46 if out_w > out_h else 115
 
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -301,10 +325,10 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: CapStyle,DejaVu Sans,{font_sz},&H00FFFFFF&,&H0094A3B8&,&H00080A14&,&H96060812&,-1,0,0,0,100,100,0,0,3,6,2,2,24,24,{margin_v},1
-Style: HookStyle,DejaVu Sans,{hud_sz},&H00FFFFFF&,&H00FFFFFF&,&H007727DB&,&HD07727DB&,-1,0,0,0,100,100,0,0,3,6,0,7,20,20,24,1
-Style: StageStyle,DejaVu Sans,{hud_sz - 2},&H00B472F4&,&H00B472F4&,&H000A0C18&,&HB00A0C18&,-1,0,0,0,100,100,0,0,3,5,0,7,20,20,24,1
-Style: EndStyle,DejaVu Sans,{font_sz + 2},&H00B472F4&,&H00FFFFFF&,&H00000000&,&HC805070F&,-1,0,0,0,100,100,0,0,3,10,0,5,30,30,30,1
+Style: CapStyle,DejaVu Sans,{font_sz},&H00FFFFFF&,&H0094A3B8&,&H00080A14&,&HC8060812&,-1,0,0,0,100,100,0,0,3,6,0,2,28,28,{margin_v},1
+Style: HookStyle,DejaVu Sans,{hud_sz},&H00FFFFFF&,&H00FFFFFF&,&H007727DB&,&HD87727DB&,-1,0,0,0,100,100,0,0,3,6,0,7,22,22,22,1
+Style: StageStyle,DejaVu Sans,{hud_sz - 1},&H00B472F4&,&H00B472F4&,&H000A0C18&,&HC00A0C18&,-1,0,0,0,100,100,0,0,3,5,0,7,22,22,22,1
+Style: EndStyle,DejaVu Sans,{font_sz + 2},&H00B472F4&,&H00FFFFFF&,&H00000000&,&HD805070F&,-1,0,0,0,100,100,0,0,3,10,0,5,30,30,30,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -320,10 +344,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         is_teaser = bool(sc.get("is_teaser", False))
         ov_p = st_abs / total_dur
 
+        # Clean ASCII-only Cinema HUD Badge (no broken emoji boxes!)
         if is_teaser:
             ts_lbl = sc.get("climax_ts_label", "01:45")
             events.append(
-                f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs)},HookStyle,,0,0,0,,🔥 AAGE DEKHIYE ({ts_lbl} PE ASLI MOD)..."
+                f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs)},HookStyle,,0,0,0,,AAGE DEKHIYE ({ts_lbl} PE ASLI MOD)..."
             )
         else:
             stage = "01. PEHLI MULAKAT" if ov_p < 0.34 else ("02. GEHRA RAAZ" if ov_p < 0.72 else "03. ASLI ANJAAM")
@@ -331,23 +356,29 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs)},StageStyle,,0,0,0,,{stage}"
             )
 
+        # Strict non-overlapping 3-word karaoke captions (NO [HE]/[SHE] tags!)
         timings = build_word_timings(sc.get("auto_caption", ""), dur)
-        sp_prefix = ""
-        if voice_mode == "builtin_multi":
-            sp_map = {"narrator": "", "male": "[HE] ", "female": "[SHE] "}
-            sp_prefix = sp_map.get(sc.get("speaker", "narrator"), "")
-
         group_size = 3
         for g_start in range(0, len(timings), group_size):
             grp = timings[g_start : g_start + group_size]
+            grp_end_limit = st_abs + (
+                timings[g_start + group_size][1] - 0.01
+                if (g_start + group_size) < len(timings)
+                else (en_abs - 0.04)
+            )
             for local_i, (w_str, w_st, w_en) in enumerate(grp):
                 seg_s = st_abs + w_st
-                seg_e = st_abs + (grp[local_i + 1][1] if local_i + 1 < len(grp) else (grp[-1][2] + 0.12))
-                seg_e = min(en_abs, max(seg_s + 0.08, seg_e))
+                if local_i + 1 < len(grp):
+                    seg_e = st_abs + grp[local_i + 1][1] - 0.005
+                else:
+                    seg_e = grp_end_limit
+
+                if seg_e <= seg_s + 0.03:
+                    continue
 
                 styled_words: List[str] = []
                 for j, (jw, _, _) in enumerate(grp):
-                    clean_jw = jw.replace("{", "").replace("}", "")
+                    clean_jw = re.sub(r"[^\x20-\x7E]", "", jw).replace("{", "").replace("}", "")
                     if j == local_i:
                         styled_words.append(f"{{\\c{accent_bgr}}}{clean_jw}{{\\c&H00FFFFFF&}}")
                     elif j < local_i:
@@ -355,7 +386,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     else:
                         styled_words.append(f"{{\\c&H0094A3B8&}}{clean_jw}{{\\c&H00FFFFFF&}}")
 
-                line_txt = f"{sp_prefix}{' '.join(styled_words)}"
+                line_txt = " ".join(styled_words)
                 events.append(
                     f"Dialogue: 1,{fmt_ass_time(seg_s)},{fmt_ass_time(seg_e)},CapStyle,,0,0,0,,{line_txt}"
                 )
@@ -365,7 +396,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     if total_dur > 6.0:
         end_s = max(0.0, total_dur - 2.8)
         events.append(
-            f"Dialogue: 3,{fmt_ass_time(end_s)},{fmt_ass_time(total_dur)},EndStyle,,0,0,0,,KAHANI ABHI BAAKI HAI...\\N{{\\fs{font_sz - 8}\\c&H0071E0FD&}}Agle Part Ke Liye Subscribe Zaroor Karein ❤️"
+            f"Dialogue: 3,{fmt_ass_time(end_s)},{fmt_ass_time(total_dur)},EndStyle,,0,0,0,,KAHANI ABHI BAAKI HAI...\\N{{\\fs{font_sz - 8}\\c&H0071E0FD&}}Agle Part Ke Liye Subscribe Zaroor Karein"
         )
 
     with open(ass_path, "w", encoding="utf-8") as f:
@@ -373,7 +404,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 # ==============================================================================
-# 5. LATE-NIGHT INTIMATE VOICE & ROMANTIC SOUNDSCAPE ENGINE (FIXED FILE OUTPUT)
+# 5. LATE-NIGHT INTIMATE VOICE & ROMANTIC SOUNDSCAPE ENGINE
 # ==============================================================================
 class NexoraRomanceAudioEngine:
     @staticmethod
@@ -534,7 +565,6 @@ class NexoraRomanceAudioEngine:
     ):
         rate = 22050
         has_custom = bool(custom_bgm_path and os.path.exists(custom_bgm_path))
-        # Always write directly to out_wav when no custom BGM is uploaded!
         target_wav = os.path.join(work_dir, "sfx_only.wav") if (has_custom and work_dir) else out_wav
 
         with wave.open(target_wav, "wb") as wf:
@@ -598,7 +628,7 @@ class NexoraRomanceAudioEngine:
 
 
 # ==============================================================================
-# 6. SELF-CONTAINED PROCEDURAL CINEMA VIDEO GENERATOR (100% BULLETPROOF)
+# 6. NATIVE FFMPEG 3D MOTION RENDERER (HANDLES BOTH GOOGLE FLOW MP4 & AI SCENES)
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
@@ -611,16 +641,30 @@ def fmt_mmss(sec: float) -> str:
     return f"{s // 60:02d}:{s % 60:02d}"
 
 
-def render_user_uploaded_clip(src_video: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
-    fade_out_st = max(0.1, dur_sec - 0.20)
+def download_ai_scene_image(url: str, out_jpg: str) -> bool:
+    for attempt in range(2):
+        try:
+            r = requests.get(url, headers=HTTP_HEADERS, timeout=22)
+            if r.status_code == 200 and len(r.content) > 4000:
+                with open(out_jpg, "wb") as f:
+                    f.write(r.content)
+                return True
+        except Exception:
+            time.sleep(0.5)
+    return False
+
+
+def render_user_video_clip(src_video: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
+    """Processes user-uploaded Google Flow / Veo .MP4 clips with cinema grading & smooth cross-fades."""
+    fade_out_st = max(0.1, dur_sec - 0.22)
     vf = (
         f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
         f"crop={out_w}:{out_h},"
         "fps=24,"
-        "eq=contrast=1.09:brightness=-0.01:saturation=1.22,"
-        "colorbalance=rs=0.04:gs=0.01:bs=-0.03,"
+        "eq=contrast=1.08:brightness=-0.01:saturation=1.20,"
+        "colorbalance=rs=0.03:gs=0.01:bs=-0.02,"
         "vignette=PI/5,"
-        f"fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out_st:.3f}:d=0.18"
+        f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
     )
     subprocess.run(
         [
@@ -630,58 +674,51 @@ def render_user_uploaded_clip(src_video: str, dst_mp4: str, dur_sec: float, out_
             "-t", f"{dur_sec:.3f}",
             "-an",
             "-vf", vf,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "2",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
             "-pix_fmt", "yuv420p", dst_mp4,
         ],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
     )
 
 
-def render_procedural_cinema_clip(theme: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int, seed_idx: int):
-    fade_out_st = max(0.1, dur_sec - 0.20)
-    spd = 0.08 + (seed_idx % 5) * 0.02
+def render_animated_image_clip(src_img: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int, motion: str):
+    """Applies smooth 3D Ken Burns parallax zoom/pan + cinema color LUT to AI/Flow still frames."""
+    fps = 24
+    total_f = max(24, int(round(dur_sec * fps)))
+    fade_out_st = max(0.1, dur_sec - 0.22)
+    up_w, up_h = out_w * 2, out_h * 2
 
-    if theme == "Midnight_Rain_Bokeh":
-        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#060d1f:c1=#1e1b4b:c2=#0f172a:speed={spd:.2f}:type=radial"
-        fx = "noise=alls=14:allf=t+u,gblur=sigma=1.2,vignette=PI/4"
-    elif theme == "Candlelight_Velvet_Glow":
-        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#2a0e18:c1=#7c2d12:c2=#1c0a10:speed={spd:.2f}:type=radial"
-        fx = "noise=alls=8:allf=t+u,gblur=sigma=2.0,vignette=PI/4.5"
-    elif theme == "Crimson_Passion_Pulse":
-        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#3b0716:c1=#881337:c2=#09050d:speed={spd + 0.04:.2f}:type=circular"
-        fx = "noise=alls=10:allf=t+u,vignette=PI/4"
-    elif theme == "Golden_Sunrise_Aura":
-        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#451a03:c1=#b45309:c2=#1e1b2e:speed={spd:.2f}:type=linear"
-        fx = "noise=alls=7:allf=t+u,gblur=sigma=1.8,vignette=PI/5"
-    elif theme == "Moonlit_Mist_Drift":
-        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#050b18:c1=#164e63:c2=#090d16:speed={spd:.2f}:type=linear"
-        fx = "noise=alls=11:allf=t+u,gblur=sigma=1.6,vignette=PI/4"
+    if motion == "Pan_Right_Drift":
+        zp = f"zoompan=z='1.12':x='(iw-iw/zoom)*(on/{total_f})':y='(ih-ih/zoom)/2':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+    elif motion == "Pan_Left_Drift":
+        zp = f"zoompan=z='1.12':x='(iw-iw/zoom)*(1-on/{total_f})':y='(ih-ih/zoom)/2':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+    elif motion == "Zoom_Out_Reveal":
+        zp = f"zoompan=z='max(1.02,1.18-0.16*(on/{total_f}))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+    elif motion == "Dramatic_Pulse_Zoom":
+        zp = f"zoompan=z='1.04+0.14*(on/{total_f})':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_f}:s={out_w}x{out_h}:fps={fps}"
     else:
-        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#1e1035:c1=#581c87:c2=#070510:speed={spd:.2f}:type=radial"
-        fx = "noise=alls=9:allf=t+u,gblur=sigma=1.5,vignette=PI/4.5"
+        zp = f"zoompan=z='min(1.18,1.02+0.16*(on/{total_f}))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_f}:s={out_w}x{out_h}:fps={fps}"
 
-    vf = f"{fx},fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out_st:.3f}:d=0.18"
-    res = subprocess.run(
+    vf = (
+        f"scale={up_w}:{up_h}:force_original_aspect_ratio=increase,"
+        f"crop={up_w}:{up_h},"
+        f"{zp},"
+        "eq=contrast=1.09:brightness=-0.01:saturation=1.22,"
+        "colorbalance=rs=0.04:gs=0.01:bs=-0.03,"
+        "vignette=PI/5,"
+        f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
+    )
+    subprocess.run(
         [
             "ffmpeg", "-y",
-            "-f", "lavfi", "-i", src,
+            "-loop", "1", "-i", src_img,
+            "-t", f"{dur_sec:.3f}",
             "-vf", vf,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "2",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
             "-pix_fmt", "yuv420p", dst_mp4,
         ],
-        capture_output=True, text=True,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
     )
-    if res.returncode != 0:
-        subprocess.run(
-            [
-                "ffmpeg", "-y",
-                "-f", "lavfi", "-i", f"color=c=#1a0b1e:s={out_w}x{out_h}:r=24:d={dur_sec:.3f}",
-                "-vf", f"noise=alls=10:allf=t+u,vignette=PI/4,fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out_st:.3f}:d=0.18",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24",
-                "-pix_fmt", "yuv420p", dst_mp4,
-            ],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
-        )
 
 
 def run_final_render(job_id: str, session_id: str):
@@ -739,7 +776,7 @@ def run_final_render(job_id: str, session_id: str):
                 update_job(
                     job_id,
                     status="running",
-                    progress=4 + int((idx / float(len(raw_scenes))) * 22),
+                    progress=4 + int((idx / float(len(raw_scenes))) * 20),
                     current_scene=f"Dubbing Intimate Voice ({idx + 1}/{len(raw_scenes)})...",
                 )
                 dub_wav, actual_dur = NexoraRomanceAudioEngine.dub_scene_romantic(sc, idx, voice_mode, work_dir)
@@ -799,35 +836,46 @@ def run_final_render(job_id: str, session_id: str):
 
         total_sc = len(render_scenes)
         video_chunks: List[str] = []
+        last_valid_img: Optional[str] = None
 
         for idx, sc in enumerate(render_scenes):
             lbl = "Climax Hook Teaser" if sc.get("is_teaser") else f"Scene {idx + 1}/{total_sc}"
             update_job(
                 job_id,
                 status="running",
-                progress=26 + int((idx / float(total_sc)) * 62),
+                progress=24 + int((idx / float(total_sc)) * 64),
                 current_scene=f"Rendering {lbl} [{sc['anim_type']}]...",
             )
 
             actual_dur = float(sc.get("duration_sec", 4.0))
             v_chunk = os.path.join(work_dir, f"vc_{idx:03d}.mp4")
+            mtype = sc.get("media_type", "ai_image")
 
-            if sc.get("media_type") == "video" and sc.get("media_file"):
+            if mtype == "video" and sc.get("media_file"):
                 med_path = os.path.join(sess_dir, sc["media_file"])
-                if os.path.exists(med_path):
-                    render_user_uploaded_clip(med_path, v_chunk, actual_dur, out_w, out_h)
-                else:
-                    render_procedural_cinema_clip(sc.get("anim_type", "Midnight_Rain_Bokeh"), v_chunk, actual_dur, out_w, out_h, idx)
+                render_user_video_clip(med_path, v_chunk, actual_dur, out_w, out_h)
+            elif mtype == "image" and sc.get("media_file"):
+                med_path = os.path.join(sess_dir, sc["media_file"])
+                last_valid_img = med_path
+                render_animated_image_clip(med_path, v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"))
             else:
-                render_procedural_cinema_clip(sc.get("anim_type", "Midnight_Rain_Bokeh"), v_chunk, actual_dur, out_w, out_h, idx)
+                ai_jpg = os.path.join(work_dir, f"ai_{idx:03d}.jpg")
+                ok = download_ai_scene_image(sc.get("remote_img_url", ""), ai_jpg)
+                if ok:
+                    last_valid_img = ai_jpg
+                    render_animated_image_clip(ai_jpg, v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"))
+                elif last_valid_img and os.path.exists(last_valid_img):
+                    render_animated_image_clip(last_valid_img, v_chunk, actual_dur, out_w, out_h, "Zoom_Out_Reveal")
+                else:
+                    raise RuntimeError(f"Could not generate AI scene {idx + 1}. Please upload a Flow image/video for Scene {idx + 1} or retry.")
 
             video_chunks.append(v_chunk)
             gc.collect()
 
-        update_job(job_id, progress=90, current_scene="Burning 3-Word Karaoke Captions & Mastering Audio...")
+        update_job(job_id, progress=90, current_scene="Burning Crisp Captions & Mastering Audio...")
 
         ass_file = os.path.join(work_dir, "captions.ass")
-        generate_ass_subtitle_file(ass_file, render_scenes, out_w, out_h, mood, voice_mode)
+        generate_ass_subtitle_file(ass_file, render_scenes, out_w, out_h, mood)
 
         v_list = os.path.join(work_dir, "v_list.txt")
         with open(v_list, "w", encoding="utf-8") as vf:
@@ -856,14 +904,10 @@ def run_final_render(job_id: str, session_id: str):
             render_scenes, mood, sfx_bgm_wav, custom_bgm_path=custom_bgm_path, work_dir=work_dir
         )
 
-        # Safety check: guarantee sfx_bgm.wav exists before final encode
         if not os.path.exists(sfx_bgm_wav):
             total_v_dur = NexoraRomanceAudioEngine.probe_dur(joined_v) or 30.0
             subprocess.run(
-                [
-                    "ffmpeg", "-y", "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=mono:d={total_v_dur:.3f}",
-                    sfx_bgm_wav,
-                ],
+                ["ffmpeg", "-y", "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=mono:d={total_v_dur:.3f}", sfx_bgm_wav],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
@@ -921,8 +965,34 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 7. REST API ENDPOINTS (100% READY SCENES + OPTIONAL CUSTOM MP4 UPLOAD)
+# 7. REST API ENDPOINTS (GOOGLE FLOW PROMPTS + AI AUTO-SCENES + BATCH UPLOAD)
 # ==============================================================================
+def save_uploaded_media(file_storage, sess_dir: str, idx: int) -> Tuple[str, str, str]:
+    ext = os.path.splitext(file_storage.filename or "")[1].lower()
+    uid = uuid.uuid4().hex[:6]
+    if ext in VIDEO_EXTS:
+        vname = f"vid_{idx:03d}_{uid}{ext}"
+        vpath = os.path.join(sess_dir, vname)
+        file_storage.save(vpath)
+        tname = f"thumb_{idx:03d}_{uid}.jpg"
+        tpath = os.path.join(sess_dir, tname)
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", vpath, "-vframes", "1", "-vf", "scale=480:-1", tpath],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        if not os.path.exists(tpath):
+            Image.new("RGB", (480, 270), (15, 23, 42)).save(tpath)
+        return "video", vname, tname
+
+    iname = f"img_{idx:03d}_{uid}.jpg"
+    ipath = os.path.join(sess_dir, iname)
+    with Image.open(file_storage.stream) as raw_im:
+        im = raw_im.convert("RGB")
+        im.thumbnail((1280, 1280), Image.Resampling.BILINEAR)
+        im.save(ipath, format="JPEG", quality=88)
+    return "image", iname, iname
+
+
 @app.route("/")
 def index():
     return send_file(os.path.join(BASE_DIR, "index.html"))
@@ -930,7 +1000,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v20": True})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v21": True})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -963,11 +1033,12 @@ def api_bgm_upload():
 def api_prepare():
     data = request.get_json(silent=True) or {}
     mood = str(data.get("genre", "deep_romance")).lower()
+    aspect = str(data.get("aspect_ratio", "16:9"))
     voice_mode = str(data.get("voice_mode", "builtin_multi"))
 
-    scenes = parse_user_script(str(data.get("custom_script", "")), mood)
+    scenes = parse_user_script(str(data.get("custom_script", "")), mood, aspect)
     if not scenes:
-        return jsonify({"error": "Paste a valid 3-column script first (Speaker | Scene Context | Spoken Hindi)."}), 400
+        return jsonify({"error": "Paste a valid 3-column script first (Speaker | Visual Prompt | Spoken Hindi)."}), 400
 
     session_id = f"ses_{uuid.uuid4().hex[:10]}"
     os.makedirs(os.path.join(SESSIONS_DIR, session_id), exist_ok=True)
@@ -978,7 +1049,7 @@ def api_prepare():
             "session_id": session_id,
             "topic": str(data.get("topic", "NEXORA Love Story")).strip() or "NEXORA Love Story",
             "genre": mood,
-            "aspect_ratio": str(data.get("aspect_ratio", "16:9")),
+            "aspect_ratio": aspect,
             "voice_mode": voice_mode,
             "auto_hook": bool(data.get("auto_hook", True)),
             "uploaded_audio_id": str(data.get("uploaded_audio_id", "")),
@@ -990,24 +1061,22 @@ def api_prepare():
     return jsonify({"ok": True, "session_id": session_id, "elevenlabs_script": el_script})
 
 
-@app.route("/api/session/<session_id>/autofill_videos", methods=["POST"])
-def api_autofill_videos(session_id: str):
-    return jsonify({"ok": True, "filled": 0})
-
-
-@app.route("/api/session/<session_id>/next_clip/<int:idx>", methods=["POST"])
-def api_next_clip(session_id: str, idx: int):
+@app.route("/api/session/<session_id>/regenerate/<int:idx>", methods=["POST"])
+def api_regenerate_ai_scene(session_id: str, idx: int):
     if not is_safe_id(session_id):
         return jsonify({"error": "Invalid session."}), 400
     with LOCK:
         sess = SESSIONS.get(session_id)
         if not sess or idx < 0 or idx >= len(sess["scenes"]):
             return jsonify({"error": "Scene not found."}), 404
-        cur = sess["scenes"][idx].get("anim_type", ATMOSPHERE_THEMES[0])
-        nxt = ATMOSPHERE_THEMES[(ATMOSPHERE_THEMES.index(cur) + 1) % len(ATMOSPHERE_THEMES)] if cur in ATMOSPHERE_THEMES else ATMOSPHERE_THEMES[0]
-        sess["scenes"][idx]["anim_type"] = nxt
-        sess["scenes"][idx]["media_type"] = "synth_cinema"
-        sess["scenes"][idx]["media_ready"] = True
+        aspect = sess.get("aspect_ratio", "16:9")
+        out_w, out_h = (576, 1024) if aspect == "9:16" else (1024, 576)
+        new_seed = int(time.time() * 100) % 999999 + idx
+        vp = sess["scenes"][idx]["visual_prompt"]
+        sess["scenes"][idx]["media_type"] = "ai_image"
+        sess["scenes"][idx]["remote_img_url"] = build_pollinations_url(vp, out_w, out_h, new_seed)
+        sess["scenes"][idx]["media_file"] = ""
+        sess["scenes"][idx]["thumb_file"] = ""
     return jsonify({"ok": True})
 
 
@@ -1034,24 +1103,11 @@ def api_session_thumb(session_id: str, idx: int):
     fpath = os.path.join(SESSIONS_DIR, session_id, sc.get("thumb_file", ""))
     if sc.get("thumb_file") and os.path.exists(fpath):
         return send_file(fpath)
-
-    theme = sc.get("anim_type", "Midnight_Rain_Bokeh")
-    colors = {
-        "Midnight_Rain_Bokeh": (15, 23, 58),
-        "Candlelight_Velvet_Glow": (88, 28, 18),
-        "Crimson_Passion_Pulse": (95, 16, 42),
-        "Golden_Sunrise_Aura": (120, 53, 15),
-        "Moonlit_Mist_Drift": (14, 58, 78),
-        "Deep_Violet_Dream": (59, 18, 92),
-    }
-    rgb = colors.get(theme, (30, 16, 53))
-    tmp_p = os.path.join(SESSIONS_DIR, session_id, f"preview_{idx}.jpg")
-    Image.new("RGB", (480, 270), rgb).save(tmp_p, format="JPEG", quality=85)
-    return send_file(tmp_p)
+    return jsonify({"error": "Remote preview"}), 404
 
 
 @app.route("/api/session/<session_id>/replace/<int:idx>", methods=["POST"])
-def api_replace_video(session_id: str, idx: int):
+def api_replace_media(session_id: str, idx: int):
     if not is_safe_id(session_id):
         return jsonify({"error": "Invalid session."}), 400
     with LOCK:
@@ -1061,33 +1117,67 @@ def api_replace_video(session_id: str, idx: int):
 
     f = request.files.get("media")
     if not f or not f.filename:
-        return jsonify({"error": "Select a video file (.mp4/.mov) first."}), 400
-
-    ext = os.path.splitext(f.filename)[1].lower()
-    if ext not in VIDEO_EXTS:
-        return jsonify({"error": "Only motion video files (.mp4, .mov, .webm) are supported!"}), 400
+        return jsonify({"error": "Select a Google Flow video (.mp4) or image file first."}), 400
 
     sess_dir = os.path.join(SESSIONS_DIR, session_id)
     os.makedirs(sess_dir, exist_ok=True)
-    uid = uuid.uuid4().hex[:6]
-    vname = f"vid_{idx:03d}_{uid}{ext}"
-    vpath = os.path.join(sess_dir, vname)
-    f.save(vpath)
-
-    tname = f"thumb_{idx:03d}_{uid}.jpg"
-    tpath = os.path.join(sess_dir, tname)
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", vpath, "-vframes", "1", "-vf", "scale=480:-1", tpath],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    if not os.path.exists(tpath):
-        Image.new("RGB", (480, 270), (15, 23, 42)).save(tpath)
+    mtype, mfile, tfile = save_uploaded_media(f, sess_dir, idx)
 
     with LOCK:
         sess["scenes"][idx]["media_ready"] = True
-        sess["scenes"][idx]["media_type"] = "video"
-        sess["scenes"][idx]["media_file"] = vname
-        sess["scenes"][idx]["thumb_file"] = tname
+        sess["scenes"][idx]["media_type"] = mtype
+        sess["scenes"][idx]["media_file"] = mfile
+        sess["scenes"][idx]["thumb_file"] = tfile
+    return jsonify({"ok": True})
+
+
+@app.route("/api/session/<session_id>/batch_upload", methods=["POST"])
+def api_batch_upload(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess:
+        return jsonify({"error": "Session expired."}), 404
+
+    files = request.files.getlist("media")
+    if not files:
+        return jsonify({"error": "No files selected."}), 400
+
+    sess_dir = os.path.join(SESSIONS_DIR, session_id)
+    os.makedirs(sess_dir, exist_ok=True)
+    total_scenes = len(sess["scenes"])
+
+    explicit_map: Dict[int, Any] = {}
+    unmapped_files: List[Any] = []
+    for f in files:
+        if not f or not f.filename:
+            continue
+        stem = os.path.splitext(f.filename)[0]
+        m = re.match(r"^(?:scene[_-]?)?(\d{1,3})$", stem.strip(), re.IGNORECASE)
+        if m:
+            num = int(m.group(1))
+            if 1 <= num <= total_scenes and num - 1 not in explicit_map:
+                explicit_map[num - 1] = f
+                continue
+        unmapped_files.append(f)
+
+    unmapped_files.sort(key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", x.filename or "")])
+
+    u_ptr = 0
+    for idx in range(total_scenes):
+        target_f = explicit_map.get(idx)
+        if target_f is None and u_ptr < len(unmapped_files):
+            target_f = unmapped_files[u_ptr]
+            u_ptr += 1
+        if target_f is not None:
+            mtype, mfile, tfile = save_uploaded_media(target_f, sess_dir, idx)
+            with LOCK:
+                sess["scenes"][idx]["media_ready"] = True
+                sess["scenes"][idx]["media_type"] = mtype
+                sess["scenes"][idx]["media_file"] = mfile
+                sess["scenes"][idx]["thumb_file"] = tfile
+
     return jsonify({"ok": True})
 
 
@@ -1103,7 +1193,7 @@ def api_swap_scenes(session_id: str):
         if not sess or not (0 <= a < len(sess["scenes"]) and 0 <= b < len(sess["scenes"])):
             return jsonify({"error": "Invalid scene indices."}), 400
         sa, sb = sess["scenes"][a], sess["scenes"][b]
-        for k in ("media_ready", "media_type", "media_file", "thumb_file", "anim_type"):
+        for k in ("media_ready", "media_type", "media_file", "thumb_file", "remote_img_url"):
             sa[k], sb[k] = sb[k], sa[k]
     return jsonify({"ok": True})
 
@@ -1117,8 +1207,8 @@ def api_change_anim(session_id: str):
     anim = str(data.get("anim", ""))
     with LOCK:
         sess = SESSIONS.get(session_id)
-        if not sess or not (0 <= idx < len(sess["scenes"])):
-            return jsonify({"error": "Invalid scene."}), 400
+        if not sess or not (0 <= idx < len(sess["scenes"])) or anim not in MOTION_MODES:
+            return jsonify({"error": "Invalid motion."}), 400
         sess["scenes"][idx]["anim_type"] = anim
     return jsonify({"ok": True})
 
@@ -1152,7 +1242,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 3,
-            "current_scene": "Starting Zero-Fail Cinema Render...",
+            "current_scene": "Starting APEX v21 Cinema Render...",
             "error": None,
         }
 
