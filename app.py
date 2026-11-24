@@ -22,7 +22,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v20 — ZERO-DEPENDENCY BULLETPROOF CINEMA ENGINE
+# 1. NEXORA ROMANCE APEX v20.1 — ZERO-DEPENDENCY BULLETPROOF CINEMA ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -373,7 +373,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 # ==============================================================================
-# 5. LATE-NIGHT INTIMATE VOICE & ROMANTIC SOUNDSCAPE ENGINE
+# 5. LATE-NIGHT INTIMATE VOICE & ROMANTIC SOUNDSCAPE ENGINE (FIXED FILE OUTPUT)
 # ==============================================================================
 class NexoraRomanceAudioEngine:
     @staticmethod
@@ -533,9 +533,11 @@ class NexoraRomanceAudioEngine:
         work_dir: str = "",
     ):
         rate = 22050
-        sfx_only_wav = os.path.join(work_dir, "sfx_only.wav") if work_dir else out_wav
+        has_custom = bool(custom_bgm_path and os.path.exists(custom_bgm_path))
+        # Always write directly to out_wav when no custom BGM is uploaded!
+        target_wav = os.path.join(work_dir, "sfx_only.wav") if (has_custom and work_dir) else out_wav
 
-        with wave.open(sfx_only_wav, "wb") as wf:
+        with wave.open(target_wav, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
             wf.setframerate(rate)
@@ -548,7 +550,7 @@ class NexoraRomanceAudioEngine:
                 local_p = np.linspace(0.0, 1.0, n, endpoint=False, dtype=np.float32)
                 swell = 1.0 + 0.42 * (np.exp(-local_p * 5.0) + np.exp(-(1.0 - local_p) * 5.0))
 
-                if custom_bgm_path and os.path.exists(custom_bgm_path):
+                if has_custom:
                     bgm = np.zeros(n, dtype=np.float32)
                 elif mood == "sad_heartbreak":
                     pad = (
@@ -582,12 +584,12 @@ class NexoraRomanceAudioEngine:
                 cur_t += dur
                 gc.collect()
 
-        if custom_bgm_path and os.path.exists(custom_bgm_path):
+        if has_custom:
             subprocess.run(
                 [
                     "ffmpeg", "-y",
                     "-stream_loop", "-1", "-i", custom_bgm_path,
-                    "-i", sfx_only_wav,
+                    "-i", target_wav,
                     "-filter_complex", "[0:a]volume=0.30[bg];[1:a]volume=1.0[sx];[bg][sx]amix=inputs=2:duration=shortest[out]",
                     "-map", "[out]", "-ar", "22050", "-ac", "1", out_wav,
                 ],
@@ -636,10 +638,6 @@ def render_user_uploaded_clip(src_video: str, dst_mp4: str, dur_sec: float, out_
 
 
 def render_procedural_cinema_clip(theme: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int, seed_idx: int):
-    """
-    Generates lush, animated atmospheric cinema footage natively via FFmpeg (zero external downloads,
-    zero rate limits, zero disk bloat, 100% immune to network errors).
-    """
     fade_out_st = max(0.1, dur_sec - 0.20)
     spd = 0.08 + (seed_idx % 5) * 0.02
 
@@ -674,7 +672,6 @@ def render_procedural_cinema_clip(theme: str, dst_mp4: str, dur_sec: float, out_
         capture_output=True, text=True,
     )
     if res.returncode != 0:
-        # Ultra-safe color fallback if gradients filter is unavailable on older FFmpeg builds
         subprocess.run(
             [
                 "ffmpeg", "-y",
@@ -859,6 +856,17 @@ def run_final_render(job_id: str, session_id: str):
             render_scenes, mood, sfx_bgm_wav, custom_bgm_path=custom_bgm_path, work_dir=work_dir
         )
 
+        # Safety check: guarantee sfx_bgm.wav exists before final encode
+        if not os.path.exists(sfx_bgm_wav):
+            total_v_dur = NexoraRomanceAudioEngine.probe_dur(joined_v) or 30.0
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=mono:d={total_v_dur:.3f}",
+                    sfx_bgm_wav,
+                ],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+            )
+
         slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_ROMANCE"
         out_name = f"NEXORA_LOVE_{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
@@ -1027,7 +1035,6 @@ def api_session_thumb(session_id: str, idx: int):
     if sc.get("thumb_file") and os.path.exists(fpath):
         return send_file(fpath)
 
-    # Generate instant atmospheric preview card matching the scene theme
     theme = sc.get("anim_type", "Midnight_Rain_Bokeh")
     colors = {
         "Midnight_Rain_Bokeh": (15, 23, 58),
