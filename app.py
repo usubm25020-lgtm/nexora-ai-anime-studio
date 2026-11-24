@@ -4,7 +4,6 @@ import gc
 import time
 import uuid
 import wave
-import random
 import shutil
 import asyncio
 import tempfile
@@ -139,7 +138,7 @@ def devanagari_to_hinglish(text: str) -> str:
 
 
 # ==============================================================================
-# 3. MULTI-SOURCE UNIQUE HD VIDEO POOL (ZERO REPEATS, ZERO API KEYS)
+# 3. DUAL-ENGINE OPEN VIDEO POOL (ARCHIVE.ORG + WIKIMEDIA + GUARANTEED FALLBACK)
 # ==============================================================================
 ANIM_MODES = [
     "Slow_Zoom_In",
@@ -167,6 +166,17 @@ DIVERSE_ROMANTIC_QUERIES = [
     "vintage clock ticking",
     "autumn leaves wind slow motion",
     "moonlight clouds night sky",
+]
+
+VERIFIED_PUBLIC_CLIPS: List[Dict[str, str]] = [
+    {"id": "pub_01", "url": "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.480p.vp9.webm", "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/480px-Big_buck_bunny_poster_big.jpg"},
+    {"id": "pub_02", "url": "https://archive.org/download/Rain_201508/Rain.mp4", "thumb": "https://archive.org/services/img/Rain_201508"},
+    {"id": "pub_03", "url": "https://archive.org/download/Candle_201508/Candle.mp4", "thumb": "https://archive.org/services/img/Candle_201508"},
+    {"id": "pub_04", "url": "https://archive.org/download/Night_Traffic_201508/Night_Traffic.mp4", "thumb": "https://archive.org/services/img/Night_Traffic_201508"},
+    {"id": "pub_05", "url": "https://archive.org/download/Sunset_201508/Sunset.mp4", "thumb": "https://archive.org/services/img/Sunset_201508"},
+    {"id": "pub_06", "url": "https://archive.org/download/Clock_201508/Clock.mp4", "thumb": "https://archive.org/services/img/Clock_201508"},
+    {"id": "pub_07", "url": "https://archive.org/download/Fog_201508/Fog.mp4", "thumb": "https://archive.org/services/img/Fog_201508"},
+    {"id": "pub_08", "url": "https://archive.org/download/Sunrise_201508/Sunrise.mp4", "thumb": "https://archive.org/services/img/Sunrise_201508"},
 ]
 
 
@@ -202,6 +212,48 @@ def map_scene_to_smart_video_query(visual_prompt: str, hinglish_caption: str, id
 _VIDEO_SEARCH_CACHE: Dict[str, List[Dict[str, str]]] = {}
 
 
+def _fetch_archive_org_videos(query: str) -> List[Dict[str, str]]:
+    out: List[Dict[str, str]] = []
+    try:
+        resp = requests.get(
+            "https://archive.org/advancedsearch.php",
+            headers=HTTP_HEADERS,
+            params={
+                "q": f"({query}) AND mediatype:(movies) AND format:(MPEG4)",
+                "fl[]": ["identifier", "title"],
+                "rows": "12",
+                "page": "1",
+                "output": "json",
+            },
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            docs = resp.json().get("response", {}).get("docs", [])
+            for d in docs:
+                ident = str(d.get("identifier") or "").strip()
+                if not ident:
+                    continue
+                meta = requests.get(f"https://archive.org/metadata/{ident}/files", headers=HTTP_HEADERS, timeout=6)
+                if meta.status_code != 200:
+                    continue
+                files = meta.json().get("result", [])
+                for f in files:
+                    fname = str(f.get("name") or "")
+                    sz = int(f.get("size") or 0)
+                    if fname.lower().endswith(".mp4") and 150_000 < sz < 18_000_000:
+                        out.append({
+                            "id": f"ia_{ident}",
+                            "url": f"https://archive.org/download/{ident}/{fname}",
+                            "thumb": f"https://archive.org/services/img/{ident}",
+                        })
+                        break
+                if len(out) >= 6:
+                    break
+    except Exception:
+        pass
+    return out
+
+
 def _fetch_wikimedia_videos(query: str) -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
     try:
@@ -212,14 +264,14 @@ def _fetch_wikimedia_videos(query: str) -> List[Dict[str, str]]:
                 "action": "query",
                 "format": "json",
                 "generator": "search",
-                "gsrsearch": f"{query} filetype:video",
+                "gsrsearch": f"{query} webm OR mp4",
                 "gsrnamespace": "6",
-                "gsrlimit": "25",
+                "gsrlimit": "20",
                 "prop": "imageinfo",
                 "iiprop": "url|size|mime",
                 "iiurlwidth": "640",
             },
-            timeout=9,
+            timeout=8,
         )
         if resp.status_code == 200:
             pages = resp.json().get("query", {}).get("pages", {})
@@ -227,9 +279,8 @@ def _fetch_wikimedia_videos(query: str) -> List[Dict[str, str]]:
                 iinfo = (pdata.get("imageinfo") or [{}])[0]
                 mime = str(iinfo.get("mime") or "")
                 v_url = str(iinfo.get("url") or "")
-                t_url = str(iinfo.get("thumburl") or "")
+                t_url = str(iinfo.get("thumburl") or "") or v_url
                 size_b = int(iinfo.get("size") or 0)
-                # Strict size limit (< 16MB) for ultra-fast download and zero disk bloat
                 if mime.startswith("video/") and v_url and 80_000 < size_b < 16_000_000:
                     out.append({
                         "id": f"wm_{pdata.get('pageid')}",
@@ -246,11 +297,12 @@ def search_unique_open_videos(query: str, backup_idx: int = 0) -> List[Dict[str,
         return _VIDEO_SEARCH_CACHE[query]
 
     results = _fetch_wikimedia_videos(query)
-    if len(results) < 5:
+    if len(results) < 4:
+        results.extend(_fetch_archive_org_videos(query))
+    if len(results) < 4:
         alt_q = DIVERSE_ROMANTIC_QUERIES[backup_idx % len(DIVERSE_ROMANTIC_QUERIES)]
         results.extend(_fetch_wikimedia_videos(alt_q))
 
-    # Deduplicate by ID
     seen = set()
     uniq: List[Dict[str, str]] = []
     for item in results:
@@ -258,16 +310,17 @@ def search_unique_open_videos(query: str, backup_idx: int = 0) -> List[Dict[str,
             seen.add(item["id"])
             uniq.append(item)
 
-    if uniq:
-        _VIDEO_SEARCH_CACHE[query] = uniq
+    if not uniq:
+        uniq = list(VERIFIED_PUBLIC_CLIPS)
+
+    _VIDEO_SEARCH_CACHE[query] = uniq
     return uniq
 
 
 def pick_unique_video_for_scene(query: str, scene_idx: int, used_ids: set, skip_index: int = 0) -> Optional[Dict[str, str]]:
-    # Try primary query first, then rotate across diverse queries so NO clip repeats 6-7 times!
     candidate_queries = [query] + [
         DIVERSE_ROMANTIC_QUERIES[(scene_idx + k) % len(DIVERSE_ROMANTIC_QUERIES)]
-        for k in range(6)
+        for k in range(5)
     ]
 
     pool: List[Dict[str, str]] = []
@@ -277,11 +330,11 @@ def pick_unique_video_for_scene(query: str, scene_idx: int, used_ids: set, skip_
             if v["id"] not in seen_local:
                 seen_local.add(v["id"])
                 pool.append(v)
-        if len(pool) >= 28:
+        if len(pool) >= 16:
             break
 
     if not pool:
-        return None
+        pool = list(VERIFIED_PUBLIC_CLIPS)
 
     if skip_index > 0:
         return pool[skip_index % len(pool)]
@@ -420,8 +473,6 @@ def generate_ass_subtitle_file(
     mood: str,
     voice_mode: str,
 ):
-    """Generates ultra-crisp 3-word karaoke captions & climax hook badges in native ASS format."""
-    # ASS colors are &HBBGGRR&
     accent_bgr = "&H00B472F4&" if mood == "deep_romance" else ("&H00F8BD38&" if mood == "sad_heartbreak" else "&H008571FB&")
     font_sz = 34 if out_w > out_h else 30
     hud_sz = 18 if out_w > out_h else 16
@@ -454,7 +505,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         is_teaser = bool(sc.get("is_teaser", False))
         ov_p = st_abs / total_dur
 
-        # Top HUD Badge
         if is_teaser:
             ts_lbl = sc.get("climax_ts_label", "01:45")
             events.append(
@@ -466,7 +516,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs)},StageStyle,,0,0,0,,{stage}"
             )
 
-        # 3-Word Punchy Highlighted Captions
         timings = build_word_timings(sc.get("auto_caption", ""), dur)
         sp_prefix = ""
         if voice_mode == "builtin_multi":
@@ -498,7 +547,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         cur_t = en_abs
 
-    # Cliffhanger End-Card on last 2.8 seconds
     if total_dur > 6.0:
         end_s = max(0.0, total_dur - 2.8)
         events.append(
@@ -756,10 +804,6 @@ def download_remote_broll_to_temp(url: str, out_path: str):
 
 
 def transcode_clip_native_ffmpeg(src_video: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
-    """
-    Transcodes, scales, loops, applies warm romantic color grading, vignette & subtle 0.25s fade
-    directly in native C-speed FFmpeg—15x faster and uses < 40MB RAM/Disk!
-    """
     fade_out_st = max(0.1, dur_sec - 0.22)
     vf = (
         f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
@@ -786,7 +830,6 @@ def transcode_clip_native_ffmpeg(src_video: str, dst_mp4: str, dur_sec: float, o
 
 
 def create_fallback_atmospheric_clip(dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
-    """Guarantees render never fails even if a remote URL is temporarily unreachable."""
     subprocess.run(
         [
             "ffmpeg", "-y",
@@ -827,7 +870,6 @@ def run_final_render(job_id: str, session_id: str):
 
         out_w, out_h = (540, 960) if aspect == "9:16" else (960, 540)
 
-        # 1. Dub Studio Voice
         master_voice = os.path.join(work_dir, "master_voice.wav")
         voice_chunks: List[str] = []
 
@@ -878,7 +920,6 @@ def run_final_render(job_id: str, session_id: str):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
-        # 2. Prepend 0:00 Climax Hook Teaser
         render_scenes: List[Dict[str, Any]] = []
         if auto_hook and len(raw_scenes) >= 4:
             climax_idx = min(len(raw_scenes) - 2, max(2, int(len(raw_scenes) * 0.75)))
@@ -917,7 +958,6 @@ def run_final_render(job_id: str, session_id: str):
         for s in raw_scenes:
             render_scenes.append(dict(s))
 
-        # 3. Native C-Speed Video Clip Processing (Zero JPG Extraction, Zero Disk Bloat)
         total_sc = len(render_scenes)
         video_chunks: List[str] = []
 
@@ -932,7 +972,7 @@ def run_final_render(job_id: str, session_id: str):
 
             actual_dur = float(sc.get("duration_sec", 4.0))
             v_chunk = os.path.join(work_dir, f"vc_{idx:03d}.mp4")
-            temp_dl_vid = os.path.join(work_dir, f"dl_{idx:03d}.webm")
+            temp_dl_vid = os.path.join(work_dir, f"dl_{idx:03d}.mp4")
 
             try:
                 if sc.get("media_type") == "remote_video":
@@ -942,7 +982,6 @@ def run_final_render(job_id: str, session_id: str):
                     med_path = os.path.join(sess_dir, sc["media_file"])
                     transcode_clip_native_ffmpeg(med_path, v_chunk, actual_dur, out_w, out_h)
             except Exception:
-                # Auto-recover seamlessly if any single remote clip fails
                 create_fallback_atmospheric_clip(v_chunk, actual_dur, out_w, out_h)
             finally:
                 if os.path.exists(temp_dl_vid):
@@ -951,7 +990,6 @@ def run_final_render(job_id: str, session_id: str):
             video_chunks.append(v_chunk)
             gc.collect()
 
-        # 4. Generate Native ASS Subtitles + Soundscape + Final Single-Pass Master
         update_job(job_id, progress=90, current_scene="Burning 3-Word Karaoke Captions & Mastering Audio...")
 
         ass_file = os.path.join(work_dir, "captions.ass")
@@ -968,7 +1006,6 @@ def run_final_render(job_id: str, session_id: str):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
         )
 
-        # Immediately purge individual video chunks to free disk space before final encode!
         for vc in video_chunks:
             if os.path.exists(vc):
                 os.remove(vc)
@@ -989,7 +1026,6 @@ def run_final_render(job_id: str, session_id: str):
         out_name = f"NEXORA_LOVE_{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
-        # Escape path for FFmpeg ass filter
         esc_ass = ass_file.replace("\\", "/").replace(":", "\\:")
         filter_complex = (
             f"[0:v]ass='{esc_ass}'[vout];"
@@ -1092,7 +1128,6 @@ def api_prepare():
     os.makedirs(os.path.join(SESSIONS_DIR, session_id), exist_ok=True)
     el_script = build_elevenlabs_script(scenes, voice_mode)
 
-    # Strictly pick 24 DIFFERENT video clips across diverse romantic/night themes!
     used_ids = set()
     for idx, sc in enumerate(scenes):
         vid = pick_unique_video_for_scene(sc["broll_query"], scene_idx=idx, used_ids=used_ids, skip_index=0)
