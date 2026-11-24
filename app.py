@@ -11,7 +11,6 @@ import subprocess
 import threading
 from typing import Dict, List, Any, Optional, Tuple
 
-import requests
 import numpy as np
 from PIL import Image
 from flask import Flask, request, jsonify, send_file
@@ -23,7 +22,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v19 — 90-SECOND NATIVE FFMPEG MOTION VIDEO ENGINE
+# 1. NEXORA ROMANCE APEX v20 — ZERO-DEPENDENCY BULLETPROOF CINEMA ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -47,7 +46,6 @@ HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
-HTTP_HEADERS = {"User-Agent": "NexoraStudioApex/19.0 (Contact: admin@nexorastudio.app)"}
 
 
 def is_safe_id(val: str) -> bool:
@@ -138,212 +136,31 @@ def devanagari_to_hinglish(text: str) -> str:
 
 
 # ==============================================================================
-# 3. DUAL-ENGINE OPEN VIDEO POOL (ARCHIVE.ORG + WIKIMEDIA + GUARANTEED FALLBACK)
+# 3. PROCEDURAL CINEMA ATMOSPHERE ENGINE (100% SELF-CONTAINED MOTION SCENES)
 # ==============================================================================
-ANIM_MODES = [
-    "Slow_Zoom_In",
-    "Cinema_Pan_Right",
-    "Slow_Zoom_Out",
-    "Cinema_Pan_Left",
-    "Heartbeat_Zoom",
-    "Drift_Push_In",
-]
-
-DIVERSE_ROMANTIC_QUERIES = [
-    "rain night city lights",
-    "romantic couple sunset beach",
-    "candlelight dinner dark",
-    "night traffic bokeh cars",
-    "raindrops glass window",
-    "couple walking sunset",
-    "city skyline night lights",
-    "fireplace warm glow night",
-    "misty forest morning light",
-    "ocean waves sunset golden",
-    "street lights fog night",
-    "coffee cup steam morning",
-    "starry night sky timelapse",
-    "vintage clock ticking",
-    "autumn leaves wind slow motion",
-    "moonlight clouds night sky",
-]
-
-VERIFIED_PUBLIC_CLIPS: List[Dict[str, str]] = [
-    {"id": "pub_01", "url": "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.480p.vp9.webm", "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/480px-Big_buck_bunny_poster_big.jpg"},
-    {"id": "pub_02", "url": "https://archive.org/download/Rain_201508/Rain.mp4", "thumb": "https://archive.org/services/img/Rain_201508"},
-    {"id": "pub_03", "url": "https://archive.org/download/Candle_201508/Candle.mp4", "thumb": "https://archive.org/services/img/Candle_201508"},
-    {"id": "pub_04", "url": "https://archive.org/download/Night_Traffic_201508/Night_Traffic.mp4", "thumb": "https://archive.org/services/img/Night_Traffic_201508"},
-    {"id": "pub_05", "url": "https://archive.org/download/Sunset_201508/Sunset.mp4", "thumb": "https://archive.org/services/img/Sunset_201508"},
-    {"id": "pub_06", "url": "https://archive.org/download/Clock_201508/Clock.mp4", "thumb": "https://archive.org/services/img/Clock_201508"},
-    {"id": "pub_07", "url": "https://archive.org/download/Fog_201508/Fog.mp4", "thumb": "https://archive.org/services/img/Fog_201508"},
-    {"id": "pub_08", "url": "https://archive.org/download/Sunrise_201508/Sunrise.mp4", "thumb": "https://archive.org/services/img/Sunrise_201508"},
+ATMOSPHERE_THEMES = [
+    "Midnight_Rain_Bokeh",
+    "Candlelight_Velvet_Glow",
+    "Crimson_Passion_Pulse",
+    "Moonlit_Mist_Drift",
+    "Golden_Sunrise_Aura",
+    "Deep_Violet_Dream",
 ]
 
 
-def map_scene_to_smart_video_query(visual_prompt: str, hinglish_caption: str, idx: int) -> str:
+def detect_atmosphere_theme(visual_prompt: str, hinglish_caption: str, idx: int) -> str:
     blob = f"{visual_prompt} {hinglish_caption}".lower()
-
-    if any(k in blob for k in ("phone", "message", "msg", "call", "screen", "ring", "mobile")):
-        return "smartphone screen night"
-    if any(k in blob for k in ("rain", "barish", "boond", "window", "khidki", "umbrella", "bheeg")):
-        return "raindrops glass window"
-    if any(k in blob for k in ("car", "gaadi", "drive", "highway", "headlight", "road", "street")):
-        return "night traffic bokeh cars"
-    if any(k in blob for k in ("cafe", "coffee", "restaurant", "table", "cup")):
-        return "coffee cup steam morning"
-    if any(k in blob for k in ("kiss", "hug", "baahon", "seene", "kareeb", "chhua", "embrace", "romantic", "love")):
-        return "romantic couple sunset beach"
-    if any(k in blob for k in ("hand", "haath", "hold", "fingers")):
-        return "couple walking sunset"
-    if any(k in blob for k in ("candle", "lamp", "bedroom", "kamre", "bed", "diya")):
-        return "candlelight dinner dark"
-    if any(k in blob for k in ("cry", "tears", "aansu", "ro ", "sad", "dard", "heartbreak", "alone")):
-        return "rain night city lights"
-    if any(k in blob for k in ("clock", "ghadi", "2:00", "2:45", "midnight", "aadhi raat", "waqt")):
-        return "vintage clock ticking"
-    if any(k in blob for k in ("shadow", "saaya", "door", "darwaza", "mystery", "raaz", "dark")):
-        return "street lights fog night"
-    if any(k in blob for k in ("sunrise", "morning", "subah", "hills", "sky", "balcony")):
-        return "ocean waves sunset golden"
-
-    return DIVERSE_ROMANTIC_QUERIES[idx % len(DIVERSE_ROMANTIC_QUERIES)]
-
-
-_VIDEO_SEARCH_CACHE: Dict[str, List[Dict[str, str]]] = {}
-
-
-def _fetch_archive_org_videos(query: str) -> List[Dict[str, str]]:
-    out: List[Dict[str, str]] = []
-    try:
-        resp = requests.get(
-            "https://archive.org/advancedsearch.php",
-            headers=HTTP_HEADERS,
-            params={
-                "q": f"({query}) AND mediatype:(movies) AND format:(MPEG4)",
-                "fl[]": ["identifier", "title"],
-                "rows": "12",
-                "page": "1",
-                "output": "json",
-            },
-            timeout=8,
-        )
-        if resp.status_code == 200:
-            docs = resp.json().get("response", {}).get("docs", [])
-            for d in docs:
-                ident = str(d.get("identifier") or "").strip()
-                if not ident:
-                    continue
-                meta = requests.get(f"https://archive.org/metadata/{ident}/files", headers=HTTP_HEADERS, timeout=6)
-                if meta.status_code != 200:
-                    continue
-                files = meta.json().get("result", [])
-                for f in files:
-                    fname = str(f.get("name") or "")
-                    sz = int(f.get("size") or 0)
-                    if fname.lower().endswith(".mp4") and 150_000 < sz < 18_000_000:
-                        out.append({
-                            "id": f"ia_{ident}",
-                            "url": f"https://archive.org/download/{ident}/{fname}",
-                            "thumb": f"https://archive.org/services/img/{ident}",
-                        })
-                        break
-                if len(out) >= 6:
-                    break
-    except Exception:
-        pass
-    return out
-
-
-def _fetch_wikimedia_videos(query: str) -> List[Dict[str, str]]:
-    out: List[Dict[str, str]] = []
-    try:
-        resp = requests.get(
-            "https://commons.wikimedia.org/w/api.php",
-            headers=HTTP_HEADERS,
-            params={
-                "action": "query",
-                "format": "json",
-                "generator": "search",
-                "gsrsearch": f"{query} webm OR mp4",
-                "gsrnamespace": "6",
-                "gsrlimit": "20",
-                "prop": "imageinfo",
-                "iiprop": "url|size|mime",
-                "iiurlwidth": "640",
-            },
-            timeout=8,
-        )
-        if resp.status_code == 200:
-            pages = resp.json().get("query", {}).get("pages", {})
-            for _, pdata in pages.items():
-                iinfo = (pdata.get("imageinfo") or [{}])[0]
-                mime = str(iinfo.get("mime") or "")
-                v_url = str(iinfo.get("url") or "")
-                t_url = str(iinfo.get("thumburl") or "") or v_url
-                size_b = int(iinfo.get("size") or 0)
-                if mime.startswith("video/") and v_url and 80_000 < size_b < 16_000_000:
-                    out.append({
-                        "id": f"wm_{pdata.get('pageid')}",
-                        "url": v_url,
-                        "thumb": t_url,
-                    })
-    except Exception:
-        pass
-    return out
-
-
-def search_unique_open_videos(query: str, backup_idx: int = 0) -> List[Dict[str, str]]:
-    if query in _VIDEO_SEARCH_CACHE and _VIDEO_SEARCH_CACHE[query]:
-        return _VIDEO_SEARCH_CACHE[query]
-
-    results = _fetch_wikimedia_videos(query)
-    if len(results) < 4:
-        results.extend(_fetch_archive_org_videos(query))
-    if len(results) < 4:
-        alt_q = DIVERSE_ROMANTIC_QUERIES[backup_idx % len(DIVERSE_ROMANTIC_QUERIES)]
-        results.extend(_fetch_wikimedia_videos(alt_q))
-
-    seen = set()
-    uniq: List[Dict[str, str]] = []
-    for item in results:
-        if item["id"] not in seen:
-            seen.add(item["id"])
-            uniq.append(item)
-
-    if not uniq:
-        uniq = list(VERIFIED_PUBLIC_CLIPS)
-
-    _VIDEO_SEARCH_CACHE[query] = uniq
-    return uniq
-
-
-def pick_unique_video_for_scene(query: str, scene_idx: int, used_ids: set, skip_index: int = 0) -> Optional[Dict[str, str]]:
-    candidate_queries = [query] + [
-        DIVERSE_ROMANTIC_QUERIES[(scene_idx + k) % len(DIVERSE_ROMANTIC_QUERIES)]
-        for k in range(5)
-    ]
-
-    pool: List[Dict[str, str]] = []
-    seen_local = set()
-    for q in candidate_queries:
-        for v in search_unique_open_videos(q, backup_idx=scene_idx):
-            if v["id"] not in seen_local:
-                seen_local.add(v["id"])
-                pool.append(v)
-        if len(pool) >= 16:
-            break
-
-    if not pool:
-        pool = list(VERIFIED_PUBLIC_CLIPS)
-
-    if skip_index > 0:
-        return pool[skip_index % len(pool)]
-
-    for v in pool:
-        if v["id"] not in used_ids:
-            return v
-
-    return pool[scene_idx % len(pool)]
+    if any(k in blob for k in ("rain", "barish", "boond", "window", "khidki", "cry", "aansu", "sad")):
+        return "Midnight_Rain_Bokeh"
+    if any(k in blob for k in ("candle", "lamp", "warm", "coffee", "kiss", "hug", "baahon", "pyaar", "love")):
+        return "Candlelight_Velvet_Glow"
+    if any(k in blob for k in ("heartbeat", "dil", "saansein", "phone", "message", "call", "raaz", "danger")):
+        return "Crimson_Passion_Pulse"
+    if any(k in blob for k in ("sunrise", "morning", "subah", "golden", "hills", "sky")):
+        return "Golden_Sunrise_Aura"
+    if any(k in blob for k in ("shadow", "night", "dark", "clock", "corridor", "fog", "mist")):
+        return "Moonlit_Mist_Drift"
+    return ATMOSPHERE_THEMES[idx % len(ATMOSPHERE_THEMES)]
 
 
 def detect_romantic_sfx(text_blob: str, mood: str) -> str:
@@ -396,23 +213,21 @@ def parse_user_script(custom_script: str, mood: str) -> List[Dict[str, Any]]:
             auto_caption = devanagari_to_hinglish(spoken_hindi)
             idx = len(scenes)
             combined_txt = f"{visual_prompt} {auto_caption}"
+            theme = detect_atmosphere_theme(visual_prompt, auto_caption, idx)
             scenes.append({
                 "index": idx,
                 "is_teaser": False,
                 "speaker": sp,
                 "emotion": detect_line_emotion(auto_caption, sp),
                 "visual_prompt": visual_prompt,
-                "broll_query": map_scene_to_smart_video_query(visual_prompt, auto_caption, idx),
-                "video_alt_index": 0,
+                "broll_query": theme.replace("_", " "),
                 "hindi_dub": spoken_hindi,
                 "auto_caption": auto_caption,
-                "anim_type": ANIM_MODES[idx % len(ANIM_MODES)],
+                "anim_type": theme,
                 "sfx_type": detect_romantic_sfx(combined_txt, mood),
-                "media_ready": False,
-                "media_type": "remote_video",
+                "media_ready": True,
+                "media_type": "synth_cinema",
                 "media_file": "",
-                "remote_video_url": "",
-                "thumb_url": "",
                 "thumb_file": "",
             })
     return scenes
@@ -431,7 +246,7 @@ def build_elevenlabs_script(scenes: List[Dict[str, Any]], voice_mode: str) -> st
 
 
 # ==============================================================================
-# 4. NATIVE ASS KARAOKE SUBTITLE & HUD GENERATOR (C-SPEED FFMPEG BURN-IN)
+# 4. NATIVE ASS KARAOKE SUBTITLE & HUD GENERATOR
 # ==============================================================================
 def build_word_timings(text: str, dur_sec: float) -> List[Tuple[str, float, float]]:
     words = str(text or "").split()
@@ -781,7 +596,7 @@ class NexoraRomanceAudioEngine:
 
 
 # ==============================================================================
-# 6. 90-SECOND NATIVE FFMPEG RENDER PIPELINE (ZERO JPG BLOAT / ZERO EXIT 254)
+# 6. SELF-CONTAINED PROCEDURAL CINEMA VIDEO GENERATOR (100% BULLETPROOF)
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
@@ -794,17 +609,8 @@ def fmt_mmss(sec: float) -> str:
     return f"{s // 60:02d}:{s % 60:02d}"
 
 
-def download_remote_broll_to_temp(url: str, out_path: str):
-    with requests.get(url, headers=HTTP_HEADERS, stream=True, timeout=20) as r:
-        r.raise_for_status()
-        with open(out_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=65536):
-                if chunk:
-                    f.write(chunk)
-
-
-def transcode_clip_native_ffmpeg(src_video: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
-    fade_out_st = max(0.1, dur_sec - 0.22)
+def render_user_uploaded_clip(src_video: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
+    fade_out_st = max(0.1, dur_sec - 0.20)
     vf = (
         f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
         f"crop={out_w}:{out_h},"
@@ -812,7 +618,7 @@ def transcode_clip_native_ffmpeg(src_video: str, dst_mp4: str, dur_sec: float, o
         "eq=contrast=1.09:brightness=-0.01:saturation=1.22,"
         "colorbalance=rs=0.04:gs=0.01:bs=-0.03,"
         "vignette=PI/5,"
-        f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
+        f"fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out_st:.3f}:d=0.18"
     )
     subprocess.run(
         [
@@ -829,17 +635,56 @@ def transcode_clip_native_ffmpeg(src_video: str, dst_mp4: str, dur_sec: float, o
     )
 
 
-def create_fallback_atmospheric_clip(dst_mp4: str, dur_sec: float, out_w: int, out_h: int):
-    subprocess.run(
+def render_procedural_cinema_clip(theme: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int, seed_idx: int):
+    """
+    Generates lush, animated atmospheric cinema footage natively via FFmpeg (zero external downloads,
+    zero rate limits, zero disk bloat, 100% immune to network errors).
+    """
+    fade_out_st = max(0.1, dur_sec - 0.20)
+    spd = 0.08 + (seed_idx % 5) * 0.02
+
+    if theme == "Midnight_Rain_Bokeh":
+        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#060d1f:c1=#1e1b4b:c2=#0f172a:speed={spd:.2f}:type=radial"
+        fx = "noise=alls=14:allf=t+u,gblur=sigma=1.2,vignette=PI/4"
+    elif theme == "Candlelight_Velvet_Glow":
+        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#2a0e18:c1=#7c2d12:c2=#1c0a10:speed={spd:.2f}:type=radial"
+        fx = "noise=alls=8:allf=t+u,gblur=sigma=2.0,vignette=PI/4.5"
+    elif theme == "Crimson_Passion_Pulse":
+        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#3b0716:c1=#881337:c2=#09050d:speed={spd + 0.04:.2f}:type=circular"
+        fx = "noise=alls=10:allf=t+u,vignette=PI/4"
+    elif theme == "Golden_Sunrise_Aura":
+        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#451a03:c1=#b45309:c2=#1e1b2e:speed={spd:.2f}:type=linear"
+        fx = "noise=alls=7:allf=t+u,gblur=sigma=1.8,vignette=PI/5"
+    elif theme == "Moonlit_Mist_Drift":
+        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#050b18:c1=#164e63:c2=#090d16:speed={spd:.2f}:type=linear"
+        fx = "noise=alls=11:allf=t+u,gblur=sigma=1.6,vignette=PI/4"
+    else:
+        src = f"gradients=s={out_w}x{out_h}:r=24:d={dur_sec:.3f}:c0=#1e1035:c1=#581c87:c2=#070510:speed={spd:.2f}:type=radial"
+        fx = "noise=alls=9:allf=t+u,gblur=sigma=1.5,vignette=PI/4.5"
+
+    vf = f"{fx},fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out_st:.3f}:d=0.18"
+    res = subprocess.run(
         [
             "ffmpeg", "-y",
-            "-f", "lavfi", "-i", f"color=c=#140c1f:s={out_w}x{out_h}:r=24:d={dur_sec:.3f}",
-            "-vf", "noise=alls=12:allf=t+u,vignette=PI/4",
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
+            "-f", "lavfi", "-i", src,
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "2",
             "-pix_fmt", "yuv420p", dst_mp4,
         ],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+        capture_output=True, text=True,
     )
+    if res.returncode != 0:
+        # Ultra-safe color fallback if gradients filter is unavailable on older FFmpeg builds
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-f", "lavfi", "-i", f"color=c=#1a0b1e:s={out_w}x{out_h}:r=24:d={dur_sec:.3f}",
+                "-vf", f"noise=alls=10:allf=t+u,vignette=PI/4,fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out_st:.3f}:d=0.18",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24",
+                "-pix_fmt", "yuv420p", dst_mp4,
+            ],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+        )
 
 
 def run_final_render(job_id: str, session_id: str):
@@ -856,9 +701,6 @@ def run_final_render(job_id: str, session_id: str):
 
         raw_scenes = [dict(s) for s in sess["scenes"]]
         sess_dir = os.path.join(SESSIONS_DIR, session_id)
-        for sc in raw_scenes:
-            if not sc.get("media_ready"):
-                raise RuntimeError(f"Scene {sc['index'] + 1} has no video clip yet. Click 'Auto-Fill Missing Clips'!")
 
         mood = sess["genre"]
         topic = sess["topic"]
@@ -900,7 +742,7 @@ def run_final_render(job_id: str, session_id: str):
                 update_job(
                     job_id,
                     status="running",
-                    progress=4 + int((idx / float(len(raw_scenes))) * 18),
+                    progress=4 + int((idx / float(len(raw_scenes))) * 22),
                     current_scene=f"Dubbing Intimate Voice ({idx + 1}/{len(raw_scenes)})...",
                 )
                 dub_wav, actual_dur = NexoraRomanceAudioEngine.dub_scene_romantic(sc, idx, voice_mode, work_dir)
@@ -966,26 +808,21 @@ def run_final_render(job_id: str, session_id: str):
             update_job(
                 job_id,
                 status="running",
-                progress=22 + int((idx / float(total_sc)) * 66),
-                current_scene=f"Fast-Rendering {lbl} (Native HD Stream)...",
+                progress=26 + int((idx / float(total_sc)) * 62),
+                current_scene=f"Rendering {lbl} [{sc['anim_type']}]...",
             )
 
             actual_dur = float(sc.get("duration_sec", 4.0))
             v_chunk = os.path.join(work_dir, f"vc_{idx:03d}.mp4")
-            temp_dl_vid = os.path.join(work_dir, f"dl_{idx:03d}.mp4")
 
-            try:
-                if sc.get("media_type") == "remote_video":
-                    download_remote_broll_to_temp(sc["remote_video_url"], temp_dl_vid)
-                    transcode_clip_native_ffmpeg(temp_dl_vid, v_chunk, actual_dur, out_w, out_h)
+            if sc.get("media_type") == "video" and sc.get("media_file"):
+                med_path = os.path.join(sess_dir, sc["media_file"])
+                if os.path.exists(med_path):
+                    render_user_uploaded_clip(med_path, v_chunk, actual_dur, out_w, out_h)
                 else:
-                    med_path = os.path.join(sess_dir, sc["media_file"])
-                    transcode_clip_native_ffmpeg(med_path, v_chunk, actual_dur, out_w, out_h)
-            except Exception:
-                create_fallback_atmospheric_clip(v_chunk, actual_dur, out_w, out_h)
-            finally:
-                if os.path.exists(temp_dl_vid):
-                    os.remove(temp_dl_vid)
+                    render_procedural_cinema_clip(sc.get("anim_type", "Midnight_Rain_Bokeh"), v_chunk, actual_dur, out_w, out_h, idx)
+            else:
+                render_procedural_cinema_clip(sc.get("anim_type", "Midnight_Rain_Bokeh"), v_chunk, actual_dur, out_w, out_h, idx)
 
             video_chunks.append(v_chunk)
             gc.collect()
@@ -1076,7 +913,7 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 7. REST API ENDPOINTS (UNIQUE MULTI-QUERY VIDEO SELECTION)
+# 7. REST API ENDPOINTS (100% READY SCENES + OPTIONAL CUSTOM MP4 UPLOAD)
 # ==============================================================================
 @app.route("/")
 def index():
@@ -1085,7 +922,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v19": True})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v20": True})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -1128,16 +965,6 @@ def api_prepare():
     os.makedirs(os.path.join(SESSIONS_DIR, session_id), exist_ok=True)
     el_script = build_elevenlabs_script(scenes, voice_mode)
 
-    used_ids = set()
-    for idx, sc in enumerate(scenes):
-        vid = pick_unique_video_for_scene(sc["broll_query"], scene_idx=idx, used_ids=used_ids, skip_index=0)
-        if vid:
-            used_ids.add(vid["id"])
-            sc["media_ready"] = True
-            sc["media_type"] = "remote_video"
-            sc["remote_video_url"] = vid["url"]
-            sc["thumb_url"] = vid["thumb"]
-
     with LOCK:
         SESSIONS[session_id] = {
             "session_id": session_id,
@@ -1157,31 +984,7 @@ def api_prepare():
 
 @app.route("/api/session/<session_id>/autofill_videos", methods=["POST"])
 def api_autofill_videos(session_id: str):
-    if not is_safe_id(session_id):
-        return jsonify({"error": "Invalid session ID."}), 400
-    with LOCK:
-        sess = SESSIONS.get(session_id)
-        if not sess:
-            return jsonify({"error": "Session expired."}), 404
-        scenes_copy = [dict(s) for s in sess["scenes"]]
-
-    used_ids = set()
-    filled = 0
-    for idx, sc in enumerate(scenes_copy):
-        if sc.get("media_ready"):
-            continue
-        vid = pick_unique_video_for_scene(sc["broll_query"], scene_idx=idx, used_ids=used_ids, skip_index=0)
-        if vid:
-            used_ids.add(vid["id"])
-            with LOCK:
-                if session_id in SESSIONS:
-                    SESSIONS[session_id]["scenes"][idx]["media_ready"] = True
-                    SESSIONS[session_id]["scenes"][idx]["media_type"] = "remote_video"
-                    SESSIONS[session_id]["scenes"][idx]["remote_video_url"] = vid["url"]
-                    SESSIONS[session_id]["scenes"][idx]["thumb_url"] = vid["thumb"]
-                    filled += 1
-
-    return jsonify({"ok": True, "filled": filled})
+    return jsonify({"ok": True, "filled": 0})
 
 
 @app.route("/api/session/<session_id>/next_clip/<int:idx>", methods=["POST"])
@@ -1192,19 +995,11 @@ def api_next_clip(session_id: str, idx: int):
         sess = SESSIONS.get(session_id)
         if not sess or idx < 0 or idx >= len(sess["scenes"]):
             return jsonify({"error": "Scene not found."}), 404
-        sc = dict(sess["scenes"][idx])
-
-    next_alt = int(sc.get("video_alt_index", 0)) + 1
-    vid = pick_unique_video_for_scene(sc["broll_query"], scene_idx=idx, used_ids=set(), skip_index=next_alt)
-    if not vid:
-        return jsonify({"error": "No more clips found."}), 404
-    with LOCK:
-        if session_id in SESSIONS:
-            SESSIONS[session_id]["scenes"][idx]["video_alt_index"] = next_alt
-            SESSIONS[session_id]["scenes"][idx]["media_ready"] = True
-            SESSIONS[session_id]["scenes"][idx]["media_type"] = "remote_video"
-            SESSIONS[session_id]["scenes"][idx]["remote_video_url"] = vid["url"]
-            SESSIONS[session_id]["scenes"][idx]["thumb_url"] = vid["thumb"]
+        cur = sess["scenes"][idx].get("anim_type", ATMOSPHERE_THEMES[0])
+        nxt = ATMOSPHERE_THEMES[(ATMOSPHERE_THEMES.index(cur) + 1) % len(ATMOSPHERE_THEMES)] if cur in ATMOSPHERE_THEMES else ATMOSPHERE_THEMES[0]
+        sess["scenes"][idx]["anim_type"] = nxt
+        sess["scenes"][idx]["media_type"] = "synth_cinema"
+        sess["scenes"][idx]["media_ready"] = True
     return jsonify({"ok": True})
 
 
@@ -1229,9 +1024,23 @@ def api_session_thumb(session_id: str, idx: int):
         return jsonify({"error": "Not found."}), 404
     sc = sess["scenes"][idx]
     fpath = os.path.join(SESSIONS_DIR, session_id, sc.get("thumb_file", ""))
-    if not sc.get("media_ready") or not os.path.exists(fpath):
-        return jsonify({"error": "Media missing."}), 404
-    return send_file(fpath)
+    if sc.get("thumb_file") and os.path.exists(fpath):
+        return send_file(fpath)
+
+    # Generate instant atmospheric preview card matching the scene theme
+    theme = sc.get("anim_type", "Midnight_Rain_Bokeh")
+    colors = {
+        "Midnight_Rain_Bokeh": (15, 23, 58),
+        "Candlelight_Velvet_Glow": (88, 28, 18),
+        "Crimson_Passion_Pulse": (95, 16, 42),
+        "Golden_Sunrise_Aura": (120, 53, 15),
+        "Moonlit_Mist_Drift": (14, 58, 78),
+        "Deep_Violet_Dream": (59, 18, 92),
+    }
+    rgb = colors.get(theme, (30, 16, 53))
+    tmp_p = os.path.join(SESSIONS_DIR, session_id, f"preview_{idx}.jpg")
+    Image.new("RGB", (480, 270), rgb).save(tmp_p, format="JPEG", quality=85)
+    return send_file(tmp_p)
 
 
 @app.route("/api/session/<session_id>/replace/<int:idx>", methods=["POST"])
@@ -1272,8 +1081,6 @@ def api_replace_video(session_id: str, idx: int):
         sess["scenes"][idx]["media_type"] = "video"
         sess["scenes"][idx]["media_file"] = vname
         sess["scenes"][idx]["thumb_file"] = tname
-        sess["scenes"][idx]["remote_video_url"] = ""
-        sess["scenes"][idx]["thumb_url"] = ""
     return jsonify({"ok": True})
 
 
@@ -1289,7 +1096,7 @@ def api_swap_scenes(session_id: str):
         if not sess or not (0 <= a < len(sess["scenes"]) and 0 <= b < len(sess["scenes"])):
             return jsonify({"error": "Invalid scene indices."}), 400
         sa, sb = sess["scenes"][a], sess["scenes"][b]
-        for k in ("media_ready", "media_type", "media_file", "thumb_file", "remote_video_url", "thumb_url", "video_alt_index"):
+        for k in ("media_ready", "media_type", "media_file", "thumb_file", "anim_type"):
             sa[k], sb[k] = sb[k], sa[k]
     return jsonify({"ok": True})
 
@@ -1303,8 +1110,8 @@ def api_change_anim(session_id: str):
     anim = str(data.get("anim", ""))
     with LOCK:
         sess = SESSIONS.get(session_id)
-        if not sess or not (0 <= idx < len(sess["scenes"])) or anim not in ANIM_MODES:
-            return jsonify({"error": "Invalid animation."}), 400
+        if not sess or not (0 <= idx < len(sess["scenes"])):
+            return jsonify({"error": "Invalid scene."}), 400
         sess["scenes"][idx]["anim_type"] = anim
     return jsonify({"ok": True})
 
@@ -1329,9 +1136,6 @@ def api_render():
         if "auto_hook" in data:
             sess["auto_hook"] = bool(data["auto_hook"])
 
-        missing = [s["index"] + 1 for s in sess["scenes"] if not s.get("media_ready")]
-        if missing:
-            return jsonify({"error": f"Scene(s) {', '.join(map(str, missing))} have no video clip yet."}), 400
         if len(ACTIVE_JOBS) >= 1:
             return jsonify({"error": "Server is currently rendering another video. Please wait."}), 429
 
@@ -1341,7 +1145,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 3,
-            "current_scene": "Starting 90-Second Fast Cinema Render...",
+            "current_scene": "Starting Zero-Fail Cinema Render...",
             "error": None,
         }
 
