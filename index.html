@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA ROMANCE APEX v21 — AI + Google Flow Hybrid Cinema Engine</title>
+  <title>NEXORA ROMANCE APEX v23 — 1-Click Zero-Touch Cinema Engine</title>
   <style>
     :root {
       --bg: #04050c;
@@ -63,8 +63,8 @@
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 720px) { .row-2 { grid-template-columns: 1fr; } }
     .btn {
-      width: 100%; padding: 14px; border: none; border-radius: 11px;
-      font-size: 14px; font-weight: 900; cursor: pointer; text-decoration: none;
+      width: 100%; padding: 15px; border: none; border-radius: 11px;
+      font-size: 15px; font-weight: 900; cursor: pointer; text-decoration: none;
       display: inline-flex; align-items: center; justify-content: center;
     }
     .btn-primary { background: linear-gradient(135deg, var(--pink), #9333ea); color: #fff; }
@@ -72,16 +72,6 @@
     .btn-sm {
       padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
       background: rgba(251, 191, 36, 0.14); color: var(--amber); font-size: 11px; font-weight: 800; cursor: pointer;
-      text-decoration: none; text-align: center;
-    }
-    .btn-up {
-      padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
-      background: rgba(34, 211, 238, 0.16); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
-      display: inline-block; text-align: center;
-    }
-    .badge-type {
-      font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 5px;
-      background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
     }
     .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--pink), #9333ea); transition: width 0.25s; }
@@ -89,16 +79,6 @@
       margin-top: 10px; padding: 11px; border-radius: 9px;
       background: rgba(244, 63, 94, 0.18); border: 1px solid var(--crimson);
       color: #fecdd3; font-size: 12px; font-weight: 700; display: none;
-    }
-    .scene-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 12px; margin-top: 12px;
-    }
-    .sc-card {
-      background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 10px;
-      display: flex; flex-direction: column; justify-content: space-between;
-    }
-    .sc-thumb {
-      width: 100%; height: 138px; object-fit: cover; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
     }
     video { width: 100%; border-radius: 11px; margin-top: 10px; background: #000; border: 1px solid var(--border); }
   </style>
@@ -108,18 +88,17 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;">NEXORA ROMANCE APEX v21</div>
-        <div style="font-size:11px; color:var(--pink);">Auto AI Cinema Scenes + Google Flow Video/Image Hybrid • Zero Caption Bugs</div>
+        <div style="font-weight:900; font-size:15px;">NEXORA ROMANCE APEX v23</div>
+        <div style="font-size:11px; color:var(--pink);">1-Click Zero-Touch Parallel AI Cinema • 3D Motion • Zero Caption Bugs</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: DEEP LOVE STORY SETUP -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: DEEP &amp; SECRET LOVE STORY SETUP</div>
+        <div class="title">1-CLICK ZERO-TOUCH ROMANTIC STORY GENERATOR</div>
         <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Love Story ChatGPT Prompt</button>
       </div>
 
@@ -175,36 +154,14 @@
       </div>
 
       <label for="custom-script">Paste 3-Column Script: Speaker(narrator/male/female) | Visual Scene Prompt | Spoken Hindi Line</label>
-      <textarea id="custom-script" oninput="saveDraftLocal()" placeholder="narrator | Raindrops sliding down a dark bedroom window at midnight, warm candle glow, 8k photorealistic | रात के ठीक दो बजे अनन्या के फोन पर एक पुराना मैसेज चमक उठा।"></textarea>
+      <textarea id="custom-script" oninput="saveDraftLocal()" placeholder="narrator | Raindrops sliding down a dark bedroom window at midnight, warm candle glow | रात के ठीक दो बजे अनन्या के फोन पर एक पुराना मैसेज चमक उठा।"></textarea>
 
-      <button class="btn btn-primary" id="btn-load" onclick="loadSceneSlots()">⚡ Step 1: Generate AI Scenes &amp; Google Flow Prompts</button>
+      <button class="btn btn-primary" id="btn-render" onclick="startZeroTouchRender()">🎬 Generate &amp; Download Full Cinema Love Story MP4 (1-Click)</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: AI SCENES + GOOGLE FLOW PROMPT & MP4/IMAGE HYBRID MIXER -->
-    <div class="card" id="review-card" style="display:none;">
-      <div class="hdr-row">
-        <div class="title">STEP 2: AI SCENES + GOOGLE FLOW VIDEO/IMAGE MIXER</div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button type="button" class="btn-sm" onclick="copyAllFlowPrompts(this)">📋 Copy All Flow Prompts</button>
-          <label class="btn-up" style="margin:0; background:rgba(16,185,129,0.18); border-color:#10b981; color:#34d399;">
-            ⚡ Batch Upload Flow .MP4/Images
-            <input type="file" accept="video/*,image/*" multiple style="display:none;" onchange="batchUploadMedia(this)" />
-          </label>
-          <span id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:800;">0 Ready</span>
-        </div>
-      </div>
-
-      <div class="scene-grid" id="scene-grid"></div>
-
-      <div style="margin-top:16px;">
-        <button class="btn btn-green" onclick="startFinalRender()">🎬 Step 2: Render Final Cinema Love Story MP4</button>
-      </div>
-    </div>
-
-    <!-- STEP 3: LIVE FINAL VIDEO RENDER -->
     <div class="card" id="render-card" style="display:none;">
-      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE APEX v21 CINEMA RENDER</div>
+      <div class="title" style="margin-bottom:10px;">LIVE ZERO-TOUCH RENDER PROGRESS</div>
       <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting render...</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
@@ -217,19 +174,9 @@
   </main>
 
   <script>
-    let currentSessionId = localStorage.getItem("nx_last_session") || "";
-    let currentScenesCache = [];
     let uploadedAudioId = "";
     let uploadedBgmId = "";
     let pollTimer = null;
-
-    const MOTION_LIST = [
-      "Zoom_In_Push",
-      "Pan_Right_Drift",
-      "Zoom_Out_Reveal",
-      "Pan_Left_Drift",
-      "Dramatic_Pulse_Zoom"
-    ];
 
     function saveDraftLocal() {
       localStorage.setItem("nx_draft_topic", document.getElementById("topic").value);
@@ -272,16 +219,9 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.romance_v21 ? "APEX v21 Cinema Ready" : "NEXORA Ready";
+        document.getElementById("sys-status").textContent = d.romance_v23 ? "APEX v23 Zero-Touch Ready" : "NEXORA Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
-      }
-      if (currentSessionId) {
-        const sr = await fetch(`/api/session/${currentSessionId}`);
-        if (sr.ok) {
-          document.getElementById("review-card").style.display = "block";
-          refreshSessionGrid();
-        }
       }
     }
 
@@ -322,10 +262,10 @@
       const topicVal = document.getElementById("topic").value.trim() || "Aadhi Raat Ka Woh Adhura Waada";
       const moodVal = document.getElementById("genre").value;
       const prompt = `Write a deeply emotional, high-retention Hindi romantic suspense story script in ${moodVal} mood on: "${topicVal}".
-CRITICAL RULES FOR NEXORA ROMANCE APEX v21:
-1. Create 16 to 24 fast-paced scenes (12 to 15 spoken words max per line) so visuals change every 3.5 to 4 seconds!
+CRITICAL RULES FOR NEXORA ROMANCE APEX v23:
+1. Create 16 to 22 fast-paced scenes (14 to 18 spoken words per line) so visuals change dynamically every 4 seconds!
 2. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female' for intimate late-night radio drama chemistry.
-3. In Column 2, write rich, consistent character & cinematic visual descriptions (keep the exact same Indian man/woman appearance and clothing across scenes, warm candlelight or rainy midnight lighting, 8k photorealistic, no text) so both our built-in AI and Google Flow generate movie-grade visuals!
+3. In Column 2, write rich, consistent character & cinematic visual descriptions (keep the exact same Indian man/woman appearance and clothing across scenes, warm candlelight or rainy midnight lighting, photorealistic, clean borderless frame).
 4. Output ONLY 3 pipe-separated columns per line (NO caption column, NO numbering, NO markdown):
 narrator/male/female | Detailed English Cinematic Visual Prompt | Expressive Spoken Hindi Line in Devanagari Hindi`;
 
@@ -336,179 +276,6 @@ narrator/male/female | Detailed English Cinematic Visual Prompt | Expressive Spo
       });
     };
 
-    function copyText(txt, btnEl) {
-      navigator.clipboard.writeText(txt).then(() => {
-        const old = btnEl.textContent;
-        btnEl.textContent = "✅ Copied!";
-        setTimeout(() => btnEl.textContent = old, 2200);
-      });
-    }
-
-    function copyAllFlowPrompts(btnEl) {
-      if (!currentScenesCache.length) return;
-      const all = currentScenesCache.map((s, i) => `Scene ${i + 1}: ${s.flow_prompt}`).join("\n\n");
-      copyText(all, btnEl);
-    }
-
-    async function regenAiScene(idx, btnEl) {
-      btnEl.disabled = true;
-      btnEl.textContent = "⏳...";
-      try {
-        const r = await fetch(`/api/session/${currentSessionId}/regenerate/${idx}`, { method: "POST" });
-        if (r.ok) refreshSessionGrid();
-      } finally {
-        btnEl.disabled = false;
-      }
-    }
-
-    async function batchUploadMedia(inputEl) {
-      if (!inputEl.files || !inputEl.files.length || !currentSessionId) return;
-      document.getElementById("prep-msg").textContent = `Uploading ${inputEl.files.length} files...`;
-      const fd = new FormData();
-      Array.from(inputEl.files).forEach(file => fd.append("media", file));
-      const r = await fetch(`/api/session/${currentSessionId}/batch_upload`, { method: "POST", body: fd });
-      if (r.ok) refreshSessionGrid();
-      else alert("Batch upload failed.");
-    }
-
-    async function swapScene(fromIdx, toIdxStr) {
-      const toIdx = parseInt(toIdxStr, 10);
-      if (isNaN(toIdx) || fromIdx === toIdx || !currentSessionId) return;
-      const r = await fetch(`/api/session/${currentSessionId}/swap`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ a: fromIdx, b: toIdx })
-      });
-      if (r.ok) refreshSessionGrid();
-    }
-
-    async function changeAnim(idx, animVal) {
-      if (!currentSessionId) return;
-      await fetch(`/api/session/${currentSessionId}/anim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idx: idx, anim: animVal })
-      });
-    }
-
-    async function uploadSceneMedia(idx, inputEl) {
-      if (!inputEl.files || !inputEl.files[0] || !currentSessionId) return;
-      const fd = new FormData();
-      fd.append("media", inputEl.files[0]);
-      const r = await fetch(`/api/session/${currentSessionId}/replace/${idx}`, { method: "POST", body: fd });
-      const d = await r.json();
-      if (r.ok) refreshSessionGrid();
-      else alert(d.error || "Upload failed.");
-    }
-
-    async function refreshSessionGrid() {
-      if (!currentSessionId) return;
-      const r = await fetch(`/api/session/${currentSessionId}`);
-      if (!r.ok) return;
-      const sess = await r.json();
-      currentScenesCache = sess.scenes || [];
-
-      document.getElementById("prep-msg").textContent = `${currentScenesCache.length}/${currentScenesCache.length} Cinema Scenes Ready`;
-
-      const grid = document.getElementById("scene-grid");
-      grid.innerHTML = "";
-      const ts = Date.now();
-      const total = currentScenesCache.length;
-
-      currentScenesCache.forEach((sc, idx) => {
-        const card = document.createElement("div");
-        card.className = "sc-card";
-
-        const badgeTxt = sc.media_type === "video"
-          ? "🎬 FLOW VIDEO"
-          : (sc.media_type === "image" ? "🖼 FLOW IMAGE" : "✨ AI CINEMA");
-
-        const thumbSrc = sc.media_type === "ai_image"
-          ? sc.remote_img_url
-          : `/api/session/${currentSessionId}/thumb/${idx}?t=${ts}`;
-
-        let swapOpts = `<option value="">Swap...</option>`;
-        for (let k = 0; k < total; k++) {
-          if (k !== idx) swapOpts += `<option value="${k}">#${k + 1}</option>`;
-        }
-
-        let motionOpts = "";
-        for (const m of MOTION_LIST) {
-          motionOpts += `<option value="${m}" ${sc.anim_type === m ? "selected" : ""}>${m.replace(/_/g, " ")}</option>`;
-        }
-
-        const safeFlowPrompt = sc.flow_prompt.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-
-        card.innerHTML = `
-          <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:6px; gap:4px;">
-              <span style="color:var(--pink);">SCENE ${idx + 1} <span class="badge-type">${badgeTxt}</span></span>
-              <select style="width:auto; padding:2px 4px; margin:0; font-size:10px;" onchange="swapScene(${idx}, this.value)">${swapOpts}</select>
-            </div>
-            <img class="sc-thumb" src="${thumbSrc}" alt="Scene ${idx + 1}" />
-            <select style="padding:4px 6px; font-size:10px; margin-bottom:6px;" onchange="changeAnim(${idx}, this.value)">${motionOpts}</select>
-            <div style="font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.35;">"${sc.hindi_dub}"</div>
-          </div>
-          <div style="display:grid; grid-template-columns: 1.3fr 0.7fr 1fr; gap:5px;">
-            <button type="button" class="btn-sm" onclick="copyText('${safeFlowPrompt}', this)">📋 Flow Prompt</button>
-            <button type="button" class="btn-sm" style="border-color:rgba(244,114,182,0.5); color:var(--pink);" onclick="regenAiScene(${idx}, this)">🔄 AI</button>
-            <label class="btn-up" style="margin:0;">
-              ⬆ Replace
-              <input type="file" accept="video/*,image/*" style="display:none;" onchange="uploadSceneMedia(${idx}, this)" />
-            </label>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    async function loadSceneSlots() {
-      showErr("");
-      saveDraftLocal();
-      const script = document.getElementById("custom-script").value.trim();
-      if (!script) {
-        showErr("Paste your 3-column script first!");
-        return;
-      }
-
-      const btn = document.getElementById("btn-load");
-      btn.disabled = true;
-      btn.textContent = "⏳ Building AI Scenes & Flow Prompts...";
-
-      try {
-        const payload = {
-          topic: document.getElementById("topic").value.trim(),
-          genre: document.getElementById("genre").value,
-          aspect_ratio: document.getElementById("aspect").value,
-          voice_mode: document.getElementById("voice-mode").value,
-          auto_hook: document.getElementById("auto-hook").value === "true",
-          uploaded_audio_id: uploadedAudioId,
-          uploaded_bgm_id: uploadedBgmId,
-          custom_script: script
-        };
-
-        const r = await fetch("/api/prepare", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const d = await r.json();
-        if (!r.ok) {
-          showErr(d.error || "Failed to load scenes.");
-          return;
-        }
-
-        currentSessionId = d.session_id;
-        localStorage.setItem("nx_last_session", currentSessionId);
-        document.getElementById("review-card").style.display = "block";
-        document.getElementById("render-card").style.display = "none";
-        refreshSessionGrid();
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "⚡ Step 1: Generate AI Scenes & Google Flow Prompts";
-      }
-    }
-
     function autoDownload(url, filename) {
       const a = document.createElement("a");
       a.href = url;
@@ -518,65 +285,84 @@ narrator/male/female | Detailed English Cinematic Visual Prompt | Expressive Spo
       document.body.removeChild(a);
     }
 
-    async function startFinalRender() {
+    async function startZeroTouchRender() {
       showErr("");
       showRenderErr("");
-      if (!currentSessionId) return;
+      saveDraftLocal();
 
-      const r = await fetch("/api/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id: currentSessionId,
-          voice_mode: document.getElementById("voice-mode").value,
-          uploaded_audio_id: uploadedAudioId,
-          uploaded_bgm_id: uploadedBgmId,
-          auto_hook: document.getElementById("auto-hook").value === "true"
-        })
-      });
-      const d = await r.json();
-      if (!r.ok) {
-        showRenderErr(d.error || "Cannot start render yet.");
-        document.getElementById("render-card").style.display = "block";
+      const script = document.getElementById("custom-script").value.trim();
+      if (!script) {
+        showErr("Paste your 3-column script first!");
         return;
       }
 
-      document.getElementById("render-card").style.display = "block";
-      document.getElementById("result-box").innerHTML = "";
-      document.getElementById("prog-fill").style.width = "3%";
-      document.getElementById("pct-lbl").textContent = "3%";
+      const btn = document.getElementById("btn-render");
+      btn.disabled = true;
 
-      const jobId = d.job_id;
-      document.getElementById("job-lbl").textContent = `Job: ${jobId}`;
+      try {
+        const r = await fetch("/api/quick_render", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: document.getElementById("topic").value.trim(),
+            genre: document.getElementById("genre").value,
+            aspect_ratio: document.getElementById("aspect").value,
+            voice_mode: document.getElementById("voice-mode").value,
+            auto_hook: document.getElementById("auto-hook").value === "true",
+            uploaded_audio_id: uploadedAudioId,
+            uploaded_bgm_id: uploadedBgmId,
+            custom_script: script
+          })
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          showErr(d.error || "Cannot start render yet.");
+          return;
+        }
 
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(async () => {
-        try {
-          const sr = await fetch(`/api/status/${jobId}`);
-          const st = await sr.json();
-          if (!sr.ok) {
-            clearInterval(pollTimer);
-            showRenderErr(st.error || "Status error");
-            return;
-          }
-          document.getElementById("prog-fill").style.width = `${st.progress}%`;
-          document.getElementById("pct-lbl").textContent = `${st.progress}%`;
-          document.getElementById("scene-txt").textContent = st.current_scene;
+        document.getElementById("render-card").style.display = "block";
+        document.getElementById("result-box").innerHTML = "";
+        document.getElementById("prog-fill").style.width = "3%";
+        document.getElementById("pct-lbl").textContent = "3%";
 
-          if (st.status === "done") {
-            clearInterval(pollTimer);
-            const dlUrl = `/api/video/${jobId}?dl=1`;
-            autoDownload(dlUrl, st.file_name);
-            document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Cinema Love Story MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
-              <video src="/api/video/${jobId}" controls playsinline></video>
-            `;
-          } else if (st.status === "error") {
-            clearInterval(pollTimer);
-            showRenderErr(st.error || "Render failed");
-          }
-        } catch (e) {}
-      }, 2000);
+        const jobId = d.job_id;
+        document.getElementById("job-lbl").textContent = `Job: ${jobId}`;
+
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(async () => {
+          try {
+            const sr = await fetch(`/api/status/${jobId}`);
+            const st = await sr.json();
+            if (!sr.ok) {
+              clearInterval(pollTimer);
+              showRenderErr(st.error || "Status error");
+              btn.disabled = false;
+              return;
+            }
+            document.getElementById("prog-fill").style.width = `${st.progress}%`;
+            document.getElementById("pct-lbl").textContent = `${st.progress}%`;
+            document.getElementById("scene-txt").textContent = st.current_scene;
+
+            if (st.status === "done") {
+              clearInterval(pollTimer);
+              btn.disabled = false;
+              const dlUrl = `/api/video/${jobId}?dl=1`;
+              autoDownload(dlUrl, st.file_name);
+              document.getElementById("result-box").innerHTML = `
+                <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Cinema Love Story MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
+                <video src="/api/video/${jobId}" controls playsinline></video>
+              `;
+            } else if (st.status === "error") {
+              clearInterval(pollTimer);
+              btn.disabled = false;
+              showRenderErr(st.error || "Render failed");
+            }
+          } catch (e) {}
+        }, 2000);
+      } catch (e) {
+        btn.disabled = false;
+        showErr("Network error. Please retry.");
+      }
     }
 
     checkHealth();
