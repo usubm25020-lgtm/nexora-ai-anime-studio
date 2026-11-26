@@ -10,7 +10,6 @@ import tempfile
 import subprocess
 import threading
 import urllib.parse
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Any, Optional, Tuple
 
 import requests
@@ -25,7 +24,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v23 — ZERO-TOUCH PARALLEL AI CINEMA ENGINE
+# 1. NEXORA ROMANCE APEX v24 — AUTO-TITLE + HYBRID MANUAL/AI CINEMA ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -76,7 +75,7 @@ def purge_expired(max_age_sec: int = 1800):
 
 
 # ==============================================================================
-# 2. CLEAN DEVANAGARI -> ASCII HINGLISH CONVERTER (ZERO BROKEN BOXES)
+# 2. CLEAN DEVANAGARI -> ASCII HINGLISH & AUTO STORY TITLE EXTRACTOR
 # ==============================================================================
 _CONSONANTS = {
     "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "ng",
@@ -146,8 +145,32 @@ def devanagari_to_hinglish(text: str) -> str:
     return " ".join(out_words)
 
 
+def auto_derive_story_title(custom_script: str, provided_title: str) -> str:
+    """Automatically extracts title from # TITLE: header or derives a fresh title from Scene 1."""
+    for line in str(custom_script or "").splitlines():
+        s = line.strip()
+        if s.lower().startswith("# title:") or s.lower().startswith("title:"):
+            extracted = s.split(":", 1)[1].strip()
+            if extracted:
+                return devanagari_to_hinglish(extracted)[:60]
+
+    clean_prov = str(provided_title or "").strip()
+    if clean_prov and clean_prov.lower() not in ("aadhi raat ka woh adhura waada", "nexora love story"):
+        return clean_prov
+
+    for line in str(custom_script or "").splitlines():
+        if "|" in line:
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) >= 3:
+                spoken = devanagari_to_hinglish(parts[-1])
+                words = [w.strip(".,!?-") for w in spoken.split() if len(w.strip(".,!?-")) > 1]
+                if words:
+                    return " ".join(words[:6]).title()
+    return clean_prov or "NEXORA Love Story"
+
+
 # ==============================================================================
-# 3. PARALLEL MULTI-MIRROR AI VISUAL GENERATOR (FAST & RATE-LIMIT IMMUNE)
+# 3. CLEAR VIDEO SEARCH GUIDE & STAGGERED WATERMARK-FREE AI GENERATOR
 # ==============================================================================
 MOTION_MODES = [
     "Zoom_In_Push",
@@ -158,63 +181,72 @@ MOTION_MODES = [
 ]
 
 
+def build_stock_search_keywords(visual_prompt: str, hinglish_caption: str) -> str:
+    """Generates clean 3-4 word search keywords so user can instantly download exact matching clips."""
+    blob = f"{visual_prompt} {hinglish_caption}".lower()
+    if any(k in blob for k in ("phone", "message", "msg", "call", "screen", "ring", "mobile")):
+        return "smartphone screen night dark"
+    if any(k in blob for k in ("rain", "barish", "boond", "window", "khidki", "umbrella", "bheeg")):
+        return "raindrops on window night"
+    if any(k in blob for k in ("car", "gaadi", "drive", "highway", "headlight", "road")):
+        return "car driving night rain"
+    if any(k in blob for k in ("cafe", "coffee", "restaurant", "table", "cup")):
+        return "couple coffee shop candle"
+    if any(k in blob for k in ("kiss", "hug", "baahon", "seene", "kareeb", "chhua", "embrace", "romantic")):
+        return "romantic couple silhouette sunset"
+    if any(k in blob for k in ("hand", "haath", "hold", "fingers")):
+        return "couple holding hands romantic"
+    if any(k in blob for k in ("candle", "lamp", "bedroom", "kamre", "bed", "diya")):
+        return "candlelight dark room aesthetic"
+    if any(k in blob for k in ("cry", "tears", "aansu", "ro ", "sad", "dard", "heartbreak", "alone")):
+        return "sad woman looking window rain"
+    if any(k in blob for k in ("clock", "ghadi", "2:00", "2:45", "midnight", "aadhi raat", "waqt")):
+        return "vintage clock midnight dark"
+    if any(k in blob for k in ("door", "darwaza", "shadow", "corridor", "dark", "mystery")):
+        return "opening door light dark room"
+    if any(k in blob for k in ("sunrise", "morning", "subah", "hills", "sky")):
+        return "couple watching sunrise mountains"
+
+    words = [w for w in re.sub(r"[^a-zA-Z\s]", "", visual_prompt).split() if len(w) > 3]
+    return " ".join(words[:4]) if words else "romantic couple night"
+
+
 def build_clean_visual_prompt(visual_prompt: str) -> str:
     base = re.sub(r"\b[48]k\b", "", visual_prompt, flags=re.IGNORECASE)
     base = re.sub(r"\bno\s+text\b", "", base, flags=re.IGNORECASE)
     base = re.sub(r"\s+", " ", base).strip(" ,.")
-    return f"{base}, cinematic Indian romantic drama film frame, moody lighting, shallow depth of field, photorealistic, clean borderless frame"
+    return f"{base}, cinematic Indian romantic drama film still, moody lighting, shallow depth of field, photorealistic"
 
 
-def build_ai_mirror_urls(visual_prompt: str, out_w: int, out_h: int, seed: int) -> List[str]:
+def build_ai_url(visual_prompt: str, out_w: int, out_h: int, seed: int) -> str:
     clean_p = build_clean_visual_prompt(visual_prompt)
     enc = urllib.parse.quote(clean_p)
-    return [
-        f"https://image.pollinations.ai/prompt/{enc}?width={out_w}&height={out_h}&seed={seed}&nologo=true&model=turbo",
-        f"https://image.pollinations.ai/prompt/{enc}?width={out_w}&height={out_h}&seed={seed + 7}&nologo=true&model=flux",
-    ]
+    return f"https://image.pollinations.ai/prompt/{enc}?width={out_w}&height={out_h}&seed={seed}&nologo=true&model=turbo"
 
 
-def fetch_single_scene_image(sc: Dict[str, Any], out_jpg: str, out_w: int, out_h: int) -> Optional[str]:
-    seed = int(sc.get("seed", 1001))
-    urls = build_ai_mirror_urls(sc.get("visual_prompt", ""), out_w, out_h, seed)
-    for u in urls:
-        try:
-            r = requests.get(u, headers=HTTP_HEADERS, timeout=14)
-            if r.status_code == 200 and len(r.content) > 4500:
-                with open(out_jpg, "wb") as f:
-                    f.write(r.content)
-                return out_jpg
-        except Exception:
-            continue
-    return None
-
-
-def download_all_ai_scenes_parallel(scenes: List[Dict[str, Any]], work_dir: str, out_w: int, out_h: int) -> Dict[int, str]:
+def download_all_ai_scenes_staggered(scenes: List[Dict[str, Any]], work_dir: str, out_w: int, out_h: int) -> Dict[int, str]:
     """
-    Fetches all AI scene visuals concurrently across 4 parallel workers with automatic
-    cross-scene fallback so no single slow request can ever stall or fail the render.
+    Downloads unique AI visuals with smart pacing (1.8s gap) so rate limits don't block
+    subsequent scenes, ensuring distinct visuals across scenes.
     """
     downloaded: Dict[int, str] = {}
-    tasks: Dict[Any, int] = {}
+    for idx, sc in enumerate(scenes):
+        if sc.get("media_type") in ("video", "image") and sc.get("media_file"):
+            continue
+        out_p = os.path.join(work_dir, f"ai_src_{idx:03d}.jpg")
+        seed = int(sc.get("seed", 1001 + idx * 31))
+        url = build_ai_url(sc.get("visual_prompt", ""), out_w, out_h, seed)
+        try:
+            r = requests.get(url, headers=HTTP_HEADERS, timeout=16)
+            if r.status_code == 200 and len(r.content) > 4500:
+                with open(out_p, "wb") as f:
+                    f.write(r.content)
+                downloaded[idx] = out_p
+        except Exception:
+            pass
+        if idx < len(scenes) - 1:
+            time.sleep(1.6)
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        for idx, sc in enumerate(scenes):
-            if sc.get("media_type") in ("video", "image") and sc.get("media_file"):
-                continue
-            out_p = os.path.join(work_dir, f"ai_src_{idx:03d}.jpg")
-            fut = pool.submit(fetch_single_scene_image, sc, out_p, out_w, out_h)
-            tasks[fut] = idx
-
-        for fut in as_completed(tasks):
-            idx = tasks[fut]
-            try:
-                res_p = fut.result()
-                if res_p and os.path.exists(res_p):
-                    downloaded[idx] = res_p
-            except Exception:
-                pass
-
-    # If any scene timed out, seamlessly borrow nearest available visual (motion mode still differs!)
     if downloaded:
         avail_keys = sorted(downloaded.keys())
         for idx in range(len(scenes)):
@@ -266,7 +298,7 @@ def parse_user_script(custom_script: str, mood: str, aspect: str) -> List[Dict[s
 
     for line in str(custom_script or "").splitlines():
         line = line.strip()
-        if not line or "|" not in line:
+        if not line or line.startswith("#") or "|" not in line:
             continue
         parts = [p.strip() for p in line.split("|")]
         if len(parts) >= 3:
@@ -278,8 +310,9 @@ def parse_user_script(custom_script: str, mood: str, aspect: str) -> List[Dict[s
             auto_caption = devanagari_to_hinglish(spoken_hindi)
             idx = len(scenes)
             combined_txt = f"{visual_prompt} {auto_caption}"
-            seed = base_seed + idx * 19
-            preview_url = build_ai_mirror_urls(visual_prompt, out_w, out_h, seed)[0]
+            seed = base_seed + idx * 37
+            preview_url = build_ai_url(visual_prompt, out_w, out_h, seed)
+            search_kw = build_stock_search_keywords(visual_prompt, auto_caption)
 
             scenes.append({
                 "index": idx,
@@ -288,6 +321,7 @@ def parse_user_script(custom_script: str, mood: str, aspect: str) -> List[Dict[s
                 "speaker": sp,
                 "emotion": detect_line_emotion(auto_caption, sp),
                 "visual_prompt": visual_prompt,
+                "search_keywords": search_kw,
                 "hindi_dub": spoken_hindi,
                 "auto_caption": auto_caption,
                 "anim_type": MOTION_MODES[idx % len(MOTION_MODES)],
@@ -302,7 +336,7 @@ def parse_user_script(custom_script: str, mood: str, aspect: str) -> List[Dict[s
 
 
 # ==============================================================================
-# 4. STRICT ZERO-STACK ASS KARAOKE SUBTITLE ENGINE
+# 4. STRICT ZERO-STACK ASS KARAOKE SUBTITLE ENGINE (CLEAN END-CARD TRANSITION)
 # ==============================================================================
 def build_word_timings(text: str, dur_sec: float) -> List[Tuple[str, float, float]]:
     words = str(text or "").split()
@@ -367,6 +401,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     events: List[str] = []
     cur_t = 0.0
     total_dur = sum(float(s.get("duration_sec", 4.0)) for s in render_scenes) or 1.0
+    end_card_start = max(0.0, total_dur - 2.6) if total_dur > 8.0 else total_dur
 
     for sc in render_scenes:
         dur = float(sc.get("duration_sec", 4.0))
@@ -382,9 +417,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             )
         else:
             stage = "01. PEHLI MULAKAT" if ov_p < 0.34 else ("02. GEHRA RAAZ" if ov_p < 0.72 else "03. ASLI ANJAAM")
-            events.append(
-                f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(en_abs - 0.02)},StageStyle,,0,0,0,,{stage}"
-            )
+            hud_end = min(en_abs - 0.02, end_card_start)
+            if hud_end > st_abs + 0.1:
+                events.append(
+                    f"Dialogue: 2,{fmt_ass_time(st_abs)},{fmt_ass_time(hud_end)},StageStyle,,0,0,0,,{stage}"
+                )
 
         timings = build_word_timings(sc.get("auto_caption", ""), dur)
         group_size = 3
@@ -426,10 +463,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         cur_t = en_abs
 
-    if total_dur > 6.0:
-        end_s = max(0.0, total_dur - 2.8)
+    if total_dur > 8.0:
         events.append(
-            f"Dialogue: 3,{fmt_ass_time(end_s)},{fmt_ass_time(total_dur)},EndStyle,,0,0,0,,KAHANI ABHI BAAKI HAI...\\N{{\\fs{font_sz - 8}\\c&H0071E0FD&}}Agle Part Ke Liye Subscribe Zaroor Karein"
+            f"Dialogue: 3,{fmt_ass_time(end_card_start)},{fmt_ass_time(total_dur)},EndStyle,,0,0,0,,KAHANI ABHI BAAKI HAI...\\N{{\\fs{font_sz - 8}\\c&H0071E0FD&}}Agle Part Ke Liye Subscribe Zaroor Karein"
         )
 
     with open(ass_path, "w", encoding="utf-8") as f:
@@ -661,7 +697,7 @@ class NexoraRomanceAudioEngine:
 
 
 # ==============================================================================
-# 6. PARALLEL 3D CAMERA MOTION & CINEMA RENDERER
+# 6. SMART OPTICAL VIDEO FIT & WATERMARK-FREE 3D CAMERA MOTION RENDERER
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
@@ -675,10 +711,14 @@ def fmt_mmss(sec: float) -> str:
 
 
 def render_user_video_clip(src_video: str, dst_mp4: str, target_dur: float, out_w: int, out_h: int):
+    """
+    Automatically adjusts any uploaded video clip (4s, 8s, 10s, 15s) to perfectly match
+    the exact scene voice duration using smooth optical time-stretching!
+    """
     src_dur = NexoraRomanceAudioEngine.probe_dur(src_video)
     fade_out_st = max(0.1, target_dur - 0.22)
 
-    if src_dur > 1.0 and 0.55 <= (target_dur / src_dur) <= 1.65:
+    if src_dur > 0.8 and 0.40 <= (target_dur / src_dur) <= 2.20:
         pts_mult = target_dur / src_dur
         vf = (
             f"setpts={pts_mult:.4f}*PTS,"
@@ -716,7 +756,8 @@ def render_user_video_clip(src_video: str, dst_mp4: str, target_dur: float, out_
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
 
-def render_animated_image_clip(src_img: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int, motion: str):
+def render_animated_image_clip(src_img: str, dst_mp4: str, dur_sec: float, out_w: int, out_h: int, motion: str, crop_bottom_wm: bool = True):
+    """Crops bottom 5% watermark on AI frames & applies smooth 24fps 3D camera motion."""
     fps = 24
     total_f = max(24, int(round(dur_sec * fps)))
     fade_out_st = max(0.1, dur_sec - 0.22)
@@ -733,7 +774,9 @@ def render_animated_image_clip(src_img: str, dst_mp4: str, dur_sec: float, out_w
     else:
         zp = f"zoompan=z='min(1.18,1.02+0.16*(on/{total_f}))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_f}:s={out_w}x{out_h}:fps={fps}"
 
+    wm_crop = "crop=iw:ih*0.94:0:0," if crop_bottom_wm else ""
     vf = (
+        f"{wm_crop}"
         f"scale={up_w}:{up_h}:force_original_aspect_ratio=increase,"
         f"crop={up_w}:{up_h},"
         f"{zp},"
@@ -780,9 +823,12 @@ def run_final_render(job_id: str, session_id: str):
 
         out_w, out_h = (540, 960) if aspect == "9:16" else (960, 540)
 
-        # 1. Parallel AI Scene Generation (4 threads concurrently — eliminates 45s wait!)
-        update_job(job_id, status="running", progress=6, current_scene="Generating All AI Cinema Scenes in Parallel...")
-        ai_image_map = download_all_ai_scenes_parallel(raw_scenes, work_dir, out_w, out_h)
+        # 1. Fetch AI visuals only for scenes that don't have manual uploads
+        needs_ai = any(s.get("media_type") == "ai_image" for s in raw_scenes)
+        ai_image_map: Dict[int, str] = {}
+        if needs_ai:
+            update_job(job_id, status="running", progress=6, current_scene="Generating Unique AI Cinema Scenes...")
+            ai_image_map = download_all_ai_scenes_staggered(raw_scenes, work_dir, out_w, out_h)
 
         # 2. Dub Studio Voices
         master_voice = os.path.join(work_dir, "master_voice.wav")
@@ -874,7 +920,7 @@ def run_final_render(job_id: str, session_id: str):
         for s in raw_scenes:
             render_scenes.append(dict(s))
 
-        # 4. Render 3D Camera Motion Scenes
+        # 4. Render Video & AI Scenes
         total_sc = len(render_scenes)
         video_chunks: List[str] = []
 
@@ -884,7 +930,7 @@ def run_final_render(job_id: str, session_id: str):
                 job_id,
                 status="running",
                 progress=35 + int((idx / float(total_sc)) * 53),
-                current_scene=f"Rendering {lbl} [{sc['anim_type']}]...",
+                current_scene=f"Rendering {lbl}...",
             )
 
             actual_dur = float(sc.get("duration_sec", 4.0))
@@ -897,12 +943,12 @@ def run_final_render(job_id: str, session_id: str):
                 render_user_video_clip(med_path, v_chunk, actual_dur, out_w, out_h)
             elif mtype == "image" and sc.get("media_file"):
                 med_path = os.path.join(sess_dir, sc["media_file"])
-                render_animated_image_clip(med_path, v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"))
+                render_animated_image_clip(med_path, v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"), crop_bottom_wm=False)
             else:
                 img_path = ai_image_map.get(orig_idx)
                 if not img_path or not os.path.exists(img_path):
-                    raise RuntimeError("AI image server unreachable. Please retry in a few seconds.")
-                render_animated_image_clip(img_path, v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"))
+                    raise RuntimeError("AI image server unreachable. Please upload manual video clips or retry.")
+                render_animated_image_clip(img_path, v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"), crop_bottom_wm=True)
 
             video_chunks.append(v_chunk)
             gc.collect()
@@ -947,8 +993,8 @@ def run_final_render(job_id: str, session_id: str):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:28].strip("_") or "NEXORA_ROMANCE"
-        out_name = f"NEXORA_LOVE_{slug}_{job_id}.mp4"
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:32].strip("_") or "NEXORA_ROMANCE"
+        out_name = f"{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
         esc_ass = ass_file.replace("\\", "/").replace(":", "\\:")
@@ -1001,7 +1047,7 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 7. REST API ENDPOINTS (1-CLICK ZERO-TOUCH + OPTIONAL OVERRIDE)
+# 7. REST API ENDPOINTS (HYBRID MANUAL + AUTO-TITLE + BATCH UPLOAD)
 # ==============================================================================
 def save_uploaded_media(file_storage, sess_dir: str, idx: int) -> Tuple[str, str, str]:
     ext = os.path.splitext(file_storage.filename or "")[1].lower()
@@ -1036,7 +1082,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v23": True})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v24": True})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -1065,68 +1111,26 @@ def api_bgm_upload():
     return jsonify({"ok": True, "bgm_id": bgm_id, "file_name": f.filename})
 
 
-@app.route("/api/quick_render", methods=["POST"])
-def api_quick_render():
-    """1-Click Zero-Touch Pipeline: parses script & immediately starts rendering full video!"""
-    data = request.get_json(silent=True) or {}
-    mood = str(data.get("genre", "deep_romance")).lower()
-    aspect = str(data.get("aspect_ratio", "16:9"))
-    voice_mode = str(data.get("voice_mode", "builtin_multi"))
-
-    scenes = parse_user_script(str(data.get("custom_script", "")), mood, aspect)
-    if not scenes:
-        return jsonify({"error": "Paste a valid 3-column script first (Speaker | Visual Prompt | Spoken Hindi)."}), 400
-
-    with LOCK:
-        if len(ACTIVE_JOBS) >= 1:
-            return jsonify({"error": "Server is currently rendering another video. Please wait."}), 429
-
-        session_id = f"ses_{uuid.uuid4().hex[:10]}"
-        os.makedirs(os.path.join(SESSIONS_DIR, session_id), exist_ok=True)
-        SESSIONS[session_id] = {
-            "session_id": session_id,
-            "topic": str(data.get("topic", "NEXORA Love Story")).strip() or "NEXORA Love Story",
-            "genre": mood,
-            "aspect_ratio": aspect,
-            "voice_mode": voice_mode,
-            "auto_hook": bool(data.get("auto_hook", True)),
-            "uploaded_audio_id": str(data.get("uploaded_audio_id", "")),
-            "uploaded_bgm_id": str(data.get("uploaded_bgm_id", "")),
-            "scenes": scenes,
-        }
-
-        job_id = f"nx_{uuid.uuid4().hex[:10]}"
-        ACTIVE_JOBS.add(job_id)
-        JOBS[job_id] = {
-            "job_id": job_id,
-            "status": "queued",
-            "progress": 3,
-            "current_scene": "Starting 1-Click Zero-Touch Cinema Render...",
-            "error": None,
-        }
-
-    threading.Thread(target=run_final_render, args=(job_id, session_id), daemon=True).start()
-    return jsonify({"ok": True, "job_id": job_id, "session_id": session_id})
-
-
 @app.route("/api/prepare", methods=["POST"])
 def api_prepare():
     data = request.get_json(silent=True) or {}
     mood = str(data.get("genre", "deep_romance")).lower()
     aspect = str(data.get("aspect_ratio", "16:9"))
     voice_mode = str(data.get("voice_mode", "builtin_multi"))
+    raw_script = str(data.get("custom_script", ""))
 
-    scenes = parse_user_script(str(data.get("custom_script", "")), mood, aspect)
+    scenes = parse_user_script(raw_script, mood, aspect)
     if not scenes:
-        return jsonify({"error": "Paste a valid 3-column script first."}), 400
+        return jsonify({"error": "Paste a valid 3-column script first (Speaker | Visual Scene | Spoken Hindi)."}), 400
 
+    auto_title = auto_derive_story_title(raw_script, str(data.get("topic", "")))
     session_id = f"ses_{uuid.uuid4().hex[:10]}"
     os.makedirs(os.path.join(SESSIONS_DIR, session_id), exist_ok=True)
 
     with LOCK:
         SESSIONS[session_id] = {
             "session_id": session_id,
-            "topic": str(data.get("topic", "NEXORA Love Story")).strip() or "NEXORA Love Story",
+            "topic": auto_title,
             "genre": mood,
             "aspect_ratio": aspect,
             "voice_mode": voice_mode,
@@ -1136,7 +1140,7 @@ def api_prepare():
             "scenes": scenes,
         }
 
-    return jsonify({"ok": True, "session_id": session_id})
+    return jsonify({"ok": True, "session_id": session_id, "auto_title": auto_title})
 
 
 @app.route("/api/session/<session_id>")
@@ -1176,7 +1180,7 @@ def api_replace_media(session_id: str, idx: int):
 
     f = request.files.get("media")
     if not f or not f.filename:
-        return jsonify({"error": "Select a video or image file first."}), 400
+        return jsonify({"error": "Select a video (.mp4) or image file first."}), 400
 
     sess_dir = os.path.join(SESSIONS_DIR, session_id)
     os.makedirs(sess_dir, exist_ok=True)
@@ -1187,6 +1191,88 @@ def api_replace_media(session_id: str, idx: int):
         sess["scenes"][idx]["media_type"] = mtype
         sess["scenes"][idx]["media_file"] = mfile
         sess["scenes"][idx]["thumb_file"] = tfile
+    return jsonify({"ok": True})
+
+
+@app.route("/api/session/<session_id>/batch_upload", methods=["POST"])
+def api_batch_upload(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+    if not sess:
+        return jsonify({"error": "Session expired."}), 404
+
+    files = request.files.getlist("media")
+    if not files:
+        return jsonify({"error": "No files selected."}), 400
+
+    sess_dir = os.path.join(SESSIONS_DIR, session_id)
+    os.makedirs(sess_dir, exist_ok=True)
+    total_scenes = len(sess["scenes"])
+
+    explicit_map: Dict[int, Any] = {}
+    unmapped_files: List[Any] = []
+    for f in files:
+        if not f or not f.filename:
+            continue
+        stem = os.path.splitext(f.filename)[0]
+        m = re.match(r"^(?:scene[_-]?)?(\d{1,3})$", stem.strip(), re.IGNORECASE)
+        if m:
+            num = int(m.group(1))
+            if 1 <= num <= total_scenes and num - 1 not in explicit_map:
+                explicit_map[num - 1] = f
+                continue
+        unmapped_files.append(f)
+
+    unmapped_files.sort(key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", x.filename or "")])
+
+    u_ptr = 0
+    for idx in range(total_scenes):
+        target_f = explicit_map.get(idx)
+        if target_f is None and u_ptr < len(unmapped_files):
+            target_f = unmapped_files[u_ptr]
+            u_ptr += 1
+        if target_f is not None:
+            mtype, mfile, tfile = save_uploaded_media(target_f, sess_dir, idx)
+            with LOCK:
+                sess["scenes"][idx]["media_ready"] = True
+                sess["scenes"][idx]["media_type"] = mtype
+                sess["scenes"][idx]["media_file"] = mfile
+                sess["scenes"][idx]["thumb_file"] = tfile
+
+    return jsonify({"ok": True})
+
+
+@app.route("/api/session/<session_id>/swap", methods=["POST"])
+def api_swap_scenes(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    data = request.get_json(silent=True) or {}
+    a = int(data.get("a", -1))
+    b = int(data.get("b", -1))
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess or not (0 <= a < len(sess["scenes"]) and 0 <= b < len(sess["scenes"])):
+            return jsonify({"error": "Invalid scene indices."}), 400
+        sa, sb = sess["scenes"][a], sess["scenes"][b]
+        for k in ("media_ready", "media_type", "media_file", "thumb_file", "remote_img_url"):
+            sa[k], sb[k] = sb[k], sa[k]
+    return jsonify({"ok": True})
+
+
+@app.route("/api/session/<session_id>/anim", methods=["POST"])
+def api_change_anim(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    data = request.get_json(silent=True) or {}
+    idx = int(data.get("idx", -1))
+    anim = str(data.get("anim", ""))
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess or not (0 <= idx < len(sess["scenes"])) or anim not in MOTION_MODES:
+            return jsonify({"error": "Invalid motion."}), 400
+        sess["scenes"][idx]["anim_type"] = anim
     return jsonify({"ok": True})
 
 
@@ -1201,6 +1287,17 @@ def api_render():
         sess = SESSIONS.get(session_id)
         if not sess:
             return jsonify({"error": "Session expired."}), 404
+        if data.get("topic"):
+            sess["topic"] = str(data["topic"]).strip()
+        if data.get("voice_mode"):
+            sess["voice_mode"] = str(data["voice_mode"])
+        if data.get("uploaded_audio_id"):
+            sess["uploaded_audio_id"] = str(data["uploaded_audio_id"])
+        if data.get("uploaded_bgm_id"):
+            sess["uploaded_bgm_id"] = str(data["uploaded_bgm_id"])
+        if "auto_hook" in data:
+            sess["auto_hook"] = bool(data["auto_hook"])
+
         if len(ACTIVE_JOBS) >= 1:
             return jsonify({"error": "Server is currently rendering another video. Please wait."}), 429
 
@@ -1210,7 +1307,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 3,
-            "current_scene": "Starting APEX v23 Cinema Render...",
+            "current_scene": "Starting APEX v24 Cinema Render...",
             "error": None,
         }
 
