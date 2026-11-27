@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NEXORA ROMANCE APEX v25 — 100% Pure Motion Video Engine</title>
+  <title>NEXORA ROMANCE APEX v26 — Tri-Hybrid 16:9 Cinema &amp; 2D Lip-Sync Studio</title>
   <style>
     :root {
       --bg: #04050c;
@@ -12,6 +12,7 @@
       --border: rgba(244, 114, 182, 0.30);
       --pink: #f472b6;
       --cyan: #22d3ee;
+      --purple: #a855f7;
       --amber: #fbbf24;
       --emerald: #10b981;
       --crimson: #f43f5e;
@@ -45,7 +46,7 @@
       background: rgba(244, 114, 182, 0.16); border: 1px solid rgba(244, 114, 182, 0.5);
       color: var(--pink);
     }
-    .wrap { max-width: 1080px; margin: 18px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .wrap { max-width: 1100px; margin: 18px auto; padding: 0 16px; display: grid; gap: 16px; }
     .card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; padding: 16px;
@@ -53,12 +54,12 @@
     .hdr-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
     .title { font-size: 13px; font-weight: 800; letter-spacing: 0.05em; color: var(--pink); }
     label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-    input[type="text"], input[type="password"], select, textarea {
+    input[type="text"], select, textarea {
       width: 100%; background: var(--input); border: 1px solid rgba(148, 163, 184, 0.24);
       border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 13px;
       outline: none; margin-bottom: 12px; font-family: inherit;
     }
-    textarea { min-height: 150px; resize: vertical; line-height: 1.5; font-size: 12px; }
+    textarea { min-height: 155px; resize: vertical; line-height: 1.5; font-size: 12px; }
     input:focus, select:focus, textarea:focus { border-color: var(--pink); }
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 720px) { .row-2 { grid-template-columns: 1fr; } }
@@ -69,36 +70,45 @@
     }
     .btn-primary { background: linear-gradient(135deg, var(--pink), #9333ea); color: #fff; }
     .btn-green { background: var(--emerald); color: #03050c; }
-    .btn-sm {
+    .btn-flow {
       padding: 7px 9px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.45);
       background: rgba(251, 191, 36, 0.14); color: var(--amber); font-size: 11px; font-weight: 800; cursor: pointer;
-    }
-    .btn-flow {
-      padding: 7px 9px; border-radius: 8px; border: 1px solid rgba(244, 114, 182, 0.45);
-      background: rgba(244, 114, 182, 0.15); color: var(--pink); font-size: 11px; font-weight: 800; cursor: pointer;
     }
     .btn-up {
       padding: 7px 9px; border-radius: 8px; border: 1px solid rgba(34, 211, 238, 0.45);
       background: rgba(34, 211, 238, 0.16); color: var(--cyan); font-size: 11px; font-weight: 800; cursor: pointer;
       display: inline-block; text-align: center;
     }
-    .badge-ok {
+    .badge-2d {
       font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 5px;
-      background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
+      background: rgba(168, 85, 247, 0.22); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.5);
     }
-    .badge-wait {
+    .badge-ai {
       font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 5px;
-      background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.4);
+      background: rgba(34, 211, 238, 0.18); color: #67e8f9; border: 1px solid rgba(34, 211, 238, 0.45);
     }
-    .guide-box {
-      background: rgba(34, 211, 238, 0.08);
-      border: 1px dashed rgba(34, 211, 238, 0.45);
-      border-radius: 8px;
-      padding: 7px 8px;
-      margin-bottom: 8px;
-      font-size: 11px;
+    .badge-flow {
+      font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 5px;
+      background: rgba(16, 185, 129, 0.22); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.5);
+    }
+    .mode-banner {
+      border-radius: 8px; padding: 8px 9px; margin-bottom: 8px;
+      font-size: 11px; line-height: 1.4;
+    }
+    .banner-2d {
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #f3e8ff;
+    }
+    .banner-ai {
+      background: rgba(34, 211, 238, 0.10);
+      border: 1px solid rgba(34, 211, 238, 0.4);
       color: #cffafe;
-      line-height: 1.4;
+    }
+    .banner-flow {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px dashed rgba(16, 185, 129, 0.5);
+      color: #d1fae5;
     }
     .bar { width: 100%; height: 11px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 10px 0; }
     .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--pink), #9333ea); transition: width 0.25s; }
@@ -108,23 +118,14 @@
       color: #fecdd3; font-size: 12px; font-weight: 700; display: none;
     }
     .scene-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(265px, 1fr)); gap: 12px; margin-top: 12px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; margin-top: 12px;
     }
     .sc-card {
-      background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 10px;
+      background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 11px;
       display: flex; flex-direction: column; justify-content: space-between;
     }
     .sc-thumb {
-      width: 100%; height: 135px; object-fit: cover; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
-    }
-    .sc-placeholder {
-      width: 100%; height: 135px; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
-      display: grid; place-items: center; text-align: center; padding: 10px;
-      border: 1px dashed rgba(148, 163, 184, 0.35); color: var(--muted); font-size: 11px;
-    }
-    .seo-box {
-      margin-top: 14px; padding: 12px; border-radius: 10px;
-      background: var(--input); border: 1px solid rgba(16, 185, 129, 0.45);
+      width: 100%; height: 125px; object-fit: cover; border-radius: 8px; background: #0b1120; margin-bottom: 8px;
     }
     video { width: 100%; border-radius: 11px; margin-top: 10px; background: #000; border: 1px solid var(--border); }
   </style>
@@ -134,41 +135,27 @@
     <div class="brand">
       <div class="logo">NX</div>
       <div>
-        <div style="font-weight:900; font-size:15px;" id="header-app-title">NEXORA ROMANCE APEX v25</div>
-        <div style="font-size:11px; color:var(--pink);">100% Pure Motion Video (.MP4 Only • Zero Images) • Pexels/Pixabay + Google Flow</div>
+        <div style="font-weight:900; font-size:15px;" id="header-app-title">NEXORA ROMANCE APEX v26</div>
+        <div style="font-size:11px; color:var(--pink);">Tri-Hybrid 16:9 Cinema • 2D Lip-Sync Host • 3D Parallax AI • ElevenLabs-Plus Stereo Voice</div>
       </div>
     </div>
     <div class="chip-live" id="sys-status">Checking Engine...</div>
   </header>
 
   <main class="wrap">
-    <!-- STEP 1: STORY & AUTO STOCK VIDEO / HYBRID SETUP -->
+    <!-- STEP 1: STORY & TRI-HYBRID AUTO-DIRECTOR SETUP -->
     <div class="card">
       <div class="hdr-row">
-        <div class="title">STEP 1: 100% MOTION VIDEO STORY SETUP</div>
-        <button type="button" class="btn-sm" id="btn-copy-prompt">📋 Copy Love Story ChatGPT Prompt</button>
+        <div class="title">STEP 1: STORY SCRIPT &amp; AUTO-DIRECTOR SETUP</div>
+        <button type="button" class="btn-flow" id="btn-copy-prompt">📋 Copy Tri-Hybrid ChatGPT Prompt</button>
       </div>
 
-      <label for="topic">Story Title (Auto-updates from script)</label>
+      <label for="topic">Story Title (Automatically updates from your script)</label>
       <input type="text" id="topic" value="" placeholder="Auto-updates from your script (or type custom title)..." oninput="syncHeaderTitle(); saveDraftLocal();" />
-
-      <div style="padding:11px; border-radius:10px; background:var(--input); border:1px solid rgba(34, 211, 238, 0.35); margin-bottom:12px;">
-        <div style="font-size:12px; font-weight:800; color:var(--cyan); margin-bottom:6px;">🔑 Free Stock Video API Keys (Saved Automatically — Auto-Fills All Scenes With Real .MP4 Videos!)</div>
-        <div class="row-2">
-          <div>
-            <label for="pexels-key">Pexels Free Video API Key (pexels.com/api)</label>
-            <input type="password" id="pexels-key" placeholder="Paste Pexels API Key (optional if uploading manual .MP4)..." style="margin-bottom:4px;" oninput="saveDraftLocal()" />
-          </div>
-          <div>
-            <label for="pixabay-key">Pixabay Free Video API Key (pixabay.com/api/docs)</label>
-            <input type="password" id="pixabay-key" placeholder="Paste Pixabay API Key (optional backup)..." style="margin-bottom:4px;" oninput="saveDraftLocal()" />
-          </div>
-        </div>
-      </div>
 
       <div class="row-2">
         <div>
-          <label for="genre">Romantic Mood (LUT + Soundscape)</label>
+          <label for="genre">Romantic Mood (LUT + 3D Soundscape)</label>
           <select id="genre" onchange="saveDraftLocal()">
             <option value="deep_romance" selected>Deep &amp; Intimate Love (Warm Candlelight LUT)</option>
             <option value="secret_suspense">Secret / Private Love Suspense (Midnight Tension + Heartbeat)</option>
@@ -178,7 +165,7 @@
         <div>
           <label for="aspect">Screen Format</label>
           <select id="aspect" onchange="saveDraftLocal()">
-            <option value="16:9" selected>16:9 YouTube Widescreen Cinema</option>
+            <option value="16:9" selected>16:9 YouTube Widescreen Cinema (Rule-of-Thirds)</option>
             <option value="9:16">9:16 YouTube Shorts / Reels</option>
           </select>
         </div>
@@ -186,17 +173,17 @@
 
       <div class="row-2">
         <div>
-          <label for="voice-mode">Intimate Voice Engine (100% Free Unlimited)</label>
+          <label for="voice-mode">ElevenLabs-Plus Stereo Voice Engine (100% Free Unlimited)</label>
           <select id="voice-mode" onchange="toggleElBox(); saveDraftLocal();">
-            <option value="builtin_multi" selected>Multi-Character Love Drama (Late-Night FM + He + She)</option>
-            <option value="single_storyteller">Late-Night FM Whisper Narrator (Warm Close-Mic)</option>
+            <option value="builtin_multi" selected>Multi-Character Stereo Drama (Late-Night FM + He Left + She Right)</option>
+            <option value="single_storyteller">Late-Night FM Whisper Narrator (Deep Baritone Close-Mic)</option>
             <option value="uploaded">Optional: Upload External MP3/WAV Voiceover</option>
           </select>
         </div>
         <div>
           <label for="auto-hook">0:00-0:04.2 Climax Hook Teaser</label>
           <select id="auto-hook" onchange="saveDraftLocal()">
-            <option value="true" selected>ON — Climax Preview + Timestamp at 0:00</option>
+            <option value="true" selected>ON — Climax Preview + Heartbeat + Timestamp at 0:00</option>
             <option value="false">OFF — Start Directly From Scene 1</option>
           </select>
         </div>
@@ -205,7 +192,7 @@
       <div style="padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
         <label for="bgm-file">Optional: Upload Custom Romantic Piano / Guitar BGM MP3 (Auto-Ducked Under Voice)</label>
         <input type="file" id="bgm-file" accept=".mp3,.wav,.m4a,.ogg" style="margin-bottom:4px; font-size:12px;" onchange="uploadBgmAudio()" />
-        <div id="bgm-msg" style="font-size:11px; color:var(--muted);">Leave empty to use built-in romantic velvet chords, rain &amp; heartbeat SFX.</div>
+        <div id="bgm-msg" style="font-size:11px; color:var(--muted);">Leave empty to use built-in romantic velvet chords, rain on glass &amp; 3D heartbeat SFX.</div>
       </div>
 
       <div id="el-upload-box" style="display:none; padding:11px; border-radius:10px; background:var(--input); border:1px solid var(--border); margin-bottom:12px;">
@@ -214,36 +201,36 @@
         <div id="el-msg" style="font-size:11px; color:#34d399;">Select audio file above — uploads automatically!</div>
       </div>
 
-      <label for="custom-script">Paste Script (<code># TITLE: Story Name</code> on line 1, then <code>Speaker | Visual Scene | Spoken Hindi</code>)</label>
-      <textarea id="custom-script" oninput="autoExtractTitleFromScript(); saveDraftLocal();" placeholder="# TITLE: Barish Ki Woh Khamosh Raat&#10;narrator | Raindrops sliding down a dark bedroom window at midnight | रात के करीब एक बजे बाहर तेज़ बारिश हो रही थी..."></textarea>
+      <label for="custom-script">Paste Script (Optional <code># TITLE: ...</code> &amp; <code># DNA: ...</code>, then <code>Speaker | Visual Scene | Spoken Hindi</code>)</label>
+      <textarea id="custom-script" oninput="autoExtractTitleFromScript(); saveDraftLocal();" placeholder="# TITLE: Barish Ki Woh Khamosh Raat&#10;# DNA: young Indian woman in dark red saree and handsome Indian man in black jacket&#10;narrator | Raindrops sliding down a dark bedroom window at midnight | रात के करीब एक बजे बाहर तेज़ बारिश हो रही थी..."></textarea>
 
-      <button class="btn btn-primary" id="btn-load" onclick="loadSceneSlots()">🎬 Step 1: Load Motion Video Clips &amp; Flow Prompts</button>
+      <button class="btn btn-primary" id="btn-load" onclick="loadSceneSlots()">🎬 Step 1: Run Auto-Director (Assign 2D Lip-Sync, 3D AI &amp; Flow Clips)</button>
       <div class="err" id="err-box"></div>
     </div>
 
-    <!-- STEP 2: 100% MOTION VIDEO MIXER (STOCK .MP4 + GOOGLE FLOW + SEARCH GUIDE) -->
+    <!-- STEP 2: TRI-HYBRID SCENE TIMELINE & OPTIONAL FLOW CLIP OVERRIDE -->
     <div class="card" id="review-card" style="display:none;">
       <div class="hdr-row">
-        <div class="title">STEP 2: 100% MOTION VIDEO CLIPS (.MP4 ONLY)</div>
+        <div class="title">STEP 2: TRI-HYBRID AUTO-DIRECTOR TIMELINE (2D LIP-SYNC + 3D AI + FLOW)</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <label class="btn-up" style="margin:0; background:rgba(16,185,129,0.18); border-color:#10b981; color:#34d399;">
-            ⚡ Batch Upload .MP4 Clips
-            <input type="file" accept="video/*" multiple style="display:none;" onchange="batchUploadMedia(this)" />
+            ⚡ Batch Upload Flow .MP4 Clips
+            <input type="file" accept="video/*,image/*" multiple style="display:none;" onchange="batchUploadMedia(this)" />
           </label>
-          <span id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:800;">0/0 Video Clips Ready</span>
+          <span id="prep-msg" style="font-size:12px; color:var(--amber); font-weight:800;">0 Scenes Ready</span>
         </div>
       </div>
 
       <div class="scene-grid" id="scene-grid"></div>
 
       <div style="margin-top:16px;">
-        <button class="btn btn-green" onclick="startFinalRender()">🚀 Step 2: Render Final 100% Motion Cinema MP4</button>
+        <button class="btn btn-green" onclick="startFinalRender()">🚀 Step 2: Render Final Tri-Hybrid 16:9 Cinema MP4</button>
       </div>
     </div>
 
-    <!-- STEP 3: LIVE RENDER + YOUTUBE SEO AUTO-PACK -->
+    <!-- STEP 3: LIVE RENDER PROGRESS -->
     <div class="card" id="render-card" style="display:none;">
-      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE MOTION CINEMA RENDER &amp; YOUTUBE SEO PACK</div>
+      <div class="title" style="margin-bottom:10px;">STEP 3: LIVE TRI-HYBRID CINEMA RENDER PROGRESS</div>
       <div id="scene-txt" style="font-size:13px; font-weight:700;">Starting render...</div>
       <div class="bar"><div class="fill" id="prog-fill"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted);">
@@ -262,9 +249,17 @@
     let uploadedBgmId = "";
     let pollTimer = null;
 
+    const MOTION_LIST = [
+      "Zoom_In_Push",
+      "Pan_Right_Drift",
+      "Zoom_Out_Reveal",
+      "Pan_Left_Drift",
+      "Dramatic_Pulse_Zoom"
+    ];
+
     function syncHeaderTitle() {
       const t = document.getElementById("topic").value.trim();
-      document.getElementById("header-app-title").textContent = t ? `NEXORA: ${t}` : "NEXORA ROMANCE APEX v25";
+      document.getElementById("header-app-title").textContent = t ? `NEXORA: ${t}` : "NEXORA ROMANCE APEX v26";
     }
 
     function autoExtractTitleFromScript() {
@@ -288,16 +283,12 @@
       localStorage.setItem("nx_draft_aspect", document.getElementById("aspect").value);
       localStorage.setItem("nx_draft_voice", document.getElementById("voice-mode").value);
       localStorage.setItem("nx_draft_script", document.getElementById("custom-script").value);
-      localStorage.setItem("nx_pexels_key", document.getElementById("pexels-key").value);
-      localStorage.setItem("nx_pixabay_key", document.getElementById("pixabay-key").value);
     }
 
     function restoreDraftLocal() {
       if (localStorage.getItem("nx_draft_topic")) document.getElementById("topic").value = localStorage.getItem("nx_draft_topic");
       if (localStorage.getItem("nx_draft_genre")) document.getElementById("genre").value = localStorage.getItem("nx_draft_genre");
       if (localStorage.getItem("nx_draft_aspect")) document.getElementById("aspect").value = localStorage.getItem("nx_draft_aspect");
-      if (localStorage.getItem("nx_pexels_key")) document.getElementById("pexels-key").value = localStorage.getItem("nx_pexels_key");
-      if (localStorage.getItem("nx_pixabay_key")) document.getElementById("pixabay-key").value = localStorage.getItem("nx_pixabay_key");
       if (localStorage.getItem("nx_draft_voice")) {
         document.getElementById("voice-mode").value = localStorage.getItem("nx_draft_voice");
         toggleElBox();
@@ -328,7 +319,7 @@
       try {
         const r = await fetch("/api/health");
         const d = await r.json();
-        document.getElementById("sys-status").textContent = d.romance_v25 ? "APEX v25 Video-Only" : "NEXORA Ready";
+        document.getElementById("sys-status").textContent = d.tri_hybrid_v26 ? "APEX v26 Tri-Hybrid Ready" : "NEXORA Ready";
       } catch (e) {
         document.getElementById("sys-status").textContent = "Waking Server...";
       }
@@ -376,19 +367,20 @@
 
     document.getElementById("btn-copy-prompt").onclick = () => {
       const moodVal = document.getElementById("genre").value;
-      const prompt = `Write a brand-new, deeply emotional Hindi romantic suspense story script in ${moodVal} mood.
-CRITICAL RULES FOR NEXORA ROMANCE APEX v25:
-1. First line MUST be: # TITLE: <Catchy Story Title in Hinglish>
-2. Create 14 to 20 fast-paced scenes (18 to 24 spoken words per line so each scene matches a 6 to 8 second video clip!).
-3. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female'.
-4. In Column 2, write a clear cinematic motion scene description (e.g., raindrops sliding down window at night, couple holding hands in candlelight, car driving in night rain, smartphone message screen, couple watching sunrise) so stock video APIs & Google Flow match 100%.
-5. Output ONLY # TITLE on line 1, followed by 3 pipe-separated columns per scene (NO numbering, NO markdown):
-narrator/male/female | Real-World Motion Scene Description | Expressive Spoken Hindi Line in Devanagari Hindi`;
+      const prompt = `Write a deeply emotional, high-retention Hindi romantic suspense story script in ${moodVal} mood for 16:9 widescreen cinema.
+CRITICAL RULES FOR NEXORA TRI-HYBRID v26:
+1. Line 1 MUST be: # TITLE: <Catchy Story Title in Hinglish>
+2. Line 2 MUST be: # DNA: <Consistent visual look & outfits of the lead Indian man and woman across all scenes>
+3. Create 14 to 18 fast-paced scenes (14 to 18 spoken words per line so visual formats switch every 4-5 seconds!).
+4. Use multi-character dialogue! Set Column 1 to 'narrator', 'male', or 'female'.
+5. In Column 2, write a vivid English cinematic scene description (include action verbs like walking, opening door, holding hands, embracing for climax scenes, and moody candlelight/rain scenes for narrator lines).
+6. Output ONLY # TITLE, # DNA, and 3 pipe-separated columns per scene (NO numbering, NO markdown):
+narrator/male/female | Detailed English Cinematic Scene Description | Expressive Spoken Hindi Line in Devanagari Hindi`;
 
       navigator.clipboard.writeText(prompt).then(() => {
         const btn = document.getElementById("btn-copy-prompt");
-        btn.textContent = "✅ Story Prompt Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy Love Story ChatGPT Prompt", 3000);
+        btn.textContent = "✅ Tri-Hybrid Prompt Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy Tri-Hybrid ChatGPT Prompt", 3000);
       });
     };
 
@@ -400,27 +392,33 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
       });
     }
 
-    async function nextStockClip(idx, btnEl) {
-      btnEl.disabled = true;
-      btnEl.textContent = "⏳...";
-      try {
-        const r = await fetch(`/api/session/${currentSessionId}/next_clip/${idx}`, { method: "POST" });
-        const d = await r.json();
-        if (r.ok) refreshSessionGrid();
-        else alert(d.error || "No more clips.");
-      } finally {
-        btnEl.disabled = false;
-      }
+    async function changeVisualMode(idx, modeVal) {
+      if (!currentSessionId) return;
+      const r = await fetch(`/api/session/${currentSessionId}/mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idx: idx, mode: modeVal })
+      });
+      if (r.ok) refreshSessionGrid();
+    }
+
+    async function changeAnim(idx, animVal) {
+      if (!currentSessionId) return;
+      await fetch(`/api/session/${currentSessionId}/anim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idx: idx, anim: animVal })
+      });
     }
 
     async function batchUploadMedia(inputEl) {
       if (!inputEl.files || !inputEl.files.length || !currentSessionId) return;
-      document.getElementById("prep-msg").textContent = `Uploading ${inputEl.files.length} videos...`;
+      document.getElementById("prep-msg").textContent = `Uploading ${inputEl.files.length} files...`;
       const fd = new FormData();
       Array.from(inputEl.files).forEach(file => fd.append("media", file));
       const r = await fetch(`/api/session/${currentSessionId}/batch_upload`, { method: "POST", body: fd });
       if (r.ok) refreshSessionGrid();
-      else alert("Batch upload failed. Only .MP4/.MOV/.WEBM videos are supported.");
+      else alert("Batch upload failed.");
     }
 
     async function swapScene(fromIdx, toIdxStr) {
@@ -434,14 +432,14 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
       if (r.ok) refreshSessionGrid();
     }
 
-    async function uploadSceneVideo(idx, inputEl) {
+    async function uploadSceneMedia(idx, inputEl) {
       if (!inputEl.files || !inputEl.files[0] || !currentSessionId) return;
       const fd = new FormData();
       fd.append("media", inputEl.files[0]);
       const r = await fetch(`/api/session/${currentSessionId}/replace/${idx}`, { method: "POST", body: fd });
       const d = await r.json();
       if (r.ok) refreshSessionGrid();
-      else alert(d.error || "Upload failed. Only .MP4/.MOV videos are accepted.");
+      else alert(d.error || "Upload failed.");
     }
 
     async function refreshSessionGrid() {
@@ -455,8 +453,10 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
         syncHeaderTitle();
       }
 
-      const readyCnt = currentScenesCache.filter(s => s.media_ready).length;
-      document.getElementById("prep-msg").textContent = `${readyCnt}/${currentScenesCache.length} Motion Video Clips Ready`;
+      const cnt2d = currentScenesCache.filter(s => s.visual_mode === "2d_host").length;
+      const cntAi = currentScenesCache.filter(s => s.visual_mode === "ai_scene").length;
+      const cntFlow = currentScenesCache.filter(s => s.visual_mode === "flow_clip").length;
+      document.getElementById("prep-msg").textContent = `${currentScenesCache.length} Scenes (${cnt2d} 2D Lip-Sync • ${cntAi} 3D AI • ${cntFlow} Flow Slots)`;
 
       const grid = document.getElementById("scene-grid");
       grid.innerHTML = "";
@@ -467,18 +467,36 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
         const card = document.createElement("div");
         card.className = "sc-card";
 
-        const statusBadge = sc.media_ready
-          ? (sc.media_type === "remote_video" ? `<span class="badge-ok">🎬 STOCK .MP4</span>` : `<span class="badge-ok">🎬 CUSTOM .MP4</span>`)
-          : `<span class="badge-wait">NEED .MP4</span>`;
+        let badgeHtml = `<span class="badge-2d">🎭 2D LIP-SYNC HOST</span>`;
+        let bannerHtml = `
+          <div class="mode-banner banner-2d">
+            <b>Auto-Director: 2D Lip-Sync Character</b><br/>
+            Real-time phoneme mouth sync, eye blinks &amp; Rule-of-Thirds 16:9 framing (${sc.speaker.toUpperCase()}).
+          </div>
+        `;
 
-        let mediaPreviewHtml = "";
-        if (sc.media_ready) {
-          const thumbSrc = sc.media_type === "remote_video"
-            ? sc.thumb_url
-            : `/api/session/${currentSessionId}/thumb/${idx}?t=${ts}`;
-          mediaPreviewHtml = `<img class="sc-thumb" src="${thumbSrc}" alt="Scene ${idx + 1}" />`;
-        } else {
-          mediaPreviewHtml = `<div class="sc-placeholder"><div><b>No .MP4 Video Yet</b><br/>Add Pexels/Pixabay Key above OR upload .MP4 below</div></div>`;
+        if (sc.visual_mode === "ai_scene") {
+          badgeHtml = `<span class="badge-ai">🖼 3D PARALLAX AI</span>`;
+          bannerHtml = `
+            <div class="mode-banner banner-ai">
+              <b>Auto-Director: 3D Cinema AI + Rain/Bokeh VFX</b><br/>
+              Pixel-Guard protected frame with 24fps camera motion.
+            </div>
+          `;
+        } else if (sc.visual_mode === "flow_clip") {
+          const hasFile = Boolean(sc.media_file);
+          badgeHtml = `<span class="badge-flow">${hasFile ? "🎬 FLOW .MP4 READY" : "🎬 FLOW SLOT (AUTO-2D BACKUP)"}</span>`;
+          bannerHtml = `
+            <div class="mode-banner banner-flow">
+              <b>High-Impact Action Scene (${hasFile ? "Custom .MP4 Loaded" : "Upload Flow .MP4 or Auto-2D Fallback"})</b><br/>
+              Scene: ${sc.visual_prompt}
+            </div>
+          `;
+        }
+
+        let thumbHtml = "";
+        if (sc.media_file) {
+          thumbHtml = `<img class="sc-thumb" src="/api/session/${currentSessionId}/thumb/${idx}?t=${ts}" alt="Scene ${idx + 1}" />`;
         }
 
         let swapOpts = `<option value="">Swap...</option>`;
@@ -486,31 +504,38 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
           if (k !== idx) swapOpts += `<option value="${k}">#${k + 1}</option>`;
         }
 
-        const safeKw = sc.search_keywords.replace(/'/g, "\\'");
+        let motionOpts = "";
+        for (const m of MOTION_LIST) {
+          motionOpts += `<option value="${m}" ${sc.anim_type === m ? "selected" : ""}>Motion: ${m.replace(/_/g, " ")}</option>`;
+        }
+
         const safeFlow = sc.flow_prompt.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        const chatTag = sc.chat_bubble ? `<div style="font-size:10px; color:#f472b6; margin-bottom:5px;">💬 Auto Chat Bubble: "${sc.chat_bubble}"</div>` : "";
 
         card.innerHTML = `
           <div>
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:6px; gap:4px;">
-              <span style="color:var(--pink);">SCENE ${idx + 1} ${statusBadge}</span>
+              <span style="color:var(--pink);">SCENE ${idx + 1} ${badgeHtml}</span>
               <select style="width:auto; padding:2px 4px; margin:0; font-size:10px;" onchange="swapScene(${idx}, this.value)">${swapOpts}</select>
             </div>
-            ${mediaPreviewHtml}
-            <div class="guide-box">
-              <div><b>🔍 Search Video:</b> "${sc.search_keywords}"</div>
-              <div style="color:#94a3b8; font-size:10px; margin-top:2px;">Scene: ${sc.visual_prompt}</div>
+            ${thumbHtml}
+            ${bannerHtml}
+            ${chatTag}
+            <div class="row-2" style="gap:5px; margin-bottom:6px;">
+              <select style="padding:4px 6px; font-size:10px; margin:0;" onchange="changeVisualMode(${idx}, this.value)">
+                <option value="2d_host" ${sc.visual_mode === "2d_host" ? "selected" : ""}>Mode: 2D Lip-Sync Host</option>
+                <option value="ai_scene" ${sc.visual_mode === "ai_scene" ? "selected" : ""}>Mode: 3D Parallax AI</option>
+                <option value="flow_clip" ${sc.visual_mode === "flow_clip" ? "selected" : ""}>Mode: Flow .MP4 Clip</option>
+              </select>
+              <select style="padding:4px 6px; font-size:10px; margin:0;" onchange="changeAnim(${idx}, this.value)">${motionOpts}</select>
             </div>
             <div style="font-size:11px; color:var(--text); margin-bottom:8px; line-height:1.35;">"${sc.hindi_dub}"</div>
           </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; margin-bottom:5px;">
-            <button type="button" class="btn-sm" onclick="copyText('${safeKw}', this)">📋 Search Tag</button>
-            <button type="button" class="btn-flow" onclick="copyText('${safeFlow}', this)">🎬 Flow Prompt</button>
-          </div>
-          <div style="display:grid; grid-template-columns: 0.9fr 1.3fr; gap:5px;">
-            <button type="button" class="btn-sm" style="border-color:rgba(16,185,129,0.45); color:#34d399; background:rgba(16,185,129,0.12);" onclick="nextStockClip(${idx}, this)">🔄 Next Clip</button>
+          <div style="display:grid; grid-template-columns: 1fr 1.1fr; gap:6px;">
+            <button type="button" class="btn-flow" onclick="copyText('${safeFlow}', this)">🎬 Copy Flow Prompt</button>
             <label class="btn-up" style="margin:0;">
-              ⬆ Upload .MP4
-              <input type="file" accept="video/*" style="display:none;" onchange="uploadSceneVideo(${idx}, this)" />
+              ⬆ Upload .MP4 / Img
+              <input type="file" accept="video/*,image/*" style="display:none;" onchange="uploadSceneMedia(${idx}, this)" />
             </label>
           </div>
         `;
@@ -530,7 +555,7 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
 
       const btn = document.getElementById("btn-load");
       btn.disabled = true;
-      btn.textContent = "⏳ Fetching Motion Videos & Prompts...";
+      btn.textContent = "⏳ Running Auto-Director...";
 
       try {
         const payload = {
@@ -541,8 +566,6 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
           auto_hook: document.getElementById("auto-hook").value === "true",
           uploaded_audio_id: uploadedAudioId,
           uploaded_bgm_id: uploadedBgmId,
-          pexels_key: document.getElementById("pexels-key").value.trim(),
-          pixabay_key: document.getElementById("pixabay-key").value.trim(),
           custom_script: script
         };
 
@@ -568,7 +591,7 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
         refreshSessionGrid();
       } finally {
         btn.disabled = false;
-        btn.textContent = "🎬 Step 1: Load Motion Video Clips & Flow Prompts";
+        btn.textContent = "🎬 Step 1: Run Auto-Director (Assign 2D Lip-Sync, 3D AI & Flow Clips)";
       }
     }
 
@@ -581,30 +604,12 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
       document.body.removeChild(a);
     }
 
-    function buildYouTubeSeoHtml(storyTitle) {
-      const ytTitle = `${storyTitle} ❤️‍🩹 | Heart Touching Hindi Romantic Suspense Story`;
-      const ytDesc = `${storyTitle} — रात के सन्नाटे में छिपा एक ऐसा अधूरा इश्क़ और गहरा राज़ जो आपकी आँखें नम कर देगा... 🌧️🕯️\n\nकहानी को अंत तक ज़रूर देखें और कमेंट में बताएं कि आपको यह कहानी कैसी लगी! ❤️\n\n#HindiLoveStory #RomanticStory #HeartTouchingStory #EmotionalLoveStory #HindiKahaniya #SadLoveStory #SuspenseLoveStory #MidnightStory`;
-      const ytTags = `hindi love story, romantic love story in hindi, heart touching love story, emotional love story, sad love story hindi, hindi kahaniya, romantic suspense story, midnight love story, ${storyTitle.toLowerCase()}, audio story hindi`;
-
-      return `
-        <div class="seo-box">
-          <div style="font-size:12px; font-weight:900; color:#34d399; margin-bottom:8px;">🚀 READY-TO-PASTE YOUTUBE TITLE, DESCRIPTION &amp; TAGS</div>
-          <label>YouTube Title</label>
-          <input type="text" readonly value="${ytTitle.replace(/"/g, '&quot;')}" onclick="this.select()" style="margin-bottom:8px;" />
-          <label>YouTube Description</label>
-          <textarea readonly style="min-height:95px; margin-bottom:8px;" onclick="this.select()">${ytDesc}</textarea>
-          <label>YouTube Tags</label>
-          <input type="text" readonly value="${ytTags}" onclick="this.select()" style="margin-bottom:0;" />
-        </div>
-      `;
-    }
-
     async function startFinalRender() {
       showErr("");
       showRenderErr("");
       if (!currentSessionId) return;
 
-      const storyTitle = document.getElementById("topic").value.trim() || "NEXORA Love Story";
+      const storyTitle = document.getElementById("topic").value.trim() || "NEXORA Cinema Story";
 
       const r = await fetch("/api/render", {
         method: "POST",
@@ -652,9 +657,8 @@ narrator/male/female | Real-World Motion Scene Description | Expressive Spoken H
             const dlUrl = `/api/video/${jobId}?dl=1`;
             autoDownload(dlUrl, st.file_name);
             document.getElementById("result-box").innerHTML = `
-              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download 100% Motion Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
+              <a class="btn btn-green" style="margin-top:10px;" href="${dlUrl}" download="${st.file_name}">⬇ Download Tri-Hybrid 16:9 Cinema MP4 (${st.duration_min} min • ${st.size_mb} MB)</a>
               <video src="/api/video/${jobId}" controls playsinline></video>
-              ${buildYouTubeSeoHtml(storyTitle)}
             `;
           } else if (st.status === "error") {
             clearInterval(pollTimer);
