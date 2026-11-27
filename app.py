@@ -1,6 +1,7 @@
 import os
 import re
 import gc
+import math
 import time
 import uuid
 import wave
@@ -9,11 +10,12 @@ import asyncio
 import tempfile
 import subprocess
 import threading
+import urllib.parse
 from typing import Dict, List, Any, Optional, Tuple
 
 import requests
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from flask import Flask, request, jsonify, send_file
 
 try:
@@ -23,7 +25,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v25 — 100% PURE MOTION VIDEO ENGINE (ZERO IMAGES)
+# 1. NEXORA ROMANCE APEX v26 — TRI-HYBRID 16:9 CINEMA & 2D LIP-SYNC ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -47,7 +49,8 @@ HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
-HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) NexoraApex/25.0"}
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0"}
 
 
 def is_safe_id(val: str) -> bool:
@@ -168,49 +171,32 @@ def auto_derive_story_title(custom_script: str, provided_title: str) -> str:
 
 
 # ==============================================================================
-# 3. DUAL STOCK VIDEO API (PEXELS + PIXABAY) & GOOGLE FLOW PROMPT ENGINE
+# 3. HUMAN PSYCHOLOGY AUTO-DIRECTOR & SMART PIXEL-GUARD AI VISUAL ENGINE
 # ==============================================================================
-DIVERSE_BACKUP_QUERIES = [
-    "romantic couple sunset",
-    "raindrops glass window night",
-    "candlelight dark room",
-    "night city lights bokeh",
-    "couple holding hands",
-    "sad woman window rain",
-    "vintage clock midnight",
-    "sunrise mountains clouds",
-    "car driving night rain",
-    "coffee cup steam warm",
+MOTION_MODES = [
+    "Zoom_In_Push",
+    "Pan_Right_Drift",
+    "Zoom_Out_Reveal",
+    "Pan_Left_Drift",
+    "Dramatic_Pulse_Zoom",
 ]
 
 
-def build_stock_search_keywords(visual_prompt: str, hinglish_caption: str, idx: int) -> str:
-    vp = visual_prompt.lower()
-    if any(k in vp for k in ("sunrise", "morning", "hills", "mountains", "clouds")):
-        return "couple watching sunrise mountains"
-    if any(k in vp for k in ("car", "sitting together inside a car", "driving", "highway")):
-        return "couple inside car night rain"
-    if any(k in vp for k in ("phone", "smartphone", "message", "screen")):
-        return "smartphone screen dark night"
-    if any(k in vp for k in ("door", "hallway", "opening")):
-        return "opening door light dark room"
-    if any(k in vp for k in ("embrace", "embracing", "silhouette", "kiss", "hug", "close up of couple")):
-        return "romantic couple silhouette sunset"
-    if any(k in vp for k in ("holding woman hands", "holding hands", "hand")):
-        return "couple holding hands romantic"
-    if any(k in vp for k in ("candle", "candlelight", "flickering")):
-        return "candlelight dark room aesthetic"
-    if any(k in vp for k in ("anxious", "tears", "crying", "emotional woman", "sad")):
-        return "sad woman looking window rain"
-    if any(k in vp for k in ("raindrops", "window", "heavy rain", "wet street")):
-        return "raindrops on window night"
-    if any(k in vp for k in ("clock", "midnight", "2:00")):
-        return "vintage clock midnight dark"
-
-    words = [w for w in re.sub(r"[^a-zA-Z\s]", "", visual_prompt).split() if len(w) > 3]
-    if len(words) >= 3:
-        return " ".join(words[:4])
-    return DIVERSE_BACKUP_QUERIES[idx % len(DIVERSE_BACKUP_QUERIES)]
+def is_limit_placeholder_image(img_path: str) -> bool:
+    """Detects Pollinations 45s white-bottom rate-limit bee card via pixel inspection."""
+    try:
+        with Image.open(img_path) as im:
+            rgb = im.convert("RGB")
+            w, h = rgb.size
+            if w < 100 or h < 100:
+                return True
+            bottom_crop = rgb.crop((int(w * 0.1), int(h * 0.72), int(w * 0.9), int(h * 0.96)))
+            arr = np.asarray(bottom_crop, dtype=np.float32)
+            # The rate-limit card has a bright off-white/cream banner across the lower third
+            bright_ratio = float(np.mean((arr[:, :, 0] > 235) & (arr[:, :, 1] > 232) & (arr[:, :, 2] > 220)))
+            return bright_ratio > 0.58
+    except Exception:
+        return True
 
 
 def build_google_flow_prompt(visual_prompt: str, idx: int) -> str:
@@ -218,128 +204,84 @@ def build_google_flow_prompt(visual_prompt: str, idx: int) -> str:
         "slow cinematic dolly push-in, subtle breathing and gentle movement, shallow depth of field",
         "smooth slow horizontal camera pan, flickering warm candlelight shadows, anamorphic film lens",
         "gentle emotional close-up focus pull, atmospheric bokeh lights, 35mm movie aesthetic",
-        "slow dramatic zoom out, rich contrast and warm moonlight tones, clean borderless frame without text",
+        "slow dramatic zoom out, rich contrast and warm moonlight tones, clean borderless frame",
     ]
     cam = cam_moves[idx % len(cam_moves)]
     base = re.sub(r"\b[48]k\b", "", visual_prompt, flags=re.IGNORECASE)
     base = re.sub(r"\bno\s+text\b", "", base, flags=re.IGNORECASE)
     base = re.sub(r"\s+", " ", base).strip(" ,.")
-    return f"{base}, {cam}, Indian romantic drama cinema, photorealistic, clean frame without text or numbers"
+    return f"{base}, {cam}, Indian romantic drama cinema, photorealistic, clean borderless frame without text"
 
 
-_VIDEO_API_CACHE: Dict[str, List[Dict[str, str]]] = {}
+def build_clean_visual_prompt(visual_prompt: str, character_dna: str) -> str:
+    base = re.sub(r"\b[48]k\b", "", visual_prompt, flags=re.IGNORECASE)
+    base = re.sub(r"\bno\s+text\b", "", base, flags=re.IGNORECASE)
+    base = re.sub(r"\s+", " ", base).strip(" ,.")
+    dna_tag = f", {character_dna}" if character_dna else ""
+    return f"{base}{dna_tag}, cinematic Indian romantic drama film still, moody lighting, shallow depth of field, photorealistic"
 
 
-def _search_pexels_videos(query: str, pexels_key: str, orientation: str) -> List[Dict[str, str]]:
-    if not pexels_key:
-        return []
-    out: List[Dict[str, str]] = []
-    try:
-        r = requests.get(
-            "https://api.pexels.com/videos/search",
-            headers={"Authorization": pexels_key, **HTTP_HEADERS},
-            params={"query": query, "per_page": 15, "orientation": orientation},
-            timeout=10,
+def build_ai_url(visual_prompt: str, character_dna: str, out_w: int, out_h: int, seed: int) -> str:
+    clean_p = build_clean_visual_prompt(visual_prompt, character_dna)
+    enc = urllib.parse.quote(clean_p)
+    return f"https://image.pollinations.ai/prompt/{enc}?width={out_w}&height={out_h}&seed={seed}&nologo=true&model=turbo"
+
+
+def fetch_ai_images_with_pixel_guard(
+    scenes: List[Dict[str, Any]],
+    character_dna: str,
+    work_dir: str,
+    out_w: int,
+    out_h: int,
+    job_id: str,
+) -> Dict[int, str]:
+    """
+    Fetches AI images ONLY for scenes assigned 'ai_scene'.
+    Uses Pixel Guard to reject the 45s rate-limit bee image and waits for real frames.
+    """
+    downloaded: Dict[int, str] = {}
+    ai_indices = [i for i, s in enumerate(scenes) if s.get("visual_mode") == "ai_scene" and not s.get("media_file")]
+
+    for pos, idx in enumerate(ai_indices):
+        sc = scenes[idx]
+        update_job(
+            job_id,
+            status="running",
+            progress=6 + int((pos / max(1, len(ai_indices))) * 16),
+            current_scene=f"Generating Cinema Scene {idx + 1} ({pos + 1}/{len(ai_indices)})...",
         )
-        if r.status_code == 200:
-            for v in r.json().get("videos", []):
-                vid_id = f"px_{v.get('id')}"
-                thumb = str(v.get("image") or "")
-                files = v.get("video_files") or []
-                mp4_files = [f for f in files if str(f.get("file_type") or "") == "video/mp4" and f.get("link")]
-                mp4_files.sort(key=lambda x: abs(int(x.get("width") or 0) - 960))
-                if mp4_files:
-                    out.append({
-                        "id": vid_id,
-                        "url": str(mp4_files[0]["link"]),
-                        "thumb": thumb,
-                    })
-    except Exception:
-        pass
-    return out
+        out_p = os.path.join(work_dir, f"ai_src_{idx:03d}.jpg")
+        seed = int(sc.get("seed", 2026 + idx * 41))
+        url = build_ai_url(sc.get("visual_prompt", ""), character_dna, out_w, out_h, seed)
 
+        for attempt in range(2):
+            try:
+                r = requests.get(url, headers=HTTP_HEADERS, timeout=18)
+                if r.status_code == 200 and len(r.content) > 5000:
+                    with open(out_p, "wb") as f:
+                        f.write(r.content)
+                    if not is_limit_placeholder_image(out_p):
+                        downloaded[idx] = out_p
+                        break
+                    else:
+                        if os.path.exists(out_p):
+                            os.remove(out_p)
+            except Exception:
+                pass
 
-def _search_pixabay_videos(query: str, pixabay_key: str) -> List[Dict[str, str]]:
-    if not pixabay_key:
-        return []
-    out: List[Dict[str, str]] = []
-    try:
-        r = requests.get(
-            "https://pixabay.com/api/videos/",
-            headers=HTTP_HEADERS,
-            params={"key": pixabay_key, "q": query, "per_page": 15, "safesearch": "true"},
-            timeout=10,
-        )
-        if r.status_code == 200:
-            for hit in r.json().get("hits", []):
-                vid_id = f"pb_{hit.get('id')}"
-                vids = hit.get("videos") or {}
-                chosen = vids.get("medium") or vids.get("small") or vids.get("large") or {}
-                v_url = str(chosen.get("url") or "")
-                t_url = str(chosen.get("thumbnail") or "")
-                if v_url:
-                    out.append({
-                        "id": vid_id,
-                        "url": v_url,
-                        "thumb": t_url,
-                    })
-    except Exception:
-        pass
-    return out
+            if attempt == 0 and pos < len(ai_indices) - 1:
+                update_job(job_id, current_scene=f"Cooling AI Server (46s) for Scene {idx + 1}...")
+                time.sleep(46.0)
 
+        if idx in downloaded and pos < len(ai_indices) - 1:
+            time.sleep(2.0)
 
-def fetch_unique_stock_video(
-    query: str,
-    scene_idx: int,
-    used_ids: set,
-    pexels_key: str,
-    pixabay_key: str,
-    aspect: str,
-    alt_index: int = 0,
-) -> Optional[Dict[str, str]]:
-    if not pexels_key and not pixabay_key:
-        return None
-
-    orient = "portrait" if aspect == "9:16" else "landscape"
-    queries_to_try = [query] + [
-        DIVERSE_BACKUP_QUERIES[(scene_idx + k) % len(DIVERSE_BACKUP_QUERIES)]
-        for k in range(4)
-    ]
-
-    pool: List[Dict[str, str]] = []
-    seen = set()
-
-    for q in queries_to_try:
-        cache_k = f"{q}|{orient}|{bool(pexels_key)}|{bool(pixabay_key)}"
-        if cache_k not in _VIDEO_API_CACHE:
-            res = _search_pexels_videos(q, pexels_key, orient)
-            if len(res) < 5:
-                res.extend(_search_pixabay_videos(q, pixabay_key))
-            _VIDEO_API_CACHE[cache_k] = res
-
-        for item in _VIDEO_API_CACHE[cache_k]:
-            if item["id"] not in seen:
-                seen.add(item["id"])
-                pool.append(item)
-        if len(pool) >= 18:
-            break
-
-    if not pool:
-        return None
-
-    if alt_index > 0:
-        return pool[alt_index % len(pool)]
-
-    for item in pool:
-        if item["id"] not in used_ids:
-            return item
-
-    return pool[scene_idx % len(pool)]
+    return downloaded
 
 
 def detect_romantic_sfx(text_blob: str, mood: str) -> str:
     low = text_blob.lower()
-    if any(k in low for k in ("message", "msg", "phone", "call", "notification", "ring", "screen")):
+    if any(k in low for k in ("message", "msg", "phone", "call", "notification", "ring", "screen", "chat")):
         return "phone_chime"
     if any(k in low for k in ("rain", "barish", "boond", "window", "khidki", "bheeg")):
         return "soft_rain"
@@ -371,11 +313,55 @@ def detect_line_emotion(hinglish_txt: str, speaker: str) -> str:
     return "late_night_fm"
 
 
-def parse_user_script(custom_script: str, mood: str) -> List[Dict[str, Any]]:
-    scenes: List[Dict[str, Any]] = []
+def extract_chat_bubble_text(hinglish_txt: str, visual_prompt: str) -> str:
+    blob = f"{hinglish_txt} {visual_prompt}".lower()
+    if not any(k in blob for k in ("message", "msg", "phone", "screen", "notification", "chat", "text")):
+        return ""
+    # Extract quoted or post-dash message if present, otherwise synthesize realistic preview
+    m = re.search(r"(?:likha tha|message tha|msg tha|notification)\s*[-:]?\s*(.+)$", hinglish_txt, re.IGNORECASE)
+    if m:
+        snippet = m.group(1).strip(" .-\"'")
+        if 4 <= len(snippet) <= 68:
+            return snippet
+    return "Main jaanta hoon tumhare kamre mein koi hai..."
+
+
+def auto_assign_tri_hybrid_mode(idx: int, total_est: int, speaker: str, visual_prompt: str, hinglish_txt: str) -> str:
+    """
+    Human Retention Psychology Auto-Director:
+    - Never lets the same visual format run more than 2 scenes in a row (Orienting Response reset).
+    - Scene 0 (Intro Hook) & direct emotional dialogues -> '2d_host' (Eye contact + Lip-sync).
+    - High-action / climax movement -> 'flow_clip' (With AI/2D fallback if user doesn't upload MP4).
+    - Atmospheric world-building -> 'ai_scene' (3D Parallax + Rain/Bokeh VFX).
+    """
+    vp_low = visual_prompt.lower()
+    is_action = any(k in vp_low for k in ("walking", "running", "opening", "driving", "embracing", "holding", "car", "door"))
+
+    if idx == 0:
+        return "2d_host"
+    if speaker in ("male", "female") and idx % 2 == 1:
+        return "2d_host"
+    if is_action and idx in (3, 7, 11, 14):
+        return "flow_clip"
+    if idx % 3 == 0:
+        return "2d_host"
+    return "ai_scene"
+
+
+def parse_user_script(custom_script: str, mood: str, aspect: str) -> Tuple[List[Dict[str, Any]], str]:
+    out_w, out_h = (576, 1024) if aspect == "9:16" else (1024, 576)
+    base_seed = int(time.time()) % 100000
+    character_dna = ""
+    raw_lines: List[Tuple[str, str, str]] = []
+
     for line in str(custom_script or "").splitlines():
         line = line.strip()
-        if not line or line.startswith("#") or "|" not in line:
+        if not line:
+            continue
+        if line.lower().startswith("# dna:") or line.lower().startswith("dna:"):
+            character_dna = line.split(":", 1)[1].strip()
+            continue
+        if line.startswith("#") or "|" not in line:
             continue
         parts = [p.strip() for p in line.split("|")]
         if len(parts) >= 3:
@@ -384,36 +370,370 @@ def parse_user_script(custom_script: str, mood: str) -> List[Dict[str, Any]]:
                 sp = "narrator"
             visual_prompt = parts[1]
             spoken_hindi = parts[3] if len(parts) >= 4 else parts[2]
-            auto_caption = devanagari_to_hinglish(spoken_hindi)
-            idx = len(scenes)
-            combined_txt = f"{visual_prompt} {auto_caption}"
-            search_kw = build_stock_search_keywords(visual_prompt, auto_caption, idx)
-            flow_prompt = build_google_flow_prompt(visual_prompt, idx)
+            raw_lines.append((sp, visual_prompt, spoken_hindi))
 
-            scenes.append({
-                "index": idx,
-                "is_teaser": False,
-                "speaker": sp,
-                "emotion": detect_line_emotion(auto_caption, sp),
-                "visual_prompt": visual_prompt,
-                "search_keywords": search_kw,
-                "flow_prompt": flow_prompt,
-                "hindi_dub": spoken_hindi,
-                "auto_caption": auto_caption,
-                "sfx_type": detect_romantic_sfx(combined_txt, mood),
-                "video_alt_index": 0,
-                "media_ready": False,
-                "media_type": "none",
-                "remote_video_url": "",
-                "thumb_url": "",
-                "media_file": "",
-                "thumb_file": "",
-            })
-    return scenes
+    scenes: List[Dict[str, Any]] = []
+    total_cnt = len(raw_lines)
+
+    for idx, (sp, visual_prompt, spoken_hindi) in enumerate(raw_lines):
+        auto_caption = devanagari_to_hinglish(spoken_hindi)
+        combined_txt = f"{visual_prompt} {auto_caption}"
+        v_mode = auto_assign_tri_hybrid_mode(idx, total_cnt, sp, visual_prompt, auto_caption)
+        chat_bubble = extract_chat_bubble_text(auto_caption, visual_prompt)
+        seed = base_seed + idx * 43
+        flow_prompt = build_google_flow_prompt(visual_prompt, idx)
+
+        scenes.append({
+            "index": idx,
+            "seed": seed,
+            "is_teaser": False,
+            "speaker": sp,
+            "emotion": detect_line_emotion(auto_caption, sp),
+            "visual_mode": v_mode,  # '2d_host' | 'ai_scene' | 'flow_clip'
+            "visual_prompt": visual_prompt,
+            "flow_prompt": flow_prompt,
+            "chat_bubble": chat_bubble,
+            "hindi_dub": spoken_hindi,
+            "auto_caption": auto_caption,
+            "anim_type": MOTION_MODES[idx % len(MOTION_MODES)],
+            "sfx_type": detect_romantic_sfx(combined_txt, mood),
+            "media_ready": True,
+            "media_type": "auto",
+            "media_file": "",
+            "thumb_file": "",
+        })
+
+    return scenes, character_dna
 
 
 # ==============================================================================
-# 4. STRICT ZERO-STACK ASS KARAOKE SUBTITLE ENGINE
+# 4. PRO 2D ANIME LIP-SYNC CHARACTER & CHAT BUBBLE RENDERER (PILLOW + NUMPY)
+# ==============================================================================
+def extract_audio_amplitude_envelope(wav_path: str, fps: int = 24) -> np.ndarray:
+    """Extracts per-frame RMS amplitude (0.0 to 1.0) for real-time phoneme lip-sync."""
+    if not os.path.exists(wav_path):
+        return np.zeros(24, dtype=np.float32)
+    try:
+        with wave.open(wav_path, "rb") as wf:
+            rate = wf.getframerate()
+            n_frames = wf.getnframes()
+            raw = wf.readframes(n_frames)
+            samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    except Exception:
+        return np.zeros(24, dtype=np.float32)
+
+    if len(samples) == 0:
+        return np.zeros(24, dtype=np.float32)
+
+    dur = len(samples) / float(rate)
+    total_video_frames = max(12, int(round(dur * fps)))
+    hop = max(1, len(samples) // total_video_frames)
+    env = np.zeros(total_video_frames, dtype=np.float32)
+
+    for i in range(total_video_frames):
+        seg = samples[i * hop : (i + 1) * hop]
+        if len(seg) > 0:
+            rms = float(np.sqrt(np.mean(seg * seg)))
+            env[i] = min(1.0, rms * 4.8)
+
+    # Smooth envelope slightly so lip transitions look organic
+    kernel = np.array([0.2, 0.6, 0.2], dtype=np.float32)
+    return np.convolve(env, kernel, mode="same")
+
+
+def draw_chat_bubble_overlay(draw: ImageDraw.ImageDraw, out_w: int, out_h: int, chat_text: str, progress_p: float):
+    """Draws a realistic dark-mode smartphone notification pop-up when a message arrives in story."""
+    if not chat_text:
+        return
+    slide = min(1.0, progress_p * 4.5)
+    box_w = int(out_w * 0.42) if out_w > out_h else int(out_w * 0.78)
+    box_h = 84
+    x1 = int(out_w - box_w - 28 + (1.0 - slide) * 120) if out_w > out_h else int((out_w - box_w) // 2)
+    y1 = int(out_h * 0.14)
+    x2 = x1 + box_w
+    y2 = y1 + box_h
+
+    draw.rounded_rectangle([x1, y1, x2, y2], radius=16, fill=(15, 23, 42, 235), outline=(244, 114, 182, 210), width=2)
+    draw.ellipse([x1 + 14, y1 + 16, x1 + 42, y1 + 44], fill=(244, 114, 182, 255))
+    draw.text((x1 + 52, y1 + 14), "NEW MESSAGE • 02:00 AM", fill=(244, 114, 182, 255))
+    short_msg = chat_text[:44] + ("..." if len(chat_text) > 44 else "")
+    draw.text((x1 + 52, y1 + 38), short_msg, fill=(248, 250, 252, 255))
+
+
+def build_2d_character_base(out_w: int, out_h: int, speaker: str, mood: str, bg_img_path: Optional[str] = None) -> Image.Image:
+    """Creates atmospheric blurred cinema backdrop for the 2D storyteller."""
+    if bg_img_path and os.path.exists(bg_img_path):
+        try:
+            with Image.open(bg_img_path) as im:
+                bg = im.convert("RGB").resize((out_w, out_h), Image.Resampling.BILINEAR)
+                bg = bg.filter(ImageFilter.GaussianBlur(radius=14))
+                dark_tint = Image.new("RGB", (out_w, out_h), (8, 10, 22))
+                return Image.blend(bg, dark_tint, 0.48)
+        except Exception:
+            pass
+
+    # Procedural rich cinema bokeh backdrop
+    y_grid = np.linspace(0, 1, out_h, dtype=np.float32)[:, None]
+    x_grid = np.linspace(0, 1, out_w, dtype=np.float32)[None, :]
+    if mood == "sad_heartbreak":
+        c_top = np.array([10, 22, 44], dtype=np.float32)
+        c_bot = np.array([4, 8, 18], dtype=np.float32)
+    elif mood == "secret_suspense":
+        c_top = np.array([32, 10, 42], dtype=np.float32)
+        c_bot = np.array([6, 6, 16], dtype=np.float32)
+    else:
+        c_top = np.array([46, 18, 34], dtype=np.float32)
+        c_bot = np.array([8, 9, 20], dtype=np.float32)
+
+    grad = c_top * (1.0 - y_grid) + c_bot * y_grid
+    # Warm rim glow behind character position (Rule of Thirds)
+    cx_norm = 0.34 if speaker == "male" else (0.66 if speaker == "female" else 0.36)
+    dist2 = (x_grid - cx_norm) ** 2 + (y_grid - 0.48) ** 2
+    glow = np.exp(-dist2 * 14.0)[:, :, None] * np.array([95, 42, 78], dtype=np.float32)
+    arr = np.clip(grad + glow, 0, 255).astype(np.uint8)
+    base = Image.fromarray(np.broadcast_to(arr, (out_h, out_w, 3)).copy(), mode="RGB")
+
+    draw = ImageDraw.Draw(base, "RGBA")
+    rng = np.random.default_rng(108)
+    for _ in range(26):
+        bx = int(rng.integers(0, out_w))
+        by = int(rng.integers(0, out_h))
+        br = int(rng.integers(8, 34))
+        col = (251, 191, 36, 32) if mood != "sad_heartbreak" else (56, 189, 248, 30)
+        draw.ellipse([bx - br, by - br, bx + br, by + br], fill=col)
+    return base
+
+
+def render_2d_lipsync_scene_clip(
+    dst_mp4: str,
+    wav_path: str,
+    dur_sec: float,
+    out_w: int,
+    out_h: int,
+    speaker: str,
+    emotion: str,
+    mood: str,
+    chat_bubble: str = "",
+    bg_img_path: Optional[str] = None,
+):
+    """
+    Renders a 24fps 2D Anime Lip-Syncing Storyteller scene directly via FFmpeg rawvideo pipe:
+    - Real-time phoneme mouth shapes (Closed, Soft, Open, Wide) driven by speech amplitude
+    - Natural eye blinks every ~3.2s + emotion eyebrows
+    - Breathing & subtle head-tilt motion + Rule-of-Thirds 16:9 framing
+    - Optional animated chat bubble pop-up
+    """
+    fps = 24
+    total_frames = max(24, int(round(dur_sec * fps)))
+    amp_env = extract_audio_amplitude_envelope(wav_path, fps=fps)
+    base_bg = build_2d_character_base(out_w, out_h, speaker, mood, bg_img_path=bg_img_path)
+
+    is_female = speaker == "female"
+    # Rule-of-Thirds positioning in 16:9 widescreen
+    base_cx = int(out_w * (0.64 if is_female else (0.36 if speaker == "male" else 0.42)))
+    base_cy = int(out_h * 0.50)
+    scale_u = out_h / 540.0
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "rawvideo", "-vcodec", "rawvideo",
+        "-s", f"{out_w}x{out_h}", "-pix_fmt", "rgb24", "-r", str(fps),
+        "-i", "-",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
+        "-pix_fmt", "yuv420p", dst_mp4,
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    try:
+        for f_idx in range(total_frames):
+            t = f_idx / float(fps)
+            prog = f_idx / float(max(1, total_frames - 1))
+            amp = float(amp_env[f_idx]) if f_idx < len(amp_env) else 0.0
+
+            # Subtle zoom + breathing + conversational head nod
+            breath_y = math.sin(t * 2.4) * 3.0 * scale_u
+            nod_y = amp * 3.5 * math.sin(t * 11.0) * scale_u
+            sway_x = math.sin(t * 1.1) * 4.0 * scale_u
+            cx = int(base_cx + sway_x)
+            cy = int(base_cy + breath_y + nod_y)
+
+            frame = base_bg.copy()
+            draw = ImageDraw.Draw(frame, "RGBA")
+
+            # Colors by character role
+            skin = (242, 206, 184, 255) if is_female else (228, 188, 164, 255)
+            skin_shadow = (205, 162, 138, 255)
+            hair = (24, 18, 34, 255) if is_female else (18, 22, 36, 255)
+            coat = (131, 24, 67, 255) if is_female else (15, 23, 42, 255)
+            accent = (244, 114, 182, 255) if is_female else (56, 189, 248, 255)
+
+            # Rim-light aura around silhouette
+            draw.ellipse(
+                [cx - int(115 * scale_u), cy - int(145 * scale_u), cx + int(115 * scale_u), cy + int(220 * scale_u)],
+                fill=(accent[0], accent[1], accent[2], 32),
+            )
+
+            # Back hair (for female character)
+            if is_female:
+                draw.rounded_rectangle(
+                    [cx - int(82 * scale_u), cy - int(110 * scale_u), cx + int(82 * scale_u), cy + int(165 * scale_u)],
+                    radius=int(48 * scale_u),
+                    fill=hair,
+                )
+
+            # Shoulders & Jacket
+            draw.pieslice(
+                [cx - int(145 * scale_u), cy + int(78 * scale_u), cx + int(145 * scale_u), cy + int(310 * scale_u)],
+                start=180, end=360, fill=coat, outline=accent, width=2,
+            )
+            # Inner shirt V-neck
+            draw.polygon(
+                [
+                    (cx - int(32 * scale_u), cy + int(85 * scale_u)),
+                    (cx + int(32 * scale_u), cy + int(85 * scale_u)),
+                    (cx, cy + int(155 * scale_u)),
+                ],
+                fill=(241, 245, 249, 230),
+            )
+
+            # Neck
+            draw.rectangle(
+                [cx - int(22 * scale_u), cy + int(42 * scale_u), cx + int(22 * scale_u), cy + int(96 * scale_u)],
+                fill=skin_shadow,
+            )
+
+            # Anime Jaw & Face Contour
+            head_w = int(64 * scale_u)
+            head_h = int(78 * scale_u)
+            draw.ellipse([cx - head_w, cy - head_h, cx + head_w, cy + int(62 * scale_u)], fill=skin)
+            draw.polygon(
+                [
+                    (cx - int(58 * scale_u), cy + int(10 * scale_u)),
+                    (cx + int(58 * scale_u), cy + int(10 * scale_u)),
+                    (cx, cy + int(74 * scale_u)),
+                ],
+                fill=skin,
+            )
+
+            # Eyes (Natural Blink every 3.2 seconds)
+            blink_cycle = t % 3.2
+            is_blinking = 2.95 <= blink_cycle <= 3.12
+            eye_y = cy - int(8 * scale_u)
+            eye_dx = int(28 * scale_u)
+
+            for side in (-1, 1):
+                ex = cx + side * eye_dx
+                if is_blinking:
+                    draw.line(
+                        [(ex - int(13 * scale_u), eye_y), (ex + int(13 * scale_u), eye_y)],
+                        fill=(30, 20, 30, 255), width=max(2, int(3 * scale_u)),
+                    )
+                else:
+                    # Eye white + glowing iris + catchlight
+                    draw.ellipse(
+                        [ex - int(13 * scale_u), eye_y - int(8 * scale_u), ex + int(13 * scale_u), eye_y + int(8 * scale_u)],
+                        fill=(255, 255, 255, 255),
+                    )
+                    iris_col = (190, 24, 93, 255) if is_female else (14, 116, 144, 255)
+                    draw.ellipse(
+                        [ex - int(7 * scale_u), eye_y - int(7 * scale_u), ex + int(7 * scale_u), eye_y + int(7 * scale_u)],
+                        fill=iris_col,
+                    )
+                    draw.ellipse(
+                        [ex - int(3 * scale_u), eye_y - int(3 * scale_u), ex + int(3 * scale_u), eye_y + int(3 * scale_u)],
+                        fill=(10, 10, 18, 255),
+                    )
+                    draw.ellipse(
+                        [ex - int(4 * scale_u), eye_y - int(5 * scale_u), ex - int(1 * scale_u), eye_y - int(2 * scale_u)],
+                        fill=(255, 255, 255, 255),
+                    )
+
+                # Emotion-adaptive eyebrows
+                brow_y = eye_y - int(16 * scale_u)
+                tilt = int(4 * scale_u) if emotion in ("urgent_passion", "emotional_ache") else 0
+                draw.line(
+                    [(ex - int(14 * scale_u), brow_y - side * tilt), (ex + int(14 * scale_u), brow_y + side * tilt)],
+                    fill=hair, width=max(2, int(3 * scale_u)),
+                )
+
+            # Subtle nose line
+            draw.line(
+                [(cx, cy + int(4 * scale_u)), (cx - int(3 * scale_u), cy + int(18 * scale_u))],
+                fill=skin_shadow, width=max(1, int(2 * scale_u)),
+            )
+
+            # 4-State Phoneme Lip-Sync Mouth
+            mouth_y = cy + int(36 * scale_u)
+            if amp < 0.08:
+                # Closed subtle line
+                draw.arc(
+                    [cx - int(12 * scale_u), mouth_y - int(4 * scale_u), cx + int(12 * scale_u), mouth_y + int(6 * scale_u)],
+                    start=15, end=165, fill=(140, 55, 68, 255), width=max(2, int(2.5 * scale_u)),
+                )
+            elif amp < 0.28:
+                # Soft open
+                draw.ellipse(
+                    [cx - int(11 * scale_u), mouth_y - int(3 * scale_u), cx + int(11 * scale_u), mouth_y + int(5 * scale_u)],
+                    fill=(136, 19, 55, 255), outline=(190, 70, 85, 255),
+                )
+            elif amp < 0.55:
+                # Medium open
+                draw.ellipse(
+                    [cx - int(14 * scale_u), mouth_y - int(5 * scale_u), cx + int(14 * scale_u), mouth_y + int(9 * scale_u)],
+                    fill=(120, 14, 48, 255), outline=(210, 80, 95, 255),
+                )
+            else:
+                # Wide expressive phoneme
+                draw.ellipse(
+                    [cx - int(16 * scale_u), mouth_y - int(7 * scale_u), cx + int(16 * scale_u), mouth_y + int(12 * scale_u)],
+                    fill=(105, 10, 42, 255), outline=(225, 90, 105, 255),
+                )
+
+            # Styled Front Anime Hair Bangs (with secondary motion sway)
+            hair_sway = int(math.sin(t * 2.2 - 0.5) * 3.0 * scale_u)
+            draw.pieslice(
+                [cx - int(70 * scale_u), cy - int(96 * scale_u), cx + int(70 * scale_u), cy - int(8 * scale_u)],
+                start=180, end=360, fill=hair,
+            )
+            draw.polygon(
+                [
+                    (cx - int(45 * scale_u), cy - int(55 * scale_u)),
+                    (cx - int(12 * scale_u), cy - int(55 * scale_u)),
+                    (cx - int(26 * scale_u) + hair_sway, cy - int(14 * scale_u)),
+                ],
+                fill=hair,
+            )
+            draw.polygon(
+                [
+                    (cx + int(8 * scale_u), cy - int(55 * scale_u)),
+                    (cx + int(44 * scale_u), cy - int(55 * scale_u)),
+                    (cx + int(24 * scale_u) + hair_sway, cy - int(16 * scale_u)),
+                ],
+                fill=hair,
+            )
+
+            # In-Scene Smartphone Chat Pop-up if triggered
+            if chat_bubble:
+                draw_chat_bubble_overlay(draw, out_w, out_h, chat_bubble, prog)
+
+            # Smooth fade in/out at clip edges
+            if t < 0.20:
+                alpha = int((1.0 - t / 0.20) * 255)
+                frame = Image.blend(frame, Image.new("RGB", (out_w, out_h), (0, 0, 0)), alpha / 255.0)
+            elif dur_sec - t < 0.20:
+                alpha = int((1.0 - (dur_sec - t) / 0.20) * 255)
+                frame = Image.blend(frame, Image.new("RGB", (out_w, out_h), (0, 0, 0)), alpha / 255.0)
+
+            if proc.stdin:
+                proc.stdin.write(frame.tobytes())
+    finally:
+        if proc.stdin:
+            proc.stdin.close()
+        proc.wait()
+
+
+# ==============================================================================
+# 5. GLASSMORPHIC CINEMA SUBTITLE ENGINE (ZERO STACKING & SPEAKER ACCENTS)
 # ==============================================================================
 def build_word_timings(text: str, dur_sec: float) -> List[Tuple[str, float, float]]:
     words = str(text or "").split()
@@ -454,10 +774,9 @@ def generate_ass_subtitle_file(
     out_h: int,
     mood: str,
 ):
-    accent_bgr = "&H00B472F4&" if mood == "deep_romance" else ("&H00F8BD38&" if mood == "sad_heartbreak" else "&H008571FB&")
-    font_sz = 34 if out_w > out_h else 30
-    hud_sz = 17 if out_w > out_h else 15
-    margin_v = 44 if out_w > out_h else 115
+    font_sz = 33 if out_w > out_h else 29
+    hud_sz = 16 if out_w > out_h else 14
+    margin_v = 42 if out_w > out_h else 115
 
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -467,7 +786,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: CapStyle,DejaVu Sans,{font_sz},&H00FFFFFF&,&H0094A3B8&,&H00080A14&,&HC8060812&,-1,0,0,0,100,100,0,0,3,6,0,2,28,28,{margin_v},1
+Style: CapStyle,DejaVu Sans,{font_sz},&H00FFFFFF&,&H0094A3B8&,&H00080A14&,&HB8060812&,-1,0,0,0,100,100,0,0,3,5,0,2,32,32,{margin_v},1
 Style: HookStyle,DejaVu Sans,{hud_sz},&H00FFFFFF&,&H00FFFFFF&,&H007727DB&,&HD87727DB&,-1,0,0,0,100,100,0,0,3,6,0,7,22,22,22,1
 Style: StageStyle,DejaVu Sans,{hud_sz - 1},&H00B472F4&,&H00B472F4&,&H000A0C18&,&HC00A0C18&,-1,0,0,0,100,100,0,0,3,5,0,7,22,22,22,1
 Style: EndStyle,DejaVu Sans,{font_sz + 2},&H00B472F4&,&H00FFFFFF&,&H00000000&,&HD805070F&,-1,0,0,0,100,100,0,0,3,10,0,5,30,30,30,1
@@ -485,7 +804,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         st_abs = cur_t
         en_abs = cur_t + dur
         is_teaser = bool(sc.get("is_teaser", False))
+        sp = sc.get("speaker", "narrator")
         ov_p = st_abs / total_dur
+
+        # Speaker-specific kinetic highlight color (BGR)
+        if sp == "female":
+            accent_bgr = "&H00B472F4&"  # Rose Pink
+        elif sp == "male":
+            accent_bgr = "&H00F8BD38&"  # Electric Cyan
+        else:
+            accent_bgr = "&H0047D3FB&"  # Warm Cinema Gold
 
         if is_teaser:
             ts_lbl = sc.get("climax_ts_label", "01:45")
@@ -527,7 +855,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 for j, (jw, _, _) in enumerate(grp):
                     clean_jw = re.sub(r"[^\x20-\x7E]", "", jw).replace("{", "").replace("}", "")
                     if j == local_i:
-                        styled_words.append(f"{{\\c{accent_bgr}}}{clean_jw}{{\\c&H00FFFFFF&}}")
+                        styled_words.append(f"{{\\c{accent_bgr}\\fscx106\\fscy106}}{clean_jw}{{\\c&H00FFFFFF&\\fscx100\\fscy100}}")
                     elif j < local_i:
                         styled_words.append(clean_jw)
                     else:
@@ -550,9 +878,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 # ==============================================================================
-# 5. LATE-NIGHT INTIMATE VOICE & ROMANTIC SOUNDSCAPE ENGINE
+# 6. ELEVENLABS-PLUS VOICE MASTERING & 3D STEREO FOLEY ENGINE
 # ==============================================================================
-class NexoraRomanceAudioEngine:
+class NexoraCinemaAudioEngine:
     @staticmethod
     def probe_dur(path: str) -> float:
         if not HAS_FFPROBE or not os.path.exists(path):
@@ -574,37 +902,57 @@ class NexoraRomanceAudioEngine:
         if voice_mode == "builtin_multi":
             if sp == "female":
                 if emo == "intimate_whisper":
-                    return {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "-3Hz"}
+                    return {"voice": "hi-IN-SwaraNeural", "rate": "-4%", "pitch": "-3Hz"}
                 if emo == "emotional_ache":
-                    return {"voice": "hi-IN-SwaraNeural", "rate": "+0%", "pitch": "-2Hz"}
-                return {"voice": "hi-IN-SwaraNeural", "rate": "+5%", "pitch": "-1Hz"}
+                    return {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "-2Hz"}
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+3%", "pitch": "-1Hz"}
             if sp == "male":
                 if emo == "intimate_whisper":
-                    return {"voice": "hi-IN-MadhurNeural", "rate": "-3%", "pitch": "-9Hz"}
+                    return {"voice": "hi-IN-MadhurNeural", "rate": "-5%", "pitch": "-11Hz"}
                 if emo == "emotional_ache":
-                    return {"voice": "hi-IN-MadhurNeural", "rate": "+0%", "pitch": "-7Hz"}
-                return {"voice": "hi-IN-MadhurNeural", "rate": "+5%", "pitch": "-6Hz"}
+                    return {"voice": "hi-IN-MadhurNeural", "rate": "-2%", "pitch": "-9Hz"}
+                return {"voice": "hi-IN-MadhurNeural", "rate": "+3%", "pitch": "-8Hz"}
             if sp == "child":
-                return {"voice": "hi-IN-SwaraNeural", "rate": "+9%", "pitch": "+14Hz"}
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+8%", "pitch": "+13Hz"}
 
         if emo == "intimate_whisper":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "-3%", "pitch": "-11Hz"}
+            return {"voice": "hi-IN-MadhurNeural", "rate": "-5%", "pitch": "-12Hz"}
         if emo == "emotional_ache":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "-1%", "pitch": "-9Hz"}
+            return {"voice": "hi-IN-MadhurNeural", "rate": "-2%", "pitch": "-10Hz"}
         if emo == "urgent_passion":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "+9%", "pitch": "-7Hz"}
-        return {"voice": "hi-IN-MadhurNeural", "rate": "+3%", "pitch": "-9Hz"}
+            return {"voice": "hi-IN-MadhurNeural", "rate": "+7%", "pitch": "-8Hz"}
+        return {"voice": "hi-IN-MadhurNeural", "rate": "+1%", "pitch": "-10Hz"}
+
+    @staticmethod
+    def generate_soft_inhale_breath(dur_sec: float = 0.24, rate: int = 22050) -> np.ndarray:
+        """Synthesizes a subtle human pre-dialogue breath inhale for intimate realism."""
+        n = max(10, int(rate * dur_sec))
+        t = np.linspace(0, dur_sec, n, endpoint=False, dtype=np.float32)
+        rng = np.random.default_rng(77)
+        raw = rng.normal(0.0, 0.035, n).astype(np.float32)
+        band = np.convolve(raw, np.ones(14) / 14.0, mode="same")
+        env = np.sin(np.pi * (t / dur_sec)) ** 1.8
+        return band * env
 
     @classmethod
-    def dub_scene_romantic(cls, sc: Dict[str, Any], idx: int, voice_mode: str, work_dir: str) -> Tuple[str, float]:
+    def dub_scene_studio_stereo(cls, sc: Dict[str, Any], idx: int, voice_mode: str, work_dir: str) -> Tuple[str, float]:
+        """
+        Generates 44.1kHz Stereo Studio Voice with:
+        - Pre-dialogue soft human inhale breath
+        - 95Hz Chest Resonance + 280Hz Mud Cut + 3.2kHz Presence EQ
+        - Spatial stereo panning (Male slightly left, Female slightly right, Narrator center)
+        """
         if not HAS_EDGE_TTS:
             raise RuntimeError("edge-tts is not installed on the server.")
 
         prof = cls.get_romantic_voice_profile(sc, voice_mode)
         text = str(sc.get("hindi_dub") or "").strip() or "कहानी आगे बढ़ती है..."
+        sp = sc.get("speaker", "narrator")
+        emo = sc.get("emotion", "late_night_fm")
 
         mp3_p = os.path.join(work_dir, f"v_{idx:03d}.mp3")
-        wav_p = os.path.join(work_dir, f"v_{idx:03d}.wav")
+        mono_wav = os.path.join(work_dir, f"vm_{idx:03d}.wav")
+        stereo_wav = os.path.join(work_dir, f"v_{idx:03d}.wav")
 
         last_err = None
         for attempt in range(3):
@@ -629,14 +977,18 @@ class NexoraRomanceAudioEngine:
         if speech_dur <= 0.20:
             raise RuntimeError(f"Voice timeout on Scene {idx + 1} ({last_err}).")
 
-        final_dur = round(speech_dur + 0.28, 2)
+        dramatic_tail = 0.42 if emo in ("emotional_ache", "urgent_passion") else 0.30
+        final_dur = round(speech_dur + dramatic_tail, 2)
 
+        # ElevenLabs-Plus Acoustic Mastering Chain
         studio_af = (
-            "highpass=f=68,"
-            "equalizer=f=120:t=q:w=1.1:g=4.5,"
-            "equalizer=f=3500:t=q:w=1.4:g=2.0,"
-            "aecho=0.85:0.88:22:0.10,"
-            "acompressor=threshold=-19dB:ratio=2.8:attack=6:release=115,"
+            "highpass=f=65,"
+            "equalizer=f=95:t=q:w=1.1:g=5.2,"
+            "equalizer=f=280:t=q:w=1.3:g=-2.8,"
+            "equalizer=f=3200:t=q:w=1.4:g=2.4,"
+            "treble=g=-1.5:f=6500,"
+            "aecho=0.88:0.90:18:0.08,"
+            "acompressor=threshold=-18dB:ratio=3.0:attack=5:release=110,"
             f"apad=whole_dur={final_dur:.3f}"
         )
         subprocess.run(
@@ -644,18 +996,48 @@ class NexoraRomanceAudioEngine:
                 "ffmpeg", "-y", "-i", mp3_p,
                 "-af", studio_af,
                 "-t", f"{final_dur:.3f}",
-                "-ar", "22050", "-ac", "1", wav_p,
+                "-ar", "22050", "-ac", "1", mono_wav,
             ],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
         )
         if os.path.exists(mp3_p):
             os.remove(mp3_p)
-        return wav_p, final_dur
+
+        # Mix subtle pre-speech inhale breath & apply 3D Stereo Panning
+        with wave.open(mono_wav, "rb") as wf:
+            samples = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+
+        breath = cls.generate_soft_inhale_breath(0.22, rate=22050)
+        b_len = min(len(samples), len(breath))
+        samples[:b_len] += breath[:b_len]
+
+        # Spatial Stereo Panning (Male = Left-Center, Female = Right-Center, Narrator = Center)
+        if sp == "male":
+            l_gain, r_gain = 1.04, 0.88
+        elif sp == "female":
+            l_gain, r_gain = 0.88, 1.04
+        else:
+            l_gain, r_gain = 1.0, 1.0
+
+        stereo = np.empty((len(samples), 2), dtype=np.int16)
+        stereo[:, 0] = (np.clip(samples * l_gain, -0.98, 0.98) * 32767.0).astype(np.int16)
+        stereo[:, 1] = (np.clip(samples * r_gain, -0.98, 0.98) * 32767.0).astype(np.int16)
+
+        with wave.open(stereo_wav, "wb") as swf:
+            swf.setnchannels(2)
+            swf.setsampwidth(2)
+            swf.setframerate(22050)
+            swf.writeframes(stereo.tobytes())
+
+        if os.path.exists(mono_wav):
+            os.remove(mono_wav)
+        return stereo_wav, final_dur
 
     @staticmethod
-    def generate_romantic_sfx(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
-        out = np.zeros(n_samples, dtype=np.float32)
-        sfx_len = min(n_samples, int(rate * 1.85))
+    def generate_3d_foley_sfx(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
+        """Generates stereo 3D foley sound effects (Lub-Dub Heartbeat, Rain on Glass, Sub-Bass Drop)."""
+        out = np.zeros((n_samples, 2), dtype=np.float32)
+        sfx_len = min(n_samples, int(rate * 1.95))
         if sfx_len <= 10:
             return out
         t = np.linspace(0, sfx_len / float(rate), sfx_len, endpoint=False, dtype=np.float32)
@@ -664,44 +1046,61 @@ class NexoraRomanceAudioEngine:
         if sfx_type == "phone_chime":
             c1 = np.exp(-t * 8.0) * np.sin(2.0 * np.pi * 659.25 * t)
             c2 = np.exp(-np.maximum(0.0, t - 0.14) * 7.0) * np.sin(2.0 * np.pi * 987.77 * t) * (t >= 0.14)
-            out[:sfx_len] = (c1 + c2) * 0.28
+            sig = (c1 + c2) * 0.28
+            out[:sfx_len, 0] = sig * 0.85
+            out[:sfx_len, 1] = sig * 1.15
         elif sfx_type == "soft_rain":
-            rain = np.convolve(rng.normal(0.0, 0.22, sfx_len).astype(np.float32), np.ones(18) / 18.0, mode="same")
+            rain_l = np.convolve(rng.normal(0.0, 0.22, sfx_len).astype(np.float32), np.ones(16) / 16.0, mode="same")
+            rain_r = np.convolve(rng.normal(0.0, 0.22, sfx_len).astype(np.float32), np.ones(16) / 16.0, mode="same")
             env = np.sin(np.pi * (t / (sfx_len / float(rate))))
-            out[:sfx_len] = rain * env * 0.55
+            out[:sfx_len, 0] = rain_l * env * 0.55
+            out[:sfx_len, 1] = rain_r * env * 0.55
         elif sfx_type == "soft_heartbeat":
-            b1 = np.exp(-t * 13.0) * np.sin(2.0 * np.pi * 54.0 * t)
-            b2 = np.exp(-np.maximum(0.0, t - 0.30) * 13.0) * np.sin(2.0 * np.pi * 48.0 * t) * (t >= 0.30)
-            out[:sfx_len] = (b1 + b2) * 0.65
+            # Realistic 65-110 BPM Lub-Dub + Sub-Bass thump
+            b1 = np.exp(-t * 13.0) * np.sin(2.0 * np.pi * 55.0 * t)
+            b2 = np.exp(-np.maximum(0.0, t - 0.28) * 13.0) * np.sin(2.0 * np.pi * 48.0 * t) * (t >= 0.28)
+            sig = (b1 + b2) * 0.68
+            out[:sfx_len, 0] = sig
+            out[:sfx_len, 1] = sig
         elif sfx_type == "emotional_swell":
             f1 = np.sin(2.0 * np.pi * 220.00 * t)
             f2 = np.sin(2.0 * np.pi * 261.63 * t)
             f3 = np.sin(2.0 * np.pi * 329.63 * t)
             env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.6
-            out[:sfx_len] = (0.45 * f1 + 0.35 * f2 + 0.30 * f3) * env * 0.24
+            sig = (0.45 * f1 + 0.35 * f2 + 0.30 * f3) * env * 0.25
+            out[:sfx_len, 0] = sig * 1.05
+            out[:sfx_len, 1] = sig * 0.95
         elif sfx_type == "clock_tick":
             for tick_t in (0.15, 0.85, 1.55):
                 mask = (t >= tick_t) & (t < tick_t + 0.05)
                 lt = np.maximum(0.0, t - tick_t)
-                out[:sfx_len] += mask * np.exp(-lt * 90.0) * np.sin(2.0 * np.pi * 1150.0 * lt) * 0.35
+                sig = mask * np.exp(-lt * 90.0) * np.sin(2.0 * np.pi * 1150.0 * lt) * 0.35
+                out[:sfx_len, 0] += sig * 0.8
+                out[:sfx_len, 1] += sig * 1.2
         elif sfx_type == "door_creak":
             freq = 175.0 + 90.0 * np.sin(2.0 * np.pi * 3.8 * t)
             phase = 2.0 * np.pi * np.cumsum(freq) / float(rate)
             env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 1.5
-            out[:sfx_len] = np.sin(phase) * env * 0.25
+            sig = np.sin(phase) * env * 0.25
+            out[:sfx_len, 0] = sig * 1.15
+            out[:sfx_len, 1] = sig * 0.85
         elif sfx_type == "thunder":
             rumble = np.convolve(rng.normal(0.0, 0.45, sfx_len).astype(np.float32), np.ones(32) / 32.0, mode="same")
             env = np.exp(-t * 1.9) * (1.0 - np.exp(-t * 45.0))
-            out[:sfx_len] = rumble * env * 0.72
+            sig = rumble * env * 0.72
+            out[:sfx_len, 0] = sig
+            out[:sfx_len, 1] = sig
         else:
             noise = np.convolve(rng.normal(0.0, 0.26, sfx_len).astype(np.float32), np.ones(16) / 16.0, mode="same")
             env = np.sin(np.pi * (t / (sfx_len / float(rate)))) ** 2.0
-            out[:sfx_len] = noise * env * 0.40
+            sig = noise * env * 0.38
+            out[:sfx_len, 0] = sig
+            out[:sfx_len, 1] = sig
 
         return out
 
     @classmethod
-    def build_romantic_soundscape(
+    def build_stereo_soundscape(
         cls,
         render_scenes: List[Dict[str, Any]],
         mood: str,
@@ -714,7 +1113,7 @@ class NexoraRomanceAudioEngine:
         target_wav = os.path.join(work_dir, "sfx_only.wav") if (has_custom and work_dir) else out_wav
 
         with wave.open(target_wav, "wb") as wf:
-            wf.setnchannels(1)
+            wf.setnchannels(2)
             wf.setsampwidth(2)
             wf.setframerate(rate)
             cur_t = 0.0
@@ -727,7 +1126,7 @@ class NexoraRomanceAudioEngine:
                 swell = 1.0 + 0.42 * (np.exp(-local_p * 5.0) + np.exp(-(1.0 - local_p) * 5.0))
 
                 if has_custom:
-                    bgm = np.zeros(n, dtype=np.float32)
+                    bgm_mono = np.zeros(n, dtype=np.float32)
                 elif mood == "sad_heartbreak":
                     pad = (
                         0.45 * np.sin(2.0 * np.pi * 146.83 * t)
@@ -735,7 +1134,7 @@ class NexoraRomanceAudioEngine:
                         + 0.28 * np.sin(2.0 * np.pi * 220.00 * t)
                         + 0.25 * np.sin(2.0 * np.pi * 73.42 * t)
                     )
-                    bgm = pad * 0.13 * swell
+                    bgm_mono = pad * 0.13 * swell
                 elif mood == "secret_suspense":
                     pulse = 0.8 + 0.2 * np.sin(2.0 * np.pi * 0.6 * t)
                     pad = (
@@ -744,7 +1143,7 @@ class NexoraRomanceAudioEngine:
                         + 0.25 * np.sin(2.0 * np.pi * 164.81 * t)
                         + 0.22 * np.sin(2.0 * np.pi * 55.00 * t)
                     )
-                    bgm = pad * 0.13 * swell * pulse
+                    bgm_mono = pad * 0.13 * swell * pulse
                 else:
                     pad = (
                         0.42 * np.sin(2.0 * np.pi * 130.81 * t)
@@ -752,11 +1151,14 @@ class NexoraRomanceAudioEngine:
                         + 0.28 * np.sin(2.0 * np.pi * 196.00 * t)
                         + 0.22 * np.sin(2.0 * np.pi * 65.41 * t)
                     )
-                    bgm = pad * 0.13 * swell
+                    bgm_mono = pad * 0.13 * swell
 
-                sfx = cls.generate_romantic_sfx(sc.get("sfx_type", "whoosh"), n, rate=rate)
-                mix = bgm + sfx
-                wf.writeframes((np.clip(mix, -0.95, 0.95) * 32767.0).astype(np.int16).tobytes())
+                sfx_stereo = cls.generate_3d_foley_sfx(sc.get("sfx_type", "whoosh"), n, rate=rate)
+                mix_stereo = np.empty((n, 2), dtype=np.float32)
+                mix_stereo[:, 0] = bgm_mono + sfx_stereo[:, 0]
+                mix_stereo[:, 1] = bgm_mono + sfx_stereo[:, 1]
+
+                wf.writeframes((np.clip(mix_stereo, -0.95, 0.95) * 32767.0).astype(np.int16).tobytes())
                 cur_t += dur
                 gc.collect()
 
@@ -767,14 +1169,14 @@ class NexoraRomanceAudioEngine:
                     "-stream_loop", "-1", "-i", custom_bgm_path,
                     "-i", target_wav,
                     "-filter_complex", "[0:a]volume=0.30[bg];[1:a]volume=1.0[sx];[bg][sx]amix=inputs=2:duration=shortest[out]",
-                    "-map", "[out]", "-ar", "22050", "-ac", "1", out_wav,
+                    "-map", "[out]", "-ar", "22050", "-ac", "2", out_wav,
                 ],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
 
 # ==============================================================================
-# 6. 100% MOTION VIDEO RENDERER (SMART OPTICAL DURATION SYNC)
+# 7. TRI-HYBRID 16:9 RENDERER (FLOW VIDEO + 3D PARALLAX AI + 2D LIP-SYNC HOST)
 # ==============================================================================
 def update_job(job_id: str, **kwargs):
     with LOCK:
@@ -787,22 +1189,8 @@ def fmt_mmss(sec: float) -> str:
     return f"{s // 60:02d}:{s % 60:02d}"
 
 
-def download_remote_video_to_temp(url: str, out_mp4: str):
-    with requests.get(url, headers=HTTP_HEADERS, stream=True, timeout=25) as r:
-        r.raise_for_status()
-        with open(out_mp4, "wb") as f:
-            for chunk in r.iter_content(chunk_size=65536):
-                if chunk:
-                    f.write(chunk)
-
-
-def transcode_motion_video_clip(src_video: str, dst_mp4: str, target_dur: float, out_w: int, out_h: int):
-    """
-    100% Pure Video Processing:
-    - If uploaded/stock clip is 4s-14s, smoothly optical-fits the entire action to exact voice duration.
-    - If clip is longer, extracts the prime middle segment and applies unified cinema LUT + crossfades.
-    """
-    src_dur = NexoraRomanceAudioEngine.probe_dur(src_video)
+def render_flow_video_clip(src_video: str, dst_mp4: str, target_dur: float, out_w: int, out_h: int):
+    src_dur = NexoraCinemaAudioEngine.probe_dur(src_video)
     fade_out_st = max(0.1, target_dur - 0.22)
 
     if src_dur > 0.8 and 0.45 <= (target_dur / src_dur) <= 1.85:
@@ -812,8 +1200,8 @@ def transcode_motion_video_clip(src_video: str, dst_mp4: str, target_dur: float,
             f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
             f"crop={out_w}:{out_h},"
             "fps=24,"
-            "eq=contrast=1.08:brightness=-0.01:saturation=1.20,"
-            "colorbalance=rs=0.03:gs=0.01:bs=-0.02,"
+            "eq=contrast=1.09:brightness=-0.01:saturation=1.22,"
+            "colorbalance=rs=0.04:gs=0.01:bs=-0.03,"
             "vignette=PI/5,"
             f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
         )
@@ -824,26 +1212,81 @@ def transcode_motion_video_clip(src_video: str, dst_mp4: str, target_dur: float,
             "-pix_fmt", "yuv420p", dst_mp4,
         ]
     else:
-        ss_offset = max(0.0, (src_dur - target_dur) * 0.25) if src_dur > target_dur + 1.0 else 0.0
         vf = (
             f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
             f"crop={out_w}:{out_h},"
             "fps=24,"
-            "eq=contrast=1.08:brightness=-0.01:saturation=1.20,"
-            "colorbalance=rs=0.03:gs=0.01:bs=-0.02,"
+            "eq=contrast=1.09:brightness=-0.01:saturation=1.22,"
+            "colorbalance=rs=0.04:gs=0.01:bs=-0.03,"
             "vignette=PI/5,"
             f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
         )
         cmd = [
-            "ffmpeg", "-y", "-stream_loop", "-1",
-            "-ss", f"{ss_offset:.2f}", "-i", src_video,
-            "-t", f"{target_dur:.3f}",
+            "ffmpeg", "-y", "-stream_loop", "-1", "-i", src_video, "-t", f"{target_dur:.3f}",
             "-an", "-vf", vf,
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
             "-pix_fmt", "yuv420p", dst_mp4,
         ]
 
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+
+def render_3d_parallax_ai_clip(
+    src_img: str,
+    dst_mp4: str,
+    dur_sec: float,
+    out_w: int,
+    out_h: int,
+    motion: str,
+    sfx_type: str,
+    crop_bottom_wm: bool = True,
+):
+    """Renders 24fps 3D Camera Motion + Dynamic Rain/Golden Bokeh Particle Overlay."""
+    fps = 24
+    total_f = max(24, int(round(dur_sec * fps)))
+    fade_out_st = max(0.1, dur_sec - 0.22)
+    up_w, up_h = out_w * 2, out_h * 2
+
+    if motion == "Pan_Right_Drift":
+        zp = f"zoompan=z='1.12':x='(iw-iw/zoom)*(on/{total_f})':y='(ih-ih/zoom)*0.35':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+    elif motion == "Pan_Left_Drift":
+        zp = f"zoompan=z='1.12':x='(iw-iw/zoom)*(1-on/{total_f})':y='(ih-ih/zoom)*0.35':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+    elif motion == "Zoom_Out_Reveal":
+        zp = f"zoompan=z='max(1.02,1.18-0.16*(on/{total_f}))':x='iw/2-(iw/zoom/2)':y='(ih-ih/zoom)*0.35':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+    elif motion == "Dramatic_Pulse_Zoom":
+        zp = f"zoompan=z='1.04+0.14*(on/{total_f})':x='iw/2-(iw/zoom/2)':y='(ih-ih/zoom)*0.35':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+    else:
+        zp = f"zoompan=z='min(1.18,1.02+0.16*(on/{total_f}))':x='iw/2-(iw/zoom/2)':y='(ih-ih/zoom)*0.35':d={total_f}:s={out_w}x{out_h}:fps={fps}"
+
+    wm_crop = "crop=iw:ih*0.94:0:0," if crop_bottom_wm else ""
+
+    # Add real-time weather/bokeh shimmer when rain or candlelight scene
+    weather_fx = ""
+    if sfx_type == "soft_rain":
+        weather_fx = "noise=alls=8:allf=t+u,"
+
+    vf = (
+        f"{wm_crop}"
+        f"scale={up_w}:{up_h}:force_original_aspect_ratio=increase,"
+        f"crop={up_w}:{up_h},"
+        f"{zp},"
+        f"{weather_fx}"
+        "eq=contrast=1.09:brightness=-0.01:saturation=1.22,"
+        "colorbalance=rs=0.04:gs=0.01:bs=-0.03,"
+        "vignette=PI/5,"
+        f"fade=t=in:st=0:d=0.20,fade=t=out:st={fade_out_st:.3f}:d=0.20"
+    )
+    subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-loop", "1", "-i", src_img,
+            "-t", f"{dur_sec:.3f}",
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
+            "-pix_fmt", "yuv420p", dst_mp4,
+        ],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+    )
 
 
 def run_final_render(job_id: str, session_id: str):
@@ -861,20 +1304,21 @@ def run_final_render(job_id: str, session_id: str):
         raw_scenes = [dict(s) for s in sess["scenes"]]
         sess_dir = os.path.join(SESSIONS_DIR, session_id)
 
-        missing = [s["index"] + 1 for s in raw_scenes if not s.get("media_ready")]
-        if missing:
-            raise RuntimeError(f"Scene(s) {', '.join(map(str, missing))} have no video clip yet. Add your Pexels/Pixabay API Key OR upload .MP4 clips!")
-
         mood = sess["genre"]
         topic = sess["topic"]
         aspect = sess["aspect_ratio"]
         voice_mode = sess["voice_mode"]
+        character_dna = sess.get("character_dna", "")
         auto_hook = bool(sess.get("auto_hook", True))
         uploaded_audio_id = sess.get("uploaded_audio_id", "")
         uploaded_bgm_id = sess.get("uploaded_bgm_id", "")
 
         out_w, out_h = (540, 960) if aspect == "9:16" else (960, 540)
 
+        # 1. Fetch AI images ONLY for scenes in 'ai_scene' mode (Pixel-Guard protected)
+        ai_image_map = fetch_ai_images_with_pixel_guard(raw_scenes, character_dna, work_dir, out_w, out_h, job_id)
+
+        # 2. Dub ElevenLabs-Plus Stereo Studio Voices
         master_voice = os.path.join(work_dir, "master_voice.wav")
         voice_chunks: List[str] = []
 
@@ -889,26 +1333,27 @@ def run_final_render(job_id: str, session_id: str):
             if not uploaded_audio_path:
                 raise FileNotFoundError("Uploaded audio file not found.")
 
-            update_job(job_id, status="running", progress=10, current_scene="Syncing External Voiceover...")
+            update_job(job_id, progress=24, current_scene="Syncing External Voiceover...")
             subprocess.run(
-                ["ffmpeg", "-y", "-i", uploaded_audio_path, "-ar", "22050", "-ac", "1", master_voice],
+                ["ffmpeg", "-y", "-i", uploaded_audio_path, "-ar", "22050", "-ac", "2", master_voice],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
-            total_el_dur = NexoraRomanceAudioEngine.probe_dur(master_voice)
+            total_el_dur = NexoraCinemaAudioEngine.probe_dur(master_voice)
             per_sc = max(1.5, total_el_dur / float(len(raw_scenes)))
             for idx, sc in enumerate(raw_scenes):
                 sc["start_sec"] = idx * per_sc
                 sc["duration_sec"] = per_sc
+                sc["wav_file"] = master_voice
         else:
             running_t = 0.0
             for idx, sc in enumerate(raw_scenes):
                 update_job(
                     job_id,
                     status="running",
-                    progress=6 + int((idx / float(len(raw_scenes))) * 22),
-                    current_scene=f"Dubbing Intimate Voice ({idx + 1}/{len(raw_scenes)})...",
+                    progress=22 + int((idx / float(len(raw_scenes))) * 18),
+                    current_scene=f"Mastering Stereo Studio Voice ({idx + 1}/{len(raw_scenes)})...",
                 )
-                dub_wav, actual_dur = NexoraRomanceAudioEngine.dub_scene_romantic(sc, idx, voice_mode, work_dir)
+                dub_wav, actual_dur = NexoraCinemaAudioEngine.dub_scene_studio_stereo(sc, idx, voice_mode, work_dir)
                 sc["start_sec"] = running_t
                 sc["end_sec"] = running_t + actual_dur
                 sc["duration_sec"] = actual_dur
@@ -925,6 +1370,7 @@ def run_final_render(job_id: str, session_id: str):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
+        # 3. Prepend 0:00 Climax Hook Teaser
         render_scenes: List[Dict[str, Any]] = []
         if auto_hook and len(raw_scenes) >= 4:
             climax_idx = min(len(raw_scenes) - 2, max(2, int(len(raw_scenes) * 0.75)))
@@ -935,21 +1381,22 @@ def run_final_render(job_id: str, session_id: str):
             hook_dur = min(4.2, float(climax_sc.get("duration_sec", 4.0)))
             hook_sc["duration_sec"] = hook_dur
             hook_sc["climax_ts_label"] = fmt_mmss(float(climax_sc.get("start_sec", 60.0)) + hook_dur)
-            render_scenes.append(hook_sc)
 
             hook_wav = os.path.join(work_dir, "hook_voice.wav")
             joined_voice = os.path.join(work_dir, "joined_voice.wav")
             if voice_mode != "uploaded" and climax_sc.get("wav_file") and os.path.exists(climax_sc["wav_file"]):
                 subprocess.run(
-                    ["ffmpeg", "-y", "-i", climax_sc["wav_file"], "-t", f"{hook_dur:.3f}", "-ar", "22050", "-ac", "1", hook_wav],
+                    ["ffmpeg", "-y", "-i", climax_sc["wav_file"], "-t", f"{hook_dur:.3f}", "-ar", "22050", "-ac", "2", hook_wav],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
                 )
             else:
                 climax_start = float(climax_sc.get("start_sec", 0.0))
                 subprocess.run(
-                    ["ffmpeg", "-y", "-ss", f"{climax_start:.3f}", "-t", f"{hook_dur:.3f}", "-i", master_voice, "-ar", "22050", "-ac", "1", hook_wav],
+                    ["ffmpeg", "-y", "-ss", f"{climax_start:.3f}", "-t", f"{hook_dur:.3f}", "-i", master_voice, "-ar", "22050", "-ac", "2", hook_wav],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
                 )
+            hook_sc["wav_file"] = hook_wav
+            render_scenes.append(hook_sc)
 
             v_concat = os.path.join(work_dir, "v_concat.txt")
             with open(v_concat, "w", encoding="utf-8") as f:
@@ -963,37 +1410,59 @@ def run_final_render(job_id: str, session_id: str):
         for s in raw_scenes:
             render_scenes.append(dict(s))
 
+        # 4. Render Tri-Hybrid Visuals (Flow Video / 3D Parallax AI / 2D Lip-Sync Host)
         total_sc = len(render_scenes)
         video_chunks: List[str] = []
+        last_good_ai_img = next(iter(ai_image_map.values()), None)
 
         for idx, sc in enumerate(render_scenes):
-            lbl = "Climax Hook Teaser" if sc.get("is_teaser") else f"Scene {idx + 1}/{total_sc}"
+            v_mode = sc.get("visual_mode", "2d_host")
+            lbl = "Climax Hook" if sc.get("is_teaser") else f"Scene {idx + 1}/{total_sc}"
             update_job(
                 job_id,
                 status="running",
-                progress=30 + int((idx / float(total_sc)) * 58),
-                current_scene=f"Rendering Motion Video {lbl}...",
+                progress=42 + int((idx / float(total_sc)) * 46),
+                current_scene=f"Rendering {lbl} [{v_mode.upper()}]...",
             )
 
             actual_dur = float(sc.get("duration_sec", 4.0))
             v_chunk = os.path.join(work_dir, f"vc_{idx:03d}.mp4")
-            temp_dl = os.path.join(work_dir, f"dl_{idx:03d}.mp4")
+            orig_idx = int(sc.get("index", 0))
+            mtype = sc.get("media_type", "auto")
 
-            try:
-                if sc.get("media_type") == "remote_video":
-                    download_remote_video_to_temp(sc["remote_video_url"], temp_dl)
-                    transcode_motion_video_clip(temp_dl, v_chunk, actual_dur, out_w, out_h)
-                else:
-                    med_path = os.path.join(sess_dir, sc["media_file"])
-                    transcode_motion_video_clip(med_path, v_chunk, actual_dur, out_w, out_h)
-            finally:
-                if os.path.exists(temp_dl):
-                    os.remove(temp_dl)
+            if mtype == "video" and sc.get("media_file"):
+                med_path = os.path.join(sess_dir, sc["media_file"])
+                render_flow_video_clip(med_path, v_chunk, actual_dur, out_w, out_h)
+            elif mtype == "image" and sc.get("media_file"):
+                med_path = os.path.join(sess_dir, sc["media_file"])
+                render_3d_parallax_ai_clip(
+                    med_path, v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"), sc.get("sfx_type", "whoosh"), crop_bottom_wm=False
+                )
+            elif v_mode == "ai_scene" and orig_idx in ai_image_map:
+                last_good_ai_img = ai_image_map[orig_idx]
+                render_3d_parallax_ai_clip(
+                    ai_image_map[orig_idx], v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"), sc.get("sfx_type", "whoosh"), crop_bottom_wm=True
+                )
+            else:
+                # '2d_host' OR automatic zero-crash fallback when 'flow_clip' / 'ai_scene' has no external file
+                render_2d_lipsync_scene_clip(
+                    dst_mp4=v_chunk,
+                    wav_path=sc.get("wav_file", master_voice),
+                    dur_sec=actual_dur,
+                    out_w=out_w,
+                    out_h=out_h,
+                    speaker=sc.get("speaker", "narrator"),
+                    emotion=sc.get("emotion", "late_night_fm"),
+                    mood=mood,
+                    chat_bubble=sc.get("chat_bubble", ""),
+                    bg_img_path=last_good_ai_img,
+                )
 
             video_chunks.append(v_chunk)
             gc.collect()
 
-        update_job(job_id, progress=90, current_scene="Mastering Karaoke Captions & Cinema Audio...")
+        # 5. Burn Glassmorphic Captions & Master 3D Stereo Audio
+        update_job(job_id, progress=90, current_scene="Mastering Glassmorphic Captions & 3D Cinema Audio...")
 
         ass_file = os.path.join(work_dir, "captions.ass")
         generate_ass_subtitle_file(ass_file, render_scenes, out_w, out_h, mood)
@@ -1021,18 +1490,18 @@ def run_final_render(job_id: str, session_id: str):
                     break
 
         sfx_bgm_wav = os.path.join(work_dir, "sfx_bgm.wav")
-        NexoraRomanceAudioEngine.build_romantic_soundscape(
+        NexoraCinemaAudioEngine.build_stereo_soundscape(
             render_scenes, mood, sfx_bgm_wav, custom_bgm_path=custom_bgm_path, work_dir=work_dir
         )
 
         if not os.path.exists(sfx_bgm_wav):
-            total_v_dur = NexoraRomanceAudioEngine.probe_dur(joined_v) or 30.0
+            total_v_dur = NexoraCinemaAudioEngine.probe_dur(joined_v) or 30.0
             subprocess.run(
-                ["ffmpeg", "-y", "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=mono:d={total_v_dur:.3f}", sfx_bgm_wav],
+                ["ffmpeg", "-y", "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=stereo:d={total_v_dur:.3f}", sfx_bgm_wav],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
 
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:32].strip("_") or "NEXORA_ROMANCE"
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", topic)[:32].strip("_") or "NEXORA_CINEMA"
         out_name = f"{slug}_{job_id}.mp4"
         out_path = os.path.join(OUTPUT_DIR, out_name)
 
@@ -1040,9 +1509,9 @@ def run_final_render(job_id: str, session_id: str):
         filter_complex = (
             f"[0:v]ass='{esc_ass}'[vout];"
             "[1:a]asplit=2[v_main][v_sc];"
-            "[2:a][v_sc]sidechaincompress=threshold=0.03:ratio=4:attack=15:release=250[bg_ducked];"
-            "[v_main]volume=1.38[v_loud];"
-            "[bg_ducked]volume=0.66[bg_loud];"
+            "[2:a][v_sc]sidechaincompress=threshold=0.03:ratio=4.2:attack=12:release=240[bg_ducked];"
+            "[v_main]volume=1.40[v_loud];"
+            "[bg_ducked]volume=0.65[bg_loud];"
             "[v_loud][bg_loud]amix=inputs=2:duration=first[aout]"
         )
 
@@ -1055,7 +1524,7 @@ def run_final_render(job_id: str, session_id: str):
                 "-filter_complex", filter_complex,
                 "-map", "[vout]", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-threads", "2",
-                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
                 "-movflags", "+faststart", "-shortest", out_path,
             ],
             capture_output=True, text=True,
@@ -1063,7 +1532,7 @@ def run_final_render(job_id: str, session_id: str):
         if res.returncode != 0:
             raise RuntimeError(f"FFmpeg final master error: {res.stderr[-250:]}")
 
-        actual_total_dur = NexoraRomanceAudioEngine.probe_dur(out_path) or 60.0
+        actual_total_dur = NexoraCinemaAudioEngine.probe_dur(out_path) or 60.0
         size_mb = round(os.path.getsize(out_path) / (1024.0 * 1024.0), 2)
         dur_min = round(actual_total_dur / 60.0, 2)
         update_job(
@@ -1086,25 +1555,32 @@ def run_final_render(job_id: str, session_id: str):
 
 
 # ==============================================================================
-# 7. REST API ENDPOINTS (100% VIDEO-ONLY PIPELINE)
+# 8. REST API ENDPOINTS (TRI-HYBRID STUDIO CONTROLLER)
 # ==============================================================================
-def save_uploaded_video_only(file_storage, sess_dir: str, idx: int) -> Tuple[str, str]:
+def save_uploaded_media(file_storage, sess_dir: str, idx: int) -> Tuple[str, str, str]:
     ext = os.path.splitext(file_storage.filename or "")[1].lower()
-    if ext not in VIDEO_EXTS:
-        raise ValueError("Only motion video files (.mp4, .mov, .webm) are allowed in v25!")
     uid = uuid.uuid4().hex[:6]
-    vname = f"vid_{idx:03d}_{uid}{ext}"
-    vpath = os.path.join(sess_dir, vname)
-    file_storage.save(vpath)
-    tname = f"thumb_{idx:03d}_{uid}.jpg"
-    tpath = os.path.join(sess_dir, tname)
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", vpath, "-vframes", "1", "-vf", "scale=480:-1", tpath],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    if not os.path.exists(tpath):
-        Image.new("RGB", (480, 270), (15, 23, 42)).save(tpath)
-    return vname, tname
+    if ext in VIDEO_EXTS:
+        vname = f"vid_{idx:03d}_{uid}{ext}"
+        vpath = os.path.join(sess_dir, vname)
+        file_storage.save(vpath)
+        tname = f"thumb_{idx:03d}_{uid}.jpg"
+        tpath = os.path.join(sess_dir, tname)
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", vpath, "-vframes", "1", "-vf", "scale=480:-1", tpath],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        if not os.path.exists(tpath):
+            Image.new("RGB", (480, 270), (15, 23, 42)).save(tpath)
+        return "video", vname, tname
+
+    iname = f"img_{idx:03d}_{uid}.jpg"
+    ipath = os.path.join(sess_dir, iname)
+    with Image.open(file_storage.stream) as raw_im:
+        im = raw_im.convert("RGB")
+        im.thumbnail((1280, 1280), Image.Resampling.BILINEAR)
+        im.save(ipath, format="JPEG", quality=88)
+    return "image", iname, iname
 
 
 @app.route("/")
@@ -1114,7 +1590,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "romance_v25": True})
+    return jsonify({"ok": True, "ffmpeg": HAS_FFMPEG, "voice_ready": HAS_EDGE_TTS, "tri_hybrid_v26": True})
 
 
 @app.route("/api/audio/upload", methods=["POST"])
@@ -1150,10 +1626,8 @@ def api_prepare():
     aspect = str(data.get("aspect_ratio", "16:9"))
     voice_mode = str(data.get("voice_mode", "builtin_multi"))
     raw_script = str(data.get("custom_script", ""))
-    pexels_key = str(data.get("pexels_key", "")).strip()
-    pixabay_key = str(data.get("pixabay_key", "")).strip()
 
-    scenes = parse_user_script(raw_script, mood)
+    scenes, character_dna = parse_user_script(raw_script, mood, aspect)
     if not scenes:
         return jsonify({"error": "Paste a valid 3-column script first (Speaker | Visual Scene | Spoken Hindi)."}), 400
 
@@ -1161,66 +1635,21 @@ def api_prepare():
     session_id = f"ses_{uuid.uuid4().hex[:10]}"
     os.makedirs(os.path.join(SESSIONS_DIR, session_id), exist_ok=True)
 
-    used_ids = set()
-    if pexels_key or pixabay_key:
-        for idx, sc in enumerate(scenes):
-            vid = fetch_unique_stock_video(
-                sc["search_keywords"], idx, used_ids, pexels_key, pixabay_key, aspect, alt_index=0
-            )
-            if vid:
-                used_ids.add(vid["id"])
-                sc["media_ready"] = True
-                sc["media_type"] = "remote_video"
-                sc["remote_video_url"] = vid["url"]
-                sc["thumb_url"] = vid["thumb"]
-
     with LOCK:
         SESSIONS[session_id] = {
             "session_id": session_id,
             "topic": auto_title,
+            "character_dna": character_dna,
             "genre": mood,
             "aspect_ratio": aspect,
             "voice_mode": voice_mode,
             "auto_hook": bool(data.get("auto_hook", True)),
             "uploaded_audio_id": str(data.get("uploaded_audio_id", "")),
             "uploaded_bgm_id": str(data.get("uploaded_bgm_id", "")),
-            "pexels_key": pexels_key,
-            "pixabay_key": pixabay_key,
             "scenes": scenes,
         }
 
     return jsonify({"ok": True, "session_id": session_id, "auto_title": auto_title})
-
-
-@app.route("/api/session/<session_id>/next_clip/<int:idx>", methods=["POST"])
-def api_next_clip(session_id: str, idx: int):
-    if not is_safe_id(session_id):
-        return jsonify({"error": "Invalid session."}), 400
-    with LOCK:
-        sess = SESSIONS.get(session_id)
-        if not sess or idx < 0 or idx >= len(sess["scenes"]):
-            return jsonify({"error": "Scene not found."}), 404
-        sc = dict(sess["scenes"][idx])
-        px_k = sess.get("pexels_key", "")
-        pb_k = sess.get("pixabay_key", "")
-        aspect = sess.get("aspect_ratio", "16:9")
-
-    if not px_k and not pb_k:
-        return jsonify({"error": "Enter your free Pexels or Pixabay API Key first to auto-cycle stock videos!"}), 400
-
-    next_alt = int(sc.get("video_alt_index", 0)) + 1
-    vid = fetch_unique_stock_video(sc["search_keywords"], idx, set(), px_k, pb_k, aspect, alt_index=next_alt)
-    if not vid:
-        return jsonify({"error": "No alternate stock clip found."}), 404
-
-    with LOCK:
-        if session_id in SESSIONS:
-            SESSIONS[session_id]["scenes"][idx]["video_alt_index"] = next_alt
-            SESSIONS[session_id]["scenes"][idx]["media_ready"] = True
-            SESSIONS[session_id]["scenes"][idx]["media_type"] = "remote_video"
-            SESSIONS[session_id]["scenes"][idx]["remote_video_url"] = vid["url"]
-            SESSIONS[session_id]["scenes"][idx]["thumb_url"] = vid["thumb"]
-    return jsonify({"ok": True})
 
 
 @app.route("/api/session/<session_id>")
@@ -1246,11 +1675,41 @@ def api_session_thumb(session_id: str, idx: int):
     fpath = os.path.join(SESSIONS_DIR, session_id, sc.get("thumb_file", ""))
     if sc.get("thumb_file") and os.path.exists(fpath):
         return send_file(fpath)
-    return jsonify({"error": "No local thumbnail"}), 404
+    return jsonify({"error": "No uploaded preview"}), 404
+
+
+@app.route("/api/session/<session_id>/mode", methods=["POST"])
+def api_change_visual_mode(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    data = request.get_json(silent=True) or {}
+    idx = int(data.get("idx", -1))
+    mode = str(data.get("mode", ""))
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess or not (0 <= idx < len(sess["scenes"])) or mode not in ("2d_host", "ai_scene", "flow_clip"):
+            return jsonify({"error": "Invalid visual mode."}), 400
+        sess["scenes"][idx]["visual_mode"] = mode
+    return jsonify({"ok": True})
+
+
+@app.route("/api/session/<session_id>/anim", methods=["POST"])
+def api_change_anim(session_id: str):
+    if not is_safe_id(session_id):
+        return jsonify({"error": "Invalid session."}), 400
+    data = request.get_json(silent=True) or {}
+    idx = int(data.get("idx", -1))
+    anim = str(data.get("anim", ""))
+    with LOCK:
+        sess = SESSIONS.get(session_id)
+        if not sess or not (0 <= idx < len(sess["scenes"])) or anim not in MOTION_MODES:
+            return jsonify({"error": "Invalid motion."}), 400
+        sess["scenes"][idx]["anim_type"] = anim
+    return jsonify({"ok": True})
 
 
 @app.route("/api/session/<session_id>/replace/<int:idx>", methods=["POST"])
-def api_replace_video(session_id: str, idx: int):
+def api_replace_media(session_id: str, idx: int):
     if not is_safe_id(session_id):
         return jsonify({"error": "Invalid session."}), 400
     with LOCK:
@@ -1260,22 +1719,18 @@ def api_replace_video(session_id: str, idx: int):
 
     f = request.files.get("media")
     if not f or not f.filename:
-        return jsonify({"error": "Select a motion video file (.mp4/.mov/.webm) first."}), 400
+        return jsonify({"error": "Select a video (.mp4) or image file first."}), 400
 
     sess_dir = os.path.join(SESSIONS_DIR, session_id)
     os.makedirs(sess_dir, exist_ok=True)
-    try:
-        vfile, tfile = save_uploaded_video_only(f, sess_dir, idx)
-    except ValueError as ve:
-        return jsonify({"error": str(ve)}), 400
+    mtype, mfile, tfile = save_uploaded_media(f, sess_dir, idx)
 
     with LOCK:
         sess["scenes"][idx]["media_ready"] = True
-        sess["scenes"][idx]["media_type"] = "video"
-        sess["scenes"][idx]["media_file"] = vfile
+        sess["scenes"][idx]["media_type"] = mtype
+        sess["scenes"][idx]["visual_mode"] = "flow_clip" if mtype == "video" else "ai_scene"
+        sess["scenes"][idx]["media_file"] = mfile
         sess["scenes"][idx]["thumb_file"] = tfile
-        sess["scenes"][idx]["remote_video_url"] = ""
-        sess["scenes"][idx]["thumb_url"] = ""
     return jsonify({"ok": True})
 
 
@@ -1290,7 +1745,7 @@ def api_batch_upload(session_id: str):
 
     files = request.files.getlist("media")
     if not files:
-        return jsonify({"error": "No video files selected."}), 400
+        return jsonify({"error": "No files selected."}), 400
 
     sess_dir = os.path.join(SESSIONS_DIR, session_id)
     os.makedirs(sess_dir, exist_ok=True)
@@ -1300,9 +1755,6 @@ def api_batch_upload(session_id: str):
     unmapped_files: List[Any] = []
     for f in files:
         if not f or not f.filename:
-            continue
-        ext = os.path.splitext(f.filename)[1].lower()
-        if ext not in VIDEO_EXTS:
             continue
         stem = os.path.splitext(f.filename)[0]
         m = re.match(r"^(?:scene[_-]?)?(\d{1,3})$", stem.strip(), re.IGNORECASE)
@@ -1315,21 +1767,25 @@ def api_batch_upload(session_id: str):
 
     unmapped_files.sort(key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", x.filename or "")])
 
+    # Prioritize filling 'flow_clip' slots first when unmapped clips are batch uploaded
+    flow_slots = [i for i, s in enumerate(sess["scenes"]) if s.get("visual_mode") == "flow_clip"]
+    other_slots = [i for i in range(total_scenes) if i not in flow_slots]
+    ordered_slots = flow_slots + other_slots
+
     u_ptr = 0
-    for idx in range(total_scenes):
+    for idx in ordered_slots:
         target_f = explicit_map.get(idx)
         if target_f is None and u_ptr < len(unmapped_files):
             target_f = unmapped_files[u_ptr]
             u_ptr += 1
         if target_f is not None:
-            vfile, tfile = save_uploaded_video_only(target_f, sess_dir, idx)
+            mtype, mfile, tfile = save_uploaded_media(target_f, sess_dir, idx)
             with LOCK:
                 sess["scenes"][idx]["media_ready"] = True
-                sess["scenes"][idx]["media_type"] = "video"
-                sess["scenes"][idx]["media_file"] = vfile
+                sess["scenes"][idx]["media_type"] = mtype
+                sess["scenes"][idx]["visual_mode"] = "flow_clip" if mtype == "video" else "ai_scene"
+                sess["scenes"][idx]["media_file"] = mfile
                 sess["scenes"][idx]["thumb_file"] = tfile
-                sess["scenes"][idx]["remote_video_url"] = ""
-                sess["scenes"][idx]["thumb_url"] = ""
 
     return jsonify({"ok": True})
 
@@ -1346,7 +1802,7 @@ def api_swap_scenes(session_id: str):
         if not sess or not (0 <= a < len(sess["scenes"]) and 0 <= b < len(sess["scenes"])):
             return jsonify({"error": "Invalid scene indices."}), 400
         sa, sb = sess["scenes"][a], sess["scenes"][b]
-        for k in ("media_ready", "media_type", "media_file", "thumb_file", "remote_video_url", "thumb_url", "video_alt_index"):
+        for k in ("visual_mode", "media_ready", "media_type", "media_file", "thumb_file"):
             sa[k], sb[k] = sb[k], sa[k]
     return jsonify({"ok": True})
 
@@ -1373,9 +1829,6 @@ def api_render():
         if "auto_hook" in data:
             sess["auto_hook"] = bool(data["auto_hook"])
 
-        missing = [s["index"] + 1 for s in sess["scenes"] if not s.get("media_ready")]
-        if missing:
-            return jsonify({"error": f"Scene(s) {', '.join(map(str, missing))} need a video clip (.MP4). Paste a free Pexels/Pixabay API Key or upload .MP4 files!"}), 400
         if len(ACTIVE_JOBS) >= 1:
             return jsonify({"error": "Server is currently rendering another video. Please wait."}), 429
 
@@ -1385,7 +1838,7 @@ def api_render():
             "job_id": job_id,
             "status": "queued",
             "progress": 3,
-            "current_scene": "Starting 100% Motion Video Render...",
+            "current_scene": "Starting Tri-Hybrid 16:9 Cinema Render...",
             "error": None,
         }
 
