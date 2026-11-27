@@ -15,7 +15,7 @@ from typing import Dict, List, Any, Optional, Tuple
 
 import requests
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 from flask import Flask, request, jsonify, send_file
 
 try:
@@ -25,7 +25,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v26 — TRI-HYBRID 16:9 CINEMA & 2D LIP-SYNC ENGINE
+# 1. NEXORA ROMANCE APEX v26.1 — ZERO-TIMEOUT VOICE + TRI-HYBRID CINEMA ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -49,7 +49,6 @@ HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0"}
 
 
@@ -192,7 +191,6 @@ def is_limit_placeholder_image(img_path: str) -> bool:
                 return True
             bottom_crop = rgb.crop((int(w * 0.1), int(h * 0.72), int(w * 0.9), int(h * 0.96)))
             arr = np.asarray(bottom_crop, dtype=np.float32)
-            # The rate-limit card has a bright off-white/cream banner across the lower third
             bright_ratio = float(np.mean((arr[:, :, 0] > 235) & (arr[:, :, 1] > 232) & (arr[:, :, 2] > 220)))
             return bright_ratio > 0.58
     except Exception:
@@ -235,10 +233,6 @@ def fetch_ai_images_with_pixel_guard(
     out_h: int,
     job_id: str,
 ) -> Dict[int, str]:
-    """
-    Fetches AI images ONLY for scenes assigned 'ai_scene'.
-    Uses Pixel Guard to reject the 45s rate-limit bee image and waits for real frames.
-    """
     downloaded: Dict[int, str] = {}
     ai_indices = [i for i, s in enumerate(scenes) if s.get("visual_mode") == "ai_scene" and not s.get("media_file")]
 
@@ -317,7 +311,6 @@ def extract_chat_bubble_text(hinglish_txt: str, visual_prompt: str) -> str:
     blob = f"{hinglish_txt} {visual_prompt}".lower()
     if not any(k in blob for k in ("message", "msg", "phone", "screen", "notification", "chat", "text")):
         return ""
-    # Extract quoted or post-dash message if present, otherwise synthesize realistic preview
     m = re.search(r"(?:likha tha|message tha|msg tha|notification)\s*[-:]?\s*(.+)$", hinglish_txt, re.IGNORECASE)
     if m:
         snippet = m.group(1).strip(" .-\"'")
@@ -327,13 +320,6 @@ def extract_chat_bubble_text(hinglish_txt: str, visual_prompt: str) -> str:
 
 
 def auto_assign_tri_hybrid_mode(idx: int, total_est: int, speaker: str, visual_prompt: str, hinglish_txt: str) -> str:
-    """
-    Human Retention Psychology Auto-Director:
-    - Never lets the same visual format run more than 2 scenes in a row (Orienting Response reset).
-    - Scene 0 (Intro Hook) & direct emotional dialogues -> '2d_host' (Eye contact + Lip-sync).
-    - High-action / climax movement -> 'flow_clip' (With AI/2D fallback if user doesn't upload MP4).
-    - Atmospheric world-building -> 'ai_scene' (3D Parallax + Rain/Bokeh VFX).
-    """
     vp_low = visual_prompt.lower()
     is_action = any(k in vp_low for k in ("walking", "running", "opening", "driving", "embracing", "holding", "car", "door"))
 
@@ -349,7 +335,6 @@ def auto_assign_tri_hybrid_mode(idx: int, total_est: int, speaker: str, visual_p
 
 
 def parse_user_script(custom_script: str, mood: str, aspect: str) -> Tuple[List[Dict[str, Any]], str]:
-    out_w, out_h = (576, 1024) if aspect == "9:16" else (1024, 576)
     base_seed = int(time.time()) % 100000
     character_dna = ""
     raw_lines: List[Tuple[str, str, str]] = []
@@ -389,7 +374,7 @@ def parse_user_script(custom_script: str, mood: str, aspect: str) -> Tuple[List[
             "is_teaser": False,
             "speaker": sp,
             "emotion": detect_line_emotion(auto_caption, sp),
-            "visual_mode": v_mode,  # '2d_host' | 'ai_scene' | 'flow_clip'
+            "visual_mode": v_mode,
             "visual_prompt": visual_prompt,
             "flow_prompt": flow_prompt,
             "chat_bubble": chat_bubble,
@@ -410,15 +395,17 @@ def parse_user_script(custom_script: str, mood: str, aspect: str) -> Tuple[List[
 # 4. PRO 2D ANIME LIP-SYNC CHARACTER & CHAT BUBBLE RENDERER (PILLOW + NUMPY)
 # ==============================================================================
 def extract_audio_amplitude_envelope(wav_path: str, fps: int = 24) -> np.ndarray:
-    """Extracts per-frame RMS amplitude (0.0 to 1.0) for real-time phoneme lip-sync."""
     if not os.path.exists(wav_path):
         return np.zeros(24, dtype=np.float32)
     try:
         with wave.open(wav_path, "rb") as wf:
             rate = wf.getframerate()
+            n_channels = wf.getnchannels()
             n_frames = wf.getnframes()
             raw = wf.readframes(n_frames)
             samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+            if n_channels > 1:
+                samples = samples.reshape(-1, n_channels).mean(axis=1)
     except Exception:
         return np.zeros(24, dtype=np.float32)
 
@@ -436,13 +423,11 @@ def extract_audio_amplitude_envelope(wav_path: str, fps: int = 24) -> np.ndarray
             rms = float(np.sqrt(np.mean(seg * seg)))
             env[i] = min(1.0, rms * 4.8)
 
-    # Smooth envelope slightly so lip transitions look organic
     kernel = np.array([0.2, 0.6, 0.2], dtype=np.float32)
     return np.convolve(env, kernel, mode="same")
 
 
 def draw_chat_bubble_overlay(draw: ImageDraw.ImageDraw, out_w: int, out_h: int, chat_text: str, progress_p: float):
-    """Draws a realistic dark-mode smartphone notification pop-up when a message arrives in story."""
     if not chat_text:
         return
     slide = min(1.0, progress_p * 4.5)
@@ -461,7 +446,6 @@ def draw_chat_bubble_overlay(draw: ImageDraw.ImageDraw, out_w: int, out_h: int, 
 
 
 def build_2d_character_base(out_w: int, out_h: int, speaker: str, mood: str, bg_img_path: Optional[str] = None) -> Image.Image:
-    """Creates atmospheric blurred cinema backdrop for the 2D storyteller."""
     if bg_img_path and os.path.exists(bg_img_path):
         try:
             with Image.open(bg_img_path) as im:
@@ -472,7 +456,6 @@ def build_2d_character_base(out_w: int, out_h: int, speaker: str, mood: str, bg_
         except Exception:
             pass
 
-    # Procedural rich cinema bokeh backdrop
     y_grid = np.linspace(0, 1, out_h, dtype=np.float32)[:, None]
     x_grid = np.linspace(0, 1, out_w, dtype=np.float32)[None, :]
     if mood == "sad_heartbreak":
@@ -486,7 +469,6 @@ def build_2d_character_base(out_w: int, out_h: int, speaker: str, mood: str, bg_
         c_bot = np.array([8, 9, 20], dtype=np.float32)
 
     grad = c_top * (1.0 - y_grid) + c_bot * y_grid
-    # Warm rim glow behind character position (Rule of Thirds)
     cx_norm = 0.34 if speaker == "male" else (0.66 if speaker == "female" else 0.36)
     dist2 = (x_grid - cx_norm) ** 2 + (y_grid - 0.48) ** 2
     glow = np.exp(-dist2 * 14.0)[:, :, None] * np.array([95, 42, 78], dtype=np.float32)
@@ -516,20 +498,12 @@ def render_2d_lipsync_scene_clip(
     chat_bubble: str = "",
     bg_img_path: Optional[str] = None,
 ):
-    """
-    Renders a 24fps 2D Anime Lip-Syncing Storyteller scene directly via FFmpeg rawvideo pipe:
-    - Real-time phoneme mouth shapes (Closed, Soft, Open, Wide) driven by speech amplitude
-    - Natural eye blinks every ~3.2s + emotion eyebrows
-    - Breathing & subtle head-tilt motion + Rule-of-Thirds 16:9 framing
-    - Optional animated chat bubble pop-up
-    """
     fps = 24
     total_frames = max(24, int(round(dur_sec * fps)))
     amp_env = extract_audio_amplitude_envelope(wav_path, fps=fps)
     base_bg = build_2d_character_base(out_w, out_h, speaker, mood, bg_img_path=bg_img_path)
 
     is_female = speaker == "female"
-    # Rule-of-Thirds positioning in 16:9 widescreen
     base_cx = int(out_w * (0.64 if is_female else (0.36 if speaker == "male" else 0.42)))
     base_cy = int(out_h * 0.50)
     scale_u = out_h / 540.0
@@ -550,7 +524,6 @@ def render_2d_lipsync_scene_clip(
             prog = f_idx / float(max(1, total_frames - 1))
             amp = float(amp_env[f_idx]) if f_idx < len(amp_env) else 0.0
 
-            # Subtle zoom + breathing + conversational head nod
             breath_y = math.sin(t * 2.4) * 3.0 * scale_u
             nod_y = amp * 3.5 * math.sin(t * 11.0) * scale_u
             sway_x = math.sin(t * 1.1) * 4.0 * scale_u
@@ -560,20 +533,17 @@ def render_2d_lipsync_scene_clip(
             frame = base_bg.copy()
             draw = ImageDraw.Draw(frame, "RGBA")
 
-            # Colors by character role
             skin = (242, 206, 184, 255) if is_female else (228, 188, 164, 255)
             skin_shadow = (205, 162, 138, 255)
             hair = (24, 18, 34, 255) if is_female else (18, 22, 36, 255)
             coat = (131, 24, 67, 255) if is_female else (15, 23, 42, 255)
             accent = (244, 114, 182, 255) if is_female else (56, 189, 248, 255)
 
-            # Rim-light aura around silhouette
             draw.ellipse(
                 [cx - int(115 * scale_u), cy - int(145 * scale_u), cx + int(115 * scale_u), cy + int(220 * scale_u)],
                 fill=(accent[0], accent[1], accent[2], 32),
             )
 
-            # Back hair (for female character)
             if is_female:
                 draw.rounded_rectangle(
                     [cx - int(82 * scale_u), cy - int(110 * scale_u), cx + int(82 * scale_u), cy + int(165 * scale_u)],
@@ -581,12 +551,10 @@ def render_2d_lipsync_scene_clip(
                     fill=hair,
                 )
 
-            # Shoulders & Jacket
             draw.pieslice(
                 [cx - int(145 * scale_u), cy + int(78 * scale_u), cx + int(145 * scale_u), cy + int(310 * scale_u)],
                 start=180, end=360, fill=coat, outline=accent, width=2,
             )
-            # Inner shirt V-neck
             draw.polygon(
                 [
                     (cx - int(32 * scale_u), cy + int(85 * scale_u)),
@@ -596,13 +564,11 @@ def render_2d_lipsync_scene_clip(
                 fill=(241, 245, 249, 230),
             )
 
-            # Neck
             draw.rectangle(
                 [cx - int(22 * scale_u), cy + int(42 * scale_u), cx + int(22 * scale_u), cy + int(96 * scale_u)],
                 fill=skin_shadow,
             )
 
-            # Anime Jaw & Face Contour
             head_w = int(64 * scale_u)
             head_h = int(78 * scale_u)
             draw.ellipse([cx - head_w, cy - head_h, cx + head_w, cy + int(62 * scale_u)], fill=skin)
@@ -615,7 +581,6 @@ def render_2d_lipsync_scene_clip(
                 fill=skin,
             )
 
-            # Eyes (Natural Blink every 3.2 seconds)
             blink_cycle = t % 3.2
             is_blinking = 2.95 <= blink_cycle <= 3.12
             eye_y = cy - int(8 * scale_u)
@@ -629,7 +594,6 @@ def render_2d_lipsync_scene_clip(
                         fill=(30, 20, 30, 255), width=max(2, int(3 * scale_u)),
                     )
                 else:
-                    # Eye white + glowing iris + catchlight
                     draw.ellipse(
                         [ex - int(13 * scale_u), eye_y - int(8 * scale_u), ex + int(13 * scale_u), eye_y + int(8 * scale_u)],
                         fill=(255, 255, 255, 255),
@@ -648,7 +612,6 @@ def render_2d_lipsync_scene_clip(
                         fill=(255, 255, 255, 255),
                     )
 
-                # Emotion-adaptive eyebrows
                 brow_y = eye_y - int(16 * scale_u)
                 tilt = int(4 * scale_u) if emotion in ("urgent_passion", "emotional_ache") else 0
                 draw.line(
@@ -656,40 +619,33 @@ def render_2d_lipsync_scene_clip(
                     fill=hair, width=max(2, int(3 * scale_u)),
                 )
 
-            # Subtle nose line
             draw.line(
                 [(cx, cy + int(4 * scale_u)), (cx - int(3 * scale_u), cy + int(18 * scale_u))],
                 fill=skin_shadow, width=max(1, int(2 * scale_u)),
             )
 
-            # 4-State Phoneme Lip-Sync Mouth
             mouth_y = cy + int(36 * scale_u)
             if amp < 0.08:
-                # Closed subtle line
                 draw.arc(
                     [cx - int(12 * scale_u), mouth_y - int(4 * scale_u), cx + int(12 * scale_u), mouth_y + int(6 * scale_u)],
                     start=15, end=165, fill=(140, 55, 68, 255), width=max(2, int(2.5 * scale_u)),
                 )
             elif amp < 0.28:
-                # Soft open
                 draw.ellipse(
                     [cx - int(11 * scale_u), mouth_y - int(3 * scale_u), cx + int(11 * scale_u), mouth_y + int(5 * scale_u)],
                     fill=(136, 19, 55, 255), outline=(190, 70, 85, 255),
                 )
             elif amp < 0.55:
-                # Medium open
                 draw.ellipse(
                     [cx - int(14 * scale_u), mouth_y - int(5 * scale_u), cx + int(14 * scale_u), mouth_y + int(9 * scale_u)],
                     fill=(120, 14, 48, 255), outline=(210, 80, 95, 255),
                 )
             else:
-                # Wide expressive phoneme
                 draw.ellipse(
                     [cx - int(16 * scale_u), mouth_y - int(7 * scale_u), cx + int(16 * scale_u), mouth_y + int(12 * scale_u)],
                     fill=(105, 10, 42, 255), outline=(225, 90, 105, 255),
                 )
 
-            # Styled Front Anime Hair Bangs (with secondary motion sway)
             hair_sway = int(math.sin(t * 2.2 - 0.5) * 3.0 * scale_u)
             draw.pieslice(
                 [cx - int(70 * scale_u), cy - int(96 * scale_u), cx + int(70 * scale_u), cy - int(8 * scale_u)],
@@ -712,11 +668,9 @@ def render_2d_lipsync_scene_clip(
                 fill=hair,
             )
 
-            # In-Scene Smartphone Chat Pop-up if triggered
             if chat_bubble:
                 draw_chat_bubble_overlay(draw, out_w, out_h, chat_bubble, prog)
 
-            # Smooth fade in/out at clip edges
             if t < 0.20:
                 alpha = int((1.0 - t / 0.20) * 255)
                 frame = Image.blend(frame, Image.new("RGB", (out_w, out_h), (0, 0, 0)), alpha / 255.0)
@@ -807,13 +761,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         sp = sc.get("speaker", "narrator")
         ov_p = st_abs / total_dur
 
-        # Speaker-specific kinetic highlight color (BGR)
         if sp == "female":
-            accent_bgr = "&H00B472F4&"  # Rose Pink
+            accent_bgr = "&H00B472F4&"
         elif sp == "male":
-            accent_bgr = "&H00F8BD38&"  # Electric Cyan
+            accent_bgr = "&H00F8BD38&"
         else:
-            accent_bgr = "&H0047D3FB&"  # Warm Cinema Gold
+            accent_bgr = "&H0047D3FB&"
 
         if is_teaser:
             ts_lbl = sc.get("climax_ts_label", "01:45")
@@ -878,7 +831,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 # ==============================================================================
-# 6. ELEVENLABS-PLUS VOICE MASTERING & 3D STEREO FOLEY ENGINE
+# 6. ELEVENLABS-PLUS VOICE MASTERING (ZERO PITCH-REJECTION BUG + FFmpeg BARITONE)
 # ==============================================================================
 class NexoraCinemaAudioEngine:
     @staticmethod
@@ -895,70 +848,65 @@ class NexoraCinemaAudioEngine:
             return 0.0
 
     @classmethod
-    def get_romantic_voice_profile(cls, sc: Dict[str, Any], voice_mode: str) -> Dict[str, str]:
+    def get_romantic_voice_profile(cls, sc: Dict[str, Any], voice_mode: str) -> Dict[str, Any]:
+        """
+        Uses clean edge-tts parameters (pitch='+0Hz') so Microsoft servers NEVER reject
+        the request, and applies deep baritone pitch shifting natively in FFmpeg!
+        """
         sp = sc.get("speaker", "narrator").lower()
         emo = sc.get("emotion", "late_night_fm")
 
         if voice_mode == "builtin_multi":
             if sp == "female":
-                if emo == "intimate_whisper":
-                    return {"voice": "hi-IN-SwaraNeural", "rate": "-4%", "pitch": "-3Hz"}
-                if emo == "emotional_ache":
-                    return {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "-2Hz"}
-                return {"voice": "hi-IN-SwaraNeural", "rate": "+3%", "pitch": "-1Hz"}
+                rate = "-3%" if emo == "intimate_whisper" else ("-1%" if emo == "emotional_ache" else "+3%")
+                return {"voice": "hi-IN-SwaraNeural", "rate": rate, "baritone_factor": 0.985}
             if sp == "male":
-                if emo == "intimate_whisper":
-                    return {"voice": "hi-IN-MadhurNeural", "rate": "-5%", "pitch": "-11Hz"}
-                if emo == "emotional_ache":
-                    return {"voice": "hi-IN-MadhurNeural", "rate": "-2%", "pitch": "-9Hz"}
-                return {"voice": "hi-IN-MadhurNeural", "rate": "+3%", "pitch": "-8Hz"}
+                rate = "-4%" if emo == "intimate_whisper" else ("-1%" if emo == "emotional_ache" else "+3%")
+                return {"voice": "hi-IN-MadhurNeural", "rate": rate, "baritone_factor": 0.935}
             if sp == "child":
-                return {"voice": "hi-IN-SwaraNeural", "rate": "+8%", "pitch": "+13Hz"}
+                return {"voice": "hi-IN-SwaraNeural", "rate": "+8%", "baritone_factor": 1.08}
 
-        if emo == "intimate_whisper":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "-5%", "pitch": "-12Hz"}
-        if emo == "emotional_ache":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "-2%", "pitch": "-10Hz"}
-        if emo == "urgent_passion":
-            return {"voice": "hi-IN-MadhurNeural", "rate": "+7%", "pitch": "-8Hz"}
-        return {"voice": "hi-IN-MadhurNeural", "rate": "+1%", "pitch": "-10Hz"}
+        rate = "-4%" if emo == "intimate_whisper" else ("-2%" if emo == "emotional_ache" else ("+6%" if emo == "urgent_passion" else "+1%"))
+        return {"voice": "hi-IN-MadhurNeural", "rate": rate, "baritone_factor": 0.94}
 
     @staticmethod
-    def generate_soft_inhale_breath(dur_sec: float = 0.24, rate: int = 22050) -> np.ndarray:
-        """Synthesizes a subtle human pre-dialogue breath inhale for intimate realism."""
+    def generate_soft_inhale_breath(dur_sec: float = 0.22, rate: int = 22050) -> np.ndarray:
         n = max(10, int(rate * dur_sec))
         t = np.linspace(0, dur_sec, n, endpoint=False, dtype=np.float32)
         rng = np.random.default_rng(77)
-        raw = rng.normal(0.0, 0.035, n).astype(np.float32)
+        raw = rng.normal(0.0, 0.032, n).astype(np.float32)
         band = np.convolve(raw, np.ones(14) / 14.0, mode="same")
         env = np.sin(np.pi * (t / dur_sec)) ** 1.8
         return band * env
 
+    @staticmethod
+    def sanitize_tts_text(raw_text: str) -> str:
+        # Remove em-dashes or special symbols that can confuse neural TTS prosody
+        clean = str(raw_text or "").replace("—", ", ").replace("–", ", ").replace("…", "...")
+        clean = re.sub(r"\s+", " ", clean).strip()
+        return clean or "कहानी आगे बढ़ती है।"
+
     @classmethod
     def dub_scene_studio_stereo(cls, sc: Dict[str, Any], idx: int, voice_mode: str, work_dir: str) -> Tuple[str, float]:
-        """
-        Generates 44.1kHz Stereo Studio Voice with:
-        - Pre-dialogue soft human inhale breath
-        - 95Hz Chest Resonance + 280Hz Mud Cut + 3.2kHz Presence EQ
-        - Spatial stereo panning (Male slightly left, Female slightly right, Narrator center)
-        """
         if not HAS_EDGE_TTS:
             raise RuntimeError("edge-tts is not installed on the server.")
 
         prof = cls.get_romantic_voice_profile(sc, voice_mode)
-        text = str(sc.get("hindi_dub") or "").strip() or "कहानी आगे बढ़ती है..."
+        text = cls.sanitize_tts_text(sc.get("hindi_dub") or "")
         sp = sc.get("speaker", "narrator")
         emo = sc.get("emotion", "late_night_fm")
+        bf = float(prof.get("baritone_factor", 0.95))
 
         mp3_p = os.path.join(work_dir, f"v_{idx:03d}.mp3")
         mono_wav = os.path.join(work_dir, f"vm_{idx:03d}.wav")
         stereo_wav = os.path.join(work_dir, f"v_{idx:03d}.wav")
 
         last_err = None
-        for attempt in range(3):
+        for attempt in range(4):
             try:
+                use_rate = prof["rate"] if attempt < 2 else "+0%"
                 async def _synth():
-                    comm = edge_tts.Communicate(text, voice=prof["voice"], rate=prof["rate"], pitch=prof["pitch"])
+                    comm = edge_tts.Communicate(text, voice=prof["voice"], rate=use_rate, pitch="+0Hz")
                     await comm.save(mp3_p)
 
                 loop = asyncio.new_event_loop()
@@ -971,17 +919,21 @@ class NexoraCinemaAudioEngine:
                     break
             except Exception as e:
                 last_err = e
-                time.sleep(0.4 * (attempt + 1))
+                time.sleep(0.5 * (attempt + 1))
 
         speech_dur = cls.probe_dur(mp3_p)
         if speech_dur <= 0.20:
             raise RuntimeError(f"Voice timeout on Scene {idx + 1} ({last_err}).")
 
-        dramatic_tail = 0.42 if emo in ("emotional_ache", "urgent_passion") else 0.30
-        final_dur = round(speech_dur + dramatic_tail, 2)
+        # Adjust duration slightly for deep baritone pitch-shift
+        shifted_dur = speech_dur / bf
+        dramatic_tail = 0.40 if emo in ("emotional_ache", "urgent_passion") else 0.28
+        final_dur = round(shifted_dur + dramatic_tail, 2)
 
-        # ElevenLabs-Plus Acoustic Mastering Chain
+        # Native FFmpeg Baritone Pitch-Shift (asetrate + atempo) + Studio Chest EQ
+        inv_tempo = 1.0 / bf
         studio_af = (
+            f"asetrate=24000*{bf:.4f},aresample=22050,atempo={inv_tempo:.4f},"
             "highpass=f=65,"
             "equalizer=f=95:t=q:w=1.1:g=5.2,"
             "equalizer=f=280:t=q:w=1.3:g=-2.8,"
@@ -1003,7 +955,6 @@ class NexoraCinemaAudioEngine:
         if os.path.exists(mp3_p):
             os.remove(mp3_p)
 
-        # Mix subtle pre-speech inhale breath & apply 3D Stereo Panning
         with wave.open(mono_wav, "rb") as wf:
             samples = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
 
@@ -1011,7 +962,6 @@ class NexoraCinemaAudioEngine:
         b_len = min(len(samples), len(breath))
         samples[:b_len] += breath[:b_len]
 
-        # Spatial Stereo Panning (Male = Left-Center, Female = Right-Center, Narrator = Center)
         if sp == "male":
             l_gain, r_gain = 1.04, 0.88
         elif sp == "female":
@@ -1035,7 +985,6 @@ class NexoraCinemaAudioEngine:
 
     @staticmethod
     def generate_3d_foley_sfx(sfx_type: str, n_samples: int, rate: int = 22050) -> np.ndarray:
-        """Generates stereo 3D foley sound effects (Lub-Dub Heartbeat, Rain on Glass, Sub-Bass Drop)."""
         out = np.zeros((n_samples, 2), dtype=np.float32)
         sfx_len = min(n_samples, int(rate * 1.95))
         if sfx_len <= 10:
@@ -1056,7 +1005,6 @@ class NexoraCinemaAudioEngine:
             out[:sfx_len, 0] = rain_l * env * 0.55
             out[:sfx_len, 1] = rain_r * env * 0.55
         elif sfx_type == "soft_heartbeat":
-            # Realistic 65-110 BPM Lub-Dub + Sub-Bass thump
             b1 = np.exp(-t * 13.0) * np.sin(2.0 * np.pi * 55.0 * t)
             b2 = np.exp(-np.maximum(0.0, t - 0.28) * 13.0) * np.sin(2.0 * np.pi * 48.0 * t) * (t >= 0.28)
             sig = (b1 + b2) * 0.68
@@ -1241,7 +1189,6 @@ def render_3d_parallax_ai_clip(
     sfx_type: str,
     crop_bottom_wm: bool = True,
 ):
-    """Renders 24fps 3D Camera Motion + Dynamic Rain/Golden Bokeh Particle Overlay."""
     fps = 24
     total_f = max(24, int(round(dur_sec * fps)))
     fade_out_st = max(0.1, dur_sec - 0.22)
@@ -1259,11 +1206,7 @@ def render_3d_parallax_ai_clip(
         zp = f"zoompan=z='min(1.18,1.02+0.16*(on/{total_f}))':x='iw/2-(iw/zoom/2)':y='(ih-ih/zoom)*0.35':d={total_f}:s={out_w}x{out_h}:fps={fps}"
 
     wm_crop = "crop=iw:ih*0.94:0:0," if crop_bottom_wm else ""
-
-    # Add real-time weather/bokeh shimmer when rain or candlelight scene
-    weather_fx = ""
-    if sfx_type == "soft_rain":
-        weather_fx = "noise=alls=8:allf=t+u,"
+    weather_fx = "noise=alls=8:allf=t+u," if sfx_type == "soft_rain" else ""
 
     vf = (
         f"{wm_crop}"
@@ -1410,7 +1353,7 @@ def run_final_render(job_id: str, session_id: str):
         for s in raw_scenes:
             render_scenes.append(dict(s))
 
-        # 4. Render Tri-Hybrid Visuals (Flow Video / 3D Parallax AI / 2D Lip-Sync Host)
+        # 4. Render Tri-Hybrid Visuals
         total_sc = len(render_scenes)
         video_chunks: List[str] = []
         last_good_ai_img = next(iter(ai_image_map.values()), None)
@@ -1444,7 +1387,6 @@ def run_final_render(job_id: str, session_id: str):
                     ai_image_map[orig_idx], v_chunk, actual_dur, out_w, out_h, sc.get("anim_type", "Zoom_In_Push"), sc.get("sfx_type", "whoosh"), crop_bottom_wm=True
                 )
             else:
-                # '2d_host' OR automatic zero-crash fallback when 'flow_clip' / 'ai_scene' has no external file
                 render_2d_lipsync_scene_clip(
                     dst_mp4=v_chunk,
                     wav_path=sc.get("wav_file", master_voice),
@@ -1767,7 +1709,6 @@ def api_batch_upload(session_id: str):
 
     unmapped_files.sort(key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", x.filename or "")])
 
-    # Prioritize filling 'flow_clip' slots first when unmapped clips are batch uploaded
     flow_slots = [i for i, s in enumerate(sess["scenes"]) if s.get("visual_mode") == "flow_clip"]
     other_slots = [i for i in range(total_scenes) if i not in flow_slots]
     ordered_slots = flow_slots + other_slots
