@@ -25,7 +25,7 @@ except ImportError:
     HAS_EDGE_TTS = False
 
 # ==============================================================================
-# 1. NEXORA ROMANCE APEX v26.1 — ZERO-TIMEOUT VOICE + TRI-HYBRID CINEMA ENGINE
+# 1. NEXORA ROMANCE APEX v26.2 — ZERO-TIMEOUT VOICE + TRI-HYBRID CINEMA ENGINE
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -468,12 +468,13 @@ def build_2d_character_base(out_w: int, out_h: int, speaker: str, mood: str, bg_
         c_top = np.array([46, 18, 34], dtype=np.float32)
         c_bot = np.array([8, 9, 20], dtype=np.float32)
 
-    grad = c_top * (1.0 - y_grid) + c_bot * y_grid
+    y_grid_3d = y_grid[:, :, None]
+    grad = c_top * (1.0 - y_grid_3d) + c_bot * y_grid_3d
     cx_norm = 0.34 if speaker == "male" else (0.66 if speaker == "female" else 0.36)
     dist2 = (x_grid - cx_norm) ** 2 + (y_grid - 0.48) ** 2
     glow = np.exp(-dist2 * 14.0)[:, :, None] * np.array([95, 42, 78], dtype=np.float32)
     arr = np.clip(grad + glow, 0, 255).astype(np.uint8)
-    base = Image.fromarray(np.broadcast_to(arr, (out_h, out_w, 3)).copy(), mode="RGB")
+    base = Image.fromarray(arr, mode="RGB")
 
     draw = ImageDraw.Draw(base, "RGBA")
     rng = np.random.default_rng(108)
@@ -849,10 +850,6 @@ class NexoraCinemaAudioEngine:
 
     @classmethod
     def get_romantic_voice_profile(cls, sc: Dict[str, Any], voice_mode: str) -> Dict[str, Any]:
-        """
-        Uses clean edge-tts parameters (pitch='+0Hz') so Microsoft servers NEVER reject
-        the request, and applies deep baritone pitch shifting natively in FFmpeg!
-        """
         sp = sc.get("speaker", "narrator").lower()
         emo = sc.get("emotion", "late_night_fm")
 
@@ -881,7 +878,6 @@ class NexoraCinemaAudioEngine:
 
     @staticmethod
     def sanitize_tts_text(raw_text: str) -> str:
-        # Remove em-dashes or special symbols that can confuse neural TTS prosody
         clean = str(raw_text or "").replace("—", ", ").replace("–", ", ").replace("…", "...")
         clean = re.sub(r"\s+", " ", clean).strip()
         return clean or "कहानी आगे बढ़ती है।"
@@ -925,12 +921,10 @@ class NexoraCinemaAudioEngine:
         if speech_dur <= 0.20:
             raise RuntimeError(f"Voice timeout on Scene {idx + 1} ({last_err}).")
 
-        # Adjust duration slightly for deep baritone pitch-shift
         shifted_dur = speech_dur / bf
         dramatic_tail = 0.40 if emo in ("emotional_ache", "urgent_passion") else 0.28
         final_dur = round(shifted_dur + dramatic_tail, 2)
 
-        # Native FFmpeg Baritone Pitch-Shift (asetrate + atempo) + Studio Chest EQ
         inv_tempo = 1.0 / bf
         studio_af = (
             f"asetrate=24000*{bf:.4f},aresample=22050,atempo={inv_tempo:.4f},"
